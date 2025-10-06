@@ -7,6 +7,19 @@
 [![AI Powered](https://img.shields.io/badge/AI-Powered-purple)](https://openai.com)
 [![Bitcoin](https://img.shields.io/badge/Bitcoin-Orange-orange)](https://bitcoin.org)
 
+## About
+
+**ChainLinkPay** is an AI-powered Bitcoin payment platform built on the Stacks blockchain. It enables anyone—regardless of technical background—to create programmable Bitcoin payment links, generate secure Clarity smart contracts from natural language, and access DeFi yield opportunities through a simple, intuitive interface.
+
+**Key features:**
+- **Payment Link Generator:** Instantly create and share Bitcoin payment links with on-chain registration and QR codes.
+- **AI Contract Builder:** Use natural language to generate and deploy safe, template-based Clarity smart contracts for advanced payment scenarios (escrow, split, subscriptions, and more).
+- **Cross-Chain Bridge:** Seamlessly bridge assets between Stacks and other blockchains using Axelar, unlocking new DeFi possibilities.
+- **Dashboard & Analytics:** Track payment activity, volume, and DeFi yield in real time.
+- **User-Friendly & Secure:** Designed for both technical and non-technical users, with a strong focus on safety, input validation, and owner-only contract mutations.
+
+ChainLinkPay is built for the Stacks Vibe Coding Hackathon to showcase how AI and blockchain can work together to unlock the Bitcoin economy for everyone.
+
 ## 🎯 Hackathon Submission
 
 **Event:** Stacks Vibe Coding Hackathon  
