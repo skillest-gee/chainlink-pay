@@ -2,7 +2,15 @@
   "name": "chainlink-pay",
   "version": "1.0.0",
   "description": "AI-powered Bitcoin cross-chain payment infrastructure for the Stacks ecosystem",
-  "keywords": ["bitcoin", "stacks", "blockchain", "ai", "payments", "cross-chain", "defi"],
+  "keywords": [
+    "bitcoin",
+    "stacks",
+    "blockchain",
+    "ai",
+    "payments",
+    "cross-chain",
+    "defi"
+  ],
   "author": "Stacks Vibe Coding Hackathon",
   "license": "MIT",
   "homepage": "https://chainlink-pay.vercel.app",

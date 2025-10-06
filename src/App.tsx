@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Container, Flex, Heading, Spacer, HStack, VStack, Image, Text } from '@chakra-ui/react';
+import { Box, Container, Flex, Heading, HStack, VStack, Image, Text } from '@chakra-ui/react';
 import WalletConnectButton from './components/WalletConnectButton';
 import Home from './pages/Home';
 import Pay from './pages/Pay';

@@ -19,6 +19,7 @@ module.exports = {
         "net": false,
         "tls": false,
         "child_process": false,
+        "vm": require.resolve("vm-browserify"),
       };
       
       // Add plugins for global variables

@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "chainlink-pay",
   "builds": [
     {
       "src": "package.json",
