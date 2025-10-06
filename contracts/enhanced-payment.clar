@@ -22,7 +22,7 @@
 ;; Create a new payment link
 (define-public (create-payment (id (buff 32)) (merchant principal) (amount uint))
   (begin
-    (asserts! (is-eq tx-sender contract-owner) ERR-UNAUTHORIZED)
+    ;; Allow anyone to create payments (removed owner restriction)
     (asserts! (> amount u0) ERR-INVALID-AMOUNT)
     (ok (var-set payment-data (some {
       id: id,
