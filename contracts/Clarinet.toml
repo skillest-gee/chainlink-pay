@@ -1,0 +1,22 @@
+[project]
+name = "btc-paylink-pro"
+description = "BTC PayLink Pro - Bitcoin Payment Links on Stacks"
+authors = ["BTC PayLink Pro Team"]
+license = "MIT"
+
+[project.requirements]
+clarinet = ">=1.0.0"
+
+[project.contracts.enhanced-payment]
+path = "enhanced-payment.clar"
+
+[project.contracts.payment]
+path = "payment.clar"
+
+[project.networks]
+mainnet = { node_rpc_address = "https://api.hiro.so", node_rpc_port = 443, node_p2p_port = 8333 }
+testnet = { node_rpc_address = "https://api.testnet.hiro.so", node_rpc_port = 443, node_p2p_port = 8333 }
+devnet = { node_rpc_address = "http://localhost:20443", node_rpc_port = 20443, node_p2p_port = 20444 }
+
+[project.requirements.clarinet]
+version = ">=1.0.0"

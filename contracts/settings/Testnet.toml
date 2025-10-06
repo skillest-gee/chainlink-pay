@@ -1,0 +1,13 @@
+[testnet]
+name = "testnet"
+stacks_node_rpc_address = "https://api.testnet.hiro.so"
+stacks_node_rpc_port = 443
+stacks_node_p2p_port = 8333
+bitcoin_node_rpc_address = "https://api.testnet.hiro.so"
+bitcoin_node_rpc_port = 443
+bitcoin_node_rpc_username = ""
+bitcoin_node_rpc_password = ""
+bitcoin_node_p2p_port = 8333
+miner_mnemonic = ""
+miner_address = ""
+deployment_fee_rate = 1
