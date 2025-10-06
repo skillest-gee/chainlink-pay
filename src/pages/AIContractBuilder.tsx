@@ -33,14 +33,7 @@ export default function AIContractBuilder() {
   const [issues, setIssues] = useState<{ level: 'error' | 'warning'; message: string }[]>([]);
 
   const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
-  const apiEnabled = Boolean(apiKey && apiKey.trim() !== '');
-  
-  // Log API status for debugging
-  console.log('AI Contract Builder - API Status:', {
-    hasApiKey: !!apiKey,
-    apiEnabled,
-    keyLength: apiKey?.length || 0
-  });
+  const apiEnabled = Boolean(apiKey && apiKey.trim() !== '' && apiKey !== 'your_openai_api_key_here');
   
 
   const currentTemplate = useMemo(() => getTemplate(templateId), [templateId]);

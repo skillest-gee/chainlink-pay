@@ -29,7 +29,7 @@ function App() {
             <HStack gap={3} align="center">
               <Box position="relative">
                 <Image 
-                  src="/logo.png" 
+                  src="./logo.png" 
                   alt="ChainLinkPay Logo" 
                   w="45px" 
                   h="45px" 
@@ -86,7 +86,7 @@ function App() {
           <VStack gap={4} mt={3} display={{ base: "flex", md: "none" }}>
             <HStack gap={3} align="center">
               <Image 
-                src="/logo.png" 
+                src="./logo.png" 
                 alt="ChainLinkPay Logo" 
                 w="35px" 
                 h="35px" 
