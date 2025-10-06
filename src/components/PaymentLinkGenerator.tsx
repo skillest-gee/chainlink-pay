@@ -8,6 +8,7 @@ import { bufferCVFromString, principalCV, uintCV } from '@stacks/transactions';
 import { useDemo } from '../context/DemoContext';
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
+import { paymentStorage, PaymentLink } from '../services/paymentStorage';
 
 function generateId() {
   // Simple unique ID using timestamp + random segment
@@ -59,10 +60,31 @@ export default function PaymentLinkGenerator() {
       toast({ title: 'Invalid amount', description: 'Enter a positive number.', status: 'error' });
       return;
     }
+    
+    if (!MERCHANT_ADDRESS) {
+      toast({ title: 'Merchant address required', description: 'Set REACT_APP_MERCHANT_ADDRESS in .env', status: 'error' });
+      return;
+    }
+    
     setIsGenerating(true);
     try {
       const id = generateId();
       setGeneratedId(id);
+      
+      // Create payment link with expiration (24 hours)
+      const paymentLink: PaymentLink = {
+        id,
+        amount,
+        description,
+        status: 'pending',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+        merchantAddress: MERCHANT_ADDRESS
+      };
+      
+      // Save to storage
+      paymentStorage.savePaymentLink(paymentLink);
+      
       toast({ title: 'Payment link generated', status: 'success' });
     } catch (e: any) {
       toast({ title: 'Failed to generate link', description: e?.message || 'Unknown error', status: 'error' });
@@ -92,6 +114,7 @@ export default function PaymentLinkGenerator() {
 
   const onPay = async () => {
     console.log('Pay with Wallet button clicked');
+    console.log('Current state:', { isAuthenticated, amount, MERCHANT_ADDRESS, CONTRACT_ADDRESS });
     setTouched(true);
     
     if (!isAuthenticated) {
@@ -144,6 +167,7 @@ export default function PaymentLinkGenerator() {
 
   const onRegisterOnChain = async () => {
     console.log('Register On-Chain button clicked');
+    console.log('Current state:', { isAuthenticated, amount, CONTRACT_ADDRESS, CONTRACT_NAME });
     
     if (!isAuthenticated) {
       console.log('Wallet not authenticated');
@@ -205,11 +229,12 @@ export default function PaymentLinkGenerator() {
   };
 
   return (
-    <VStack gap={6} align="stretch">
-      {/* Input Section */}
-      <VStack gap={4} align="stretch">
+    <Box overflowX="hidden" px={{ base: 2, md: 0 }}>
+      <VStack gap={{ base: 4, md: 6 }} align="stretch">
+        {/* Input Section */}
+        <VStack gap={{ base: 3, md: 4 }} align="stretch">
         <Box title="Enter the amount in STX (Stacks tokens) for this payment">
-          <Text mb={3} fontSize="lg" fontWeight="semibold" color="gray.700">
+          <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">
             Amount (STX) *
           </Text>
           <Input
@@ -222,7 +247,7 @@ export default function PaymentLinkGenerator() {
             bg="white"
             borderColor="gray.300"
             borderWidth="2px"
-            size="lg"
+            size={{ base: "md", md: "lg" }}
             _hover={{ borderColor: "blue.300" }}
             _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)" }}
           />
@@ -240,7 +265,7 @@ export default function PaymentLinkGenerator() {
             bg="white"
             borderColor="gray.300"
             borderWidth="2px"
-            size="lg"
+            size={{ base: "md", md: "lg" }}
             _hover={{ borderColor: "blue.300" }}
             _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)" }}
           />
@@ -287,24 +312,6 @@ export default function PaymentLinkGenerator() {
               </HStack>
 
               <HStack gap={3} wrap="wrap" justify="center" w="100%">
-                <Button 
-                  colorScheme="purple" 
-                  onClick={() => {
-                    console.log('Pay with Wallet button clicked');
-                    onPay();
-                  }} 
-                  disabled={!isValidAmount(amount) || !MERCHANT_ADDRESS}
-                  size={{ base: "md", md: "lg" }}
-                  title="Pay directly with your connected Stacks wallet"
-                  fontWeight="semibold"
-                  px={{ base: 6, md: 8 }}
-                  py={{ base: 4, md: 6 }}
-                  fontSize={{ base: "sm", md: "md" }}
-                  w={{ base: "100%", sm: "auto" }}
-                >
-                  💳 Pay with Wallet
-                </Button>
-                
                 <Button 
                   variant="outline" 
                   onClick={() => {
@@ -369,6 +376,7 @@ export default function PaymentLinkGenerator() {
             </Box>
         )}
     </VStack>
+    </Box>
   );
 }
 

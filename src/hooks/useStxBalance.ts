@@ -23,6 +23,7 @@ export function useStxBalance(address: string | null) {
         if (isCancelled) return;
         console.log('Balance API response:', res);
         const stx = res?.stx?.balance || '0';
+        console.log('Setting balance to:', stx);
         setBalance(stx);
       })
       .catch(err => {

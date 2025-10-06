@@ -8,7 +8,7 @@ export interface TemplatePlaceholder {
 }
 
 export interface ContractTemplate {
-  id: 'ESCROW' | 'SPLIT' | 'SUBSCRIPTION';
+  id: 'ESCROW' | 'SPLIT' | 'SUBSCRIPTION' | 'CUSTOM';
   name: string;
   description: string;
   source: string; // Clarity source with {{placeholders}}

@@ -10,42 +10,43 @@ export default function Home() {
   console.log('Home component - isAuthenticated:', isAuthenticated, 'address:', address);
   
   return (
-    <Container maxW="6xl" py={10}>
-      <VStack gap={8} align="stretch">
+    <Box minH="100vh" overflowX="hidden">
+      <Container maxW="6xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
+        <VStack gap={{ base: 4, md: 8 }} align="stretch">
         {/* Hero Section */}
-            <VStack gap={6} textAlign="center" py={8}>
-              <Heading size="3xl" color="blue.600" fontWeight="bold">
+            <VStack gap={{ base: 4, md: 6 }} textAlign="center" py={{ base: 4, md: 8 }}>
+              <Heading size={{ base: "2xl", md: "3xl" }} color="blue.600" fontWeight="bold">
                 ChainLinkPay
               </Heading>
-              <Text fontSize="xl" color="gray.600" maxW="700px" fontWeight="500">
+              <Text fontSize={{ base: "md", md: "xl" }} color="gray.600" maxW={{ base: "100%", md: "700px" }} fontWeight="500" px={{ base: 4, md: 0 }}>
                 Create Bitcoin payment links in seconds. Send invoices, get paid instantly.
               </Text>
-              <Text fontSize="lg" color="gray.500" maxW="600px">
+              <Text fontSize={{ base: "sm", md: "lg" }} color="gray.500" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
                 Perfect for freelancers, businesses, and anyone who wants to accept Bitcoin payments easily.
               </Text>
-              <HStack gap={4} wrap="wrap" justify="center">
-                <Badge colorScheme="blue" fontSize="md" px={4} py={2} borderRadius="full" fontWeight="semibold">
+              <HStack gap={{ base: 2, md: 4 }} wrap="wrap" justify="center">
+                <Badge colorScheme="blue" fontSize={{ base: "sm", md: "md" }} px={{ base: 3, md: 4 }} py={{ base: 1, md: 2 }} borderRadius="full" fontWeight="semibold">
                   ⚡ Instant Payments
                 </Badge>
-                <Badge colorScheme="green" fontSize="md" px={4} py={2} borderRadius="full" fontWeight="semibold">
+                <Badge colorScheme="green" fontSize={{ base: "sm", md: "md" }} px={{ base: 3, md: 4 }} py={{ base: 1, md: 2 }} borderRadius="full" fontWeight="semibold">
                   🔗 Shareable Links
                 </Badge>
-                <Badge colorScheme="purple" fontSize="md" px={4} py={2} borderRadius="full" fontWeight="semibold">
+                <Badge colorScheme="purple" fontSize={{ base: "sm", md: "md" }} px={{ base: 3, md: 4 }} py={{ base: 1, md: 2 }} borderRadius="full" fontWeight="semibold">
                   🤖 AI Smart Contracts
                 </Badge>
               </HStack>
             </VStack>
 
             {/* Testnet Token Faucet */}
-            <Box bg="orange.50" borderColor="orange.200" borderWidth="2px" borderRadius="xl" p={6} shadow="lg">
+            <Box bg="orange.50" borderColor="orange.200" borderWidth="2px" borderRadius="xl" p={{ base: 4, md: 6 }} shadow="lg" mx={{ base: 2, md: 0 }}>
               <VStack gap={4}>
                 <HStack gap={3}>
-                  <Text fontSize="2xl">🚰</Text>
-                  <Text fontSize="lg" fontWeight="bold" color="orange.700">
+                  <Text fontSize={{ base: "xl", md: "2xl" }}>🚰</Text>
+                  <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="orange.700">
                     Need Testnet Tokens?
                   </Text>
                 </HStack>
-                <Text fontSize="md" color="orange.600" textAlign="center">
+                <Text fontSize={{ base: "sm", md: "md" }} color="orange.600" textAlign="center" px={{ base: 2, md: 0 }}>
                   Get free testnet STX tokens to try the app. Click the button below to get tokens from the faucet.
                 </Text>
                 <Button 
@@ -175,6 +176,7 @@ export default function Home() {
         </Box>
       </VStack>
     </Container>
+    </Box>
   );
 }
 

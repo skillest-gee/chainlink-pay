@@ -106,10 +106,26 @@ export const SUBSCRIPTION_TEMPLATE: ContractTemplate = {
 `,
 };
 
+export const CUSTOM_TEMPLATE: ContractTemplate = {
+  id: 'CUSTOM',
+  name: 'Custom Contract',
+  version: '1.0.0',
+  description: 'Generate a custom smart contract based on your requirements.',
+  placeholders: [
+    { key: 'description', type: 'string', required: true },
+  ],
+  source: `
+;; CUSTOM TEMPLATE
+;; This template will be generated based on your specific requirements
+;; Please provide a detailed description of what you want to build
+`,
+};
+
 export const TEMPLATES: Record<string, ContractTemplate> = {
   ESCROW: ESCROW_TEMPLATE,
   SPLIT: SPLIT_TEMPLATE,
   SUBSCRIPTION: SUBSCRIPTION_TEMPLATE,
+  CUSTOM: CUSTOM_TEMPLATE,
 };
 
 export function getTemplate(id: ContractTemplate['id']) {

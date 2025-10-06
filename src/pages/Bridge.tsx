@@ -8,6 +8,7 @@ import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
 import { openSTXTransfer, openContractCall } from '@stacks/connect';
 import { ClarityType, bufferCV, stringAsciiCV, uintCV } from '@stacks/transactions';
+import BridgeErrorHandler from '../components/BridgeErrorHandler';
 
 export default function Bridge() {
   const { toast } = useToast();
@@ -20,12 +21,15 @@ export default function Bridge() {
   const [txHash, setTxHash] = useState<string | undefined>(undefined);
   const [currentStep, setCurrentStep] = useState(1);
   const [isBridging, setIsBridging] = useState(false);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
   const { estimate, loading, error, getEstimate } = useAxelarEstimates();
   const { status } = useAxelarStatus(txHash);
 
   const onEstimate = async () => {
+    console.log('Estimate Fees button clicked');
     console.log('Starting estimate process...', { sourceChain, destinationChain, amount });
-    
+    console.log('Current state:', { btcConnected, btcAddress, btcBalance, balance });
+
     // Enhanced validation
     if (!amount || parseFloat(amount) <= 0) {
       console.log('Invalid amount:', amount);
@@ -97,6 +101,7 @@ export default function Bridge() {
     
     // Final validation
     const amountNum = parseFloat(amount);
+    console.log('Start Bridge button clicked');
     console.log('Bridge validation:', { amountNum, sourceChain, balance, btcConnected, btcBalance });
     
     if (sourceChain === 'bitcoin') {
@@ -137,7 +142,9 @@ export default function Bridge() {
       
     } catch (error: any) {
       console.error('Bridge failed:', error);
-      toast({ title: 'Bridge failed', description: error.message || 'Could not initiate bridge', status: 'error' });
+      const errorMessage = error.message || error.toString() || 'Unknown error';
+      setBridgeError(errorMessage);
+      toast({ title: 'Bridge failed', description: errorMessage, status: 'error' });
       setCurrentStep(3);
     } finally {
       setIsBridging(false);
@@ -193,7 +200,9 @@ export default function Bridge() {
       
     } catch (error: any) {
       console.error('STX bridge error:', error);
-      throw new Error(`STX bridge failed: ${error.message}`);
+      const errorMessage = `STX bridge failed: ${error.message || error.toString()}`;
+      setBridgeError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
@@ -315,9 +324,9 @@ export default function Bridge() {
       <Container maxW="4xl" py={10}>
         <VStack gap={8} align="stretch">
           <VStack gap={4} textAlign="center">
-            <Heading size="2xl" color="blue.600" fontWeight="bold">Cross-Chain Bridge</Heading>
-            <Text fontSize="lg" color="gray.600" maxW="600px">
-              Connect your wallet to bridge Bitcoin or STX tokens to other blockchain networks
+            <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">Cross-Chain Bridge</Heading>
+            <Text fontSize={{ base: "sm", md: "lg" }} color="gray.600" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
+              Bridge Bitcoin or STX tokens to other blockchain networks seamlessly
             </Text>
           </VStack>
           
@@ -344,13 +353,27 @@ export default function Bridge() {
   }
 
   return (
-    <Container maxW="4xl" py={10}>
-      <VStack gap={8} align="stretch">
+    <Box minH="100vh" overflowX="hidden">
+      <Container maxW="4xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
+        <VStack gap={{ base: 4, md: 8 }} align="stretch">
         <VStack gap={4} textAlign="center">
-          <Heading size="2xl" color="blue.600" fontWeight="bold">Cross-Chain Bridge</Heading>
-            <Text fontSize="lg" color="gray.600" maxW="600px">
+          <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">Cross-Chain Bridge</Heading>
+            <Text fontSize={{ base: "sm", md: "lg" }} color="gray.600" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
               Bridge Bitcoin or STX tokens to other blockchain networks seamlessly
             </Text>
+            
+            {/* Demo Mode Warning */}
+            <Box bg="orange.50" borderColor="orange.200" borderWidth="2px" borderRadius="lg" p={4} maxW="600px">
+              <VStack gap={2}>
+                <Text fontSize="sm" fontWeight="bold" color="orange.700">
+                  🚧 Demo Mode
+                </Text>
+                <Text fontSize="xs" color="orange.600" textAlign="center">
+                  This is a demonstration. Real bridge contracts are not deployed. 
+                  Transactions will show "NoSuchContract" error - this is expected behavior.
+                </Text>
+              </VStack>
+            </Box>
         </VStack>
         
         {/* Bridge Progress Stepper */}
@@ -547,6 +570,16 @@ export default function Bridge() {
                 <Text color="red.700" fontWeight="semibold">{error}</Text>
               </Box>
             )}
+            
+            {/* Bridge Error Handler */}
+            <BridgeErrorHandler 
+              error={bridgeError} 
+              onRetry={() => {
+                setBridgeError(null);
+                setCurrentStep(1);
+              }}
+              onDismiss={() => setBridgeError(null)}
+            />
             {estimate && (
               <Box p={4} bg="blue.50" borderColor="blue.200" borderWidth="2px" borderRadius="lg">
                 <VStack gap={2} align="start">
@@ -574,7 +607,8 @@ export default function Bridge() {
           </VStack>
         </Box>
       </VStack>
-    </Container>
+      </Container>
+    </Box>
   );
 }
 

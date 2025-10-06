@@ -4,6 +4,10 @@ import { Box, Container, Heading, Stack, Text, Badge, Skeleton, VStack, HStack, 
 import { getPayment, PaymentData, PaymentServiceError, checkContractStatus } from '../services/payments';
 import LoadingState from '../components/LoadingState';
 import ErrorDisplay from '../components/ErrorDisplay';
+import { useStacksWallet } from '../hooks/useStacksWallet';
+import { useToast } from '../hooks/useToast';
+import { openSTXTransfer } from '@stacks/connect';
+import { stacksNetwork } from '../config/stacksConfig';
 
 export default function Pay() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +19,11 @@ export default function Pay() {
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentData | null>(null);
   const [contractStatus, setContractStatus] = useState<{ isDeployed: boolean; error?: string } | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
+  
+  // Wallet and payment functionality
+  const { isAuthenticated, address, connect } = useStacksWallet();
+  const { toast } = useToast();
 
   const displayAmount = useMemo(() => {
     if (!amount) return null;
@@ -22,6 +31,56 @@ export default function Pay() {
     if (!Number.isFinite(n)) return null;
     return `${n.toLocaleString(undefined, { maximumFractionDigits: 6 })} STX`;
   }, [amount]);
+
+  // Payment function for customers
+  const handlePayment = async () => {
+    if (!amount || !isAuthenticated) return;
+    
+    setIsPaying(true);
+    try {
+      const amountInMicroSTX = BigInt(Math.floor(Number(amount) * 1000000)); // Convert to micro-STX
+      const merchantAddress = process.env.REACT_APP_MERCHANT_ADDRESS;
+      
+      if (!merchantAddress) {
+        throw new Error('Merchant address not configured');
+      }
+
+      console.log('Initiating payment:', { amount, amountInMicroSTX, merchantAddress });
+      
+      await openSTXTransfer({
+        recipient: merchantAddress,
+        amount: amountInMicroSTX,
+        memo: desc || `Payment for ${id}`,
+        network: stacksNetwork,
+        onFinish: (data) => {
+          console.log('Payment completed:', data);
+          toast({ 
+            title: 'Payment Successful!', 
+            description: `You paid ${displayAmount} to the merchant.`,
+            status: 'success' 
+          });
+          setIsPaying(false);
+        },
+        onCancel: () => {
+          console.log('Payment cancelled');
+          toast({ 
+            title: 'Payment Cancelled', 
+            description: 'You cancelled the payment.',
+            status: 'info' 
+          });
+          setIsPaying(false);
+        }
+      });
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      toast({ 
+        title: 'Payment Failed', 
+        description: error.message || 'Payment could not be completed.',
+        status: 'error' 
+      });
+      setIsPaying(false);
+    }
+  };
 
   // Check contract status on mount
   useEffect(() => {
@@ -65,26 +124,27 @@ export default function Pay() {
   }, [id]);
 
   return (
-    <Container maxW="4xl" py={10}>
-      <VStack gap={8} align="stretch">
-        <VStack gap={4} textAlign="center">
-          <Heading size="2xl" color="blue.600" fontWeight="bold">Payment Invoice</Heading>
-          <Text fontSize="lg" color="gray.600" maxW="600px">
-            Complete your payment using the details below
-          </Text>
-        </VStack>
+    <Box minH="100vh" overflowX="hidden">
+      <Container maxW="4xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
+        <VStack gap={{ base: 4, md: 8 }} align="stretch">
+          <VStack gap={4} textAlign="center">
+            <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">Payment Invoice</Heading>
+            <Text fontSize={{ base: "md", md: "lg" }} color="gray.600" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
+              Complete your payment using the details below
+            </Text>
+          </VStack>
         
-        <Box borderWidth="2px" borderColor="blue.200" borderRadius="xl" p={8} bg="white" shadow="lg">
-          <VStack gap={6} align="stretch">
-            <HStack gap={4} justify="space-between" w="100%">
-              <Text fontSize="lg" fontWeight="semibold" color="gray.700">Payment ID:</Text>
-              <Badge colorScheme="purple" fontSize="md" px={3} py={1}>{id}</Badge>
+        <Box borderWidth="2px" borderColor="blue.200" borderRadius="xl" p={{ base: 4, md: 8 }} bg="white" shadow="lg">
+          <VStack gap={{ base: 4, md: 6 }} align="stretch">
+            <HStack gap={4} justify="space-between" w="100%" wrap="wrap">
+              <Text fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Payment ID:</Text>
+              <Badge colorScheme="purple" fontSize={{ base: "sm", md: "md" }} px={3} py={1}>{id}</Badge>
             </HStack>
             
             {displayAmount && (
-              <HStack gap={4} justify="space-between" w="100%">
-                <Text fontSize="lg" fontWeight="semibold" color="gray.700">Amount:</Text>
-                <Badge colorScheme="teal" fontSize="lg" px={4} py={2}>{displayAmount}</Badge>
+              <HStack gap={4} justify="space-between" w="100%" wrap="wrap">
+                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Amount:</Text>
+                <Badge colorScheme="teal" fontSize={{ base: "md", md: "lg" }} px={4} py={2}>{displayAmount}</Badge>
               </HStack>
             )}
             
@@ -146,10 +206,66 @@ export default function Pay() {
                 <Badge colorScheme="green" fontSize="md" px={3} py={1}>{payment.status}</Badge>
               </HStack>
             )}
+
+            {/* Payment Section for Customers */}
+            {displayAmount && (
+              <Box bg="white" borderColor="blue.200" borderWidth="2px" borderRadius="xl" p={{ base: 4, md: 6 }} shadow="lg">
+                <VStack gap={4}>
+                  <Heading size={{ base: "md", md: "lg" }} color="blue.600" textAlign="center">
+                    💳 Complete Payment
+                  </Heading>
+                  
+                  <VStack gap={3} w="100%">
+                    <HStack justify="space-between" w="100%" wrap="wrap">
+                      <Text fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Amount:</Text>
+                      <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="blue.600">{displayAmount}</Text>
+                    </HStack>
+                    
+                    {desc && (
+                      <VStack gap={2} w="100%" align="stretch">
+                        <Text fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Description:</Text>
+                        <Text fontSize={{ base: "sm", md: "md" }} color="gray.600" p={3} bg="gray.50" borderRadius="lg">{desc}</Text>
+                      </VStack>
+                    )}
+                  </VStack>
+
+                  {!isAuthenticated ? (
+                    <VStack gap={3}>
+                      <Text color="gray.600" textAlign="center" fontSize={{ base: "sm", md: "md" }}>
+                        Connect your wallet to complete the payment
+                      </Text>
+                      <Button 
+                        colorScheme="blue" 
+                        size={{ base: "md", md: "lg" }} 
+                        onClick={connect}
+                        fontWeight="semibold"
+                        w="100%"
+                      >
+                        🔗 Connect Wallet
+                      </Button>
+                    </VStack>
+                  ) : (
+                    <Button 
+                      colorScheme="green" 
+                      size={{ base: "md", md: "lg" }} 
+                      onClick={handlePayment}
+                      disabled={isPaying}
+                      loading={isPaying}
+                      loadingText="Processing Payment..."
+                      fontWeight="semibold"
+                      w="100%"
+                    >
+                      💳 Pay with Wallet
+                    </Button>
+                  )}
+                </VStack>
+              </Box>
+            )}
           </VStack>
         </Box>
       </VStack>
     </Container>
+    </Box>
   );
 }
 

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ChakraProvider, createSystem, defaultConfig } from '@chakra-ui/react';
 import { DemoProvider } from './context/DemoContext';
 import { StatsProvider } from './context/StatsContext';
+import './mobile-fixes.css';
 
 const system = createSystem(defaultConfig, {
   theme: {

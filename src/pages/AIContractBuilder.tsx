@@ -14,12 +14,13 @@ import { interpretNaturalLanguage } from '../ai/nlp';
 import { verifyTemplateIntegrity } from '../ai/templates/registry';
 import ErrorBoundary from '../components/ErrorBoundary';
 
-type TemplateId = 'ESCROW' | 'SPLIT' | 'SUBSCRIPTION';
+type TemplateId = 'ESCROW' | 'SPLIT' | 'SUBSCRIPTION' | 'CUSTOM';
 
 const DEFAULT_PROMPTS: Record<TemplateId, string> = {
   ESCROW: 'Create an escrow where buyer ST... pays seller ST...; arbiter ST... can release after height 120000 if dispute.',
   SPLIT: 'Split incoming payment 60% to ST... and 40% to ST....',
   SUBSCRIPTION: 'Monthly subscription: subscriber ST... pays provider ST... every 4320 blocks at price 1000000 µSTX.',
+  CUSTOM: 'Describe your custom smart contract requirements in natural language...',
 };
 
 export default function AIContractBuilder() {
@@ -318,27 +319,28 @@ export default function AIContractBuilder() {
   }
 
   return (
-    <Container maxW="6xl" py={10}>
-      <VStack gap={8} align="stretch">
-        <VStack gap={4} textAlign="center">
-          <Heading size="2xl" color="blue.600" fontWeight="bold">AI Contract Builder</Heading>
-          <Text fontSize="lg" color="gray.600" maxW="600px">
-            Generate smart contracts from natural language using AI
-          </Text>
-        </VStack>
+    <Box minH="100vh" overflowX="hidden">
+      <Container maxW="6xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
+        <VStack gap={{ base: 4, md: 8 }} align="stretch">
+          <VStack gap={4} textAlign="center">
+            <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">AI Contract Builder</Heading>
+            <Text fontSize={{ base: "md", md: "lg" }} color="gray.600" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
+              Generate smart contracts from natural language using AI
+            </Text>
+          </VStack>
         
-        <Box borderWidth="2px" borderColor="blue.200" borderRadius="xl" p={8} bg="white" shadow="lg">
-          <HStack mb={4}><DemoBar /></HStack>
+        <Box borderWidth="2px" borderColor="blue.200" borderRadius="xl" p={{ base: 4, md: 8 }} bg="white" shadow="lg">
+          <Box mb={4}><DemoBar /></Box>
           <Stack gap={4}>
             {nl && (
               <Box p={4} bg="blue.50" borderColor="blue.200" borderWidth="2px" borderRadius="lg">
-                <Text color="blue.700" fontWeight="semibold">
+                <Text color="blue.700" fontWeight="semibold" fontSize={{ base: "sm", md: "md" }}>
                   Suggested template: <Badge colorScheme="blue" ml={2}>{interpretNaturalLanguage(nl).template}</Badge>
                 </Text>
               </Box>
             )}
             <Box>
-              <Text mb={3} fontSize="lg" fontWeight="semibold" color="gray.700">Template</Text>
+              <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Template</Text>
               <select 
                 value={templateId} 
                 onChange={(e: any) => setTemplateId(e.target.value as TemplateId)} 
@@ -358,7 +360,7 @@ export default function AIContractBuilder() {
               </select>
             </Box>
             <Box>
-              <Text mb={3} fontSize="lg" fontWeight="semibold" color="gray.700">Natural language request</Text>
+              <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Natural language request</Text>
               <Textarea 
                 placeholder={DEFAULT_PROMPTS[templateId]} 
                 value={nl} 
@@ -366,21 +368,19 @@ export default function AIContractBuilder() {
                 bg="white"
                 borderColor="gray.300"
                 borderWidth="2px"
-                size="lg"
+                size={{ base: "md", md: "lg" }}
                 _hover={{ borderColor: "blue.300" }}
                 _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)" }}
               />
             </Box>
             <Box borderTop="2px" borderColor="gray.200" pt={6} />
-            <Heading size="md" color="blue.600" mb={4}>Placeholders</Heading>
+            <Heading size={{ base: "sm", md: "md" }} color="blue.600" mb={4}>Placeholders</Heading>
             <VStack gap={4} align="stretch">
               {currentTemplate.placeholders.map(ph => (
-                <HStack key={ph.key} gap={4}>
-                  <Box minW="200px">
-                    <Text fontWeight="semibold" color="gray.700">
-                      {ph.key} {ph.required && <Text as="span" color="red.500">*</Text>}
-                    </Text>
-                  </Box>
+                <VStack key={ph.key} gap={2} align="stretch">
+                  <Text fontWeight="semibold" color="gray.700" fontSize={{ base: "sm", md: "md" }}>
+                    {ph.key} {ph.required && <Text as="span" color="red.500">*</Text>}
+                  </Text>
                   <Input 
                     placeholder={ph.type} 
                     value={input[ph.key] || ''} 
@@ -388,10 +388,11 @@ export default function AIContractBuilder() {
                     bg="white"
                     borderColor="gray.300"
                     borderWidth="2px"
+                    size={{ base: "md", md: "lg" }}
                     _hover={{ borderColor: "blue.300" }}
                     _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)" }}
                   />
-                </HStack>
+                </VStack>
               ))}
             </VStack>
             {!apiEnabled && (
@@ -409,19 +410,38 @@ export default function AIContractBuilder() {
                 </VStack>
               </Box>
             )}
-            <HStack gap={4} justify="center" pt={4}>
-              <Button 
-                colorScheme="blue" 
-                onClick={onGenerate} 
-                loading={loading}
-                size="lg"
-                px={8}
-                py={6}
-                fontWeight="semibold"
-                disabled={loading}
-              >
-                {loading ? 'Generating...' : 'Generate Contract'}
-              </Button>
+            <VStack gap={4} pt={4}>
+              <HStack gap={4} justify="center" wrap="wrap">
+                <Button 
+                  colorScheme="blue" 
+                  onClick={onGenerate} 
+                  loading={loading}
+                  size={{ base: "md", md: "lg" }}
+                  px={{ base: 6, md: 8 }}
+                  py={{ base: 4, md: 6 }}
+                  fontWeight="semibold"
+                  disabled={loading}
+                  w={{ base: "100%", sm: "auto" }}
+                >
+                  {loading ? 'Generating...' : 'Generate Contract'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={onDeploy} 
+                  disabled={!code}
+                  size={{ base: "md", md: "lg" }}
+                  px={{ base: 6, md: 8 }}
+                  py={{ base: 4, md: 6 }}
+                  fontWeight="semibold"
+                  borderWidth="2px"
+                  borderColor="green.300"
+                  color="green.600"
+                  _hover={{ bg: "green.50", borderColor: "green.400" }}
+                  w={{ base: "100%", sm: "auto" }}
+                >
+                  Deploy Contract
+                </Button>
+              </HStack>
               <Button 
                 variant="outline" 
                 onClick={() => {
@@ -439,22 +459,7 @@ export default function AIContractBuilder() {
               >
                 Debug Info
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={onDeploy} 
-                disabled={!code}
-                size="lg"
-                px={8}
-                py={6}
-                fontWeight="semibold"
-                borderWidth="2px"
-                borderColor="green.300"
-                color="green.600"
-                _hover={{ bg: "green.50", borderColor: "green.400" }}
-              >
-                Deploy Contract
-              </Button>
-            </HStack>
+            </VStack>
             {issues.length > 0 && (
               <VStack gap={3} align="stretch">
                 {issues.map((i, idx) => (
@@ -487,6 +492,7 @@ export default function AIContractBuilder() {
         )}
       </VStack>
     </Container>
+    </Box>
   );
 }
 

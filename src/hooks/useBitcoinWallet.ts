@@ -39,19 +39,32 @@ export function useBitcoinWallet() {
 
   // Connect to Bitcoin wallet
   const connect = useCallback(async () => {
+    console.log('Connect Bitcoin Wallet button clicked');
     try {
       setState(s => ({ ...s, isConnecting: true, error: null }));
 
       const provider = checkBitcoinWallet();
       
       if (!provider) {
+        console.log('No Bitcoin wallet provider found');
         throw new Error('No Bitcoin wallet found. Please install a Bitcoin wallet like Unisat, OKX, or Bitget.');
       }
 
       console.log('Connecting to Bitcoin wallet:', provider);
 
-      // Request account access
-      const accounts = await eval(`${provider}.requestAccounts()`);
+      // Request account access - use safer approach
+      let accounts;
+      if (provider === 'unisat') {
+        accounts = await (window as any).unisat.requestAccounts();
+      } else if (provider === 'okxwallet') {
+        accounts = await (window as any).okxwallet.bitcoin.requestAccounts();
+      } else if (provider === 'bitget') {
+        accounts = await (window as any).bitget.bitcoin.requestAccounts();
+      } else {
+        // Generic Bitcoin wallet
+        const wallet = (window as any)[provider];
+        accounts = await wallet.requestAccounts();
+      }
       
       if (!accounts || accounts.length === 0) {
         throw new Error('No Bitcoin accounts found');
@@ -60,8 +73,19 @@ export function useBitcoinWallet() {
       const address = accounts[0];
       console.log('Bitcoin wallet connected:', address);
 
-      // Get balance
-      const balance = await eval(`${provider}.getBalance()`);
+      // Get balance - use safer approach
+      let balance;
+      if (provider === 'unisat') {
+        balance = await (window as any).unisat.getBalance();
+      } else if (provider === 'okxwallet') {
+        balance = await (window as any).okxwallet.bitcoin.getBalance();
+      } else if (provider === 'bitget') {
+        balance = await (window as any).bitget.bitcoin.getBalance();
+      } else {
+        const wallet = (window as any)[provider];
+        balance = await wallet.getBalance();
+      }
+      
       console.log('Bitcoin balance:', balance);
 
       setState({
