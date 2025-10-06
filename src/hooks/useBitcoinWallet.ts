@@ -20,18 +20,20 @@ export function useBitcoinWallet() {
   // Check if Bitcoin wallet is available
   const checkBitcoinWallet = useCallback(() => {
     // Check for common Bitcoin wallet providers
-    const providers = [
-      'window.bitcoin',
-      'window.unisat',
-      'window.okxwallet',
-      'window.btc',
-      'window.bitget',
-    ];
-
-    for (const provider of providers) {
-      if (eval(`typeof ${provider} !== 'undefined'`)) {
-        return provider;
-      }
+    if (typeof (window as any).unisat !== 'undefined') {
+      return 'unisat';
+    }
+    if (typeof (window as any).okxwallet !== 'undefined') {
+      return 'okxwallet';
+    }
+    if (typeof (window as any).bitget !== 'undefined') {
+      return 'bitget';
+    }
+    if (typeof (window as any).bitcoin !== 'undefined') {
+      return 'bitcoin';
+    }
+    if (typeof (window as any).btc !== 'undefined') {
+      return 'btc';
     }
 
     return null;
@@ -139,8 +141,18 @@ export function useBitcoinWallet() {
         memo: memo || '',
       };
 
-      // Sign transaction
-      const signedTx = await eval(`${provider}.signTransaction(transaction)`);
+      // Sign transaction based on provider
+      let signedTx;
+      if (provider === 'unisat') {
+        signedTx = await (window as any).unisat.signTransaction(transaction);
+      } else if (provider === 'okxwallet') {
+        signedTx = await (window as any).okxwallet.bitcoin.signTransaction(transaction);
+      } else if (provider === 'bitget') {
+        signedTx = await (window as any).bitget.bitcoin.signTransaction(transaction);
+      } else {
+        const wallet = (window as any)[provider];
+        signedTx = await wallet.signTransaction(transaction);
+      }
       
       console.log('Bitcoin transaction signed:', signedTx);
       return signedTx;

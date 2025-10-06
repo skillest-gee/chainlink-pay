@@ -10,6 +10,7 @@ export interface PaymentLink {
   txHash?: string;
   payerAddress?: string;
   merchantAddress: string;
+  paymentType?: 'STX' | 'BTC'; // Add payment type
 }
 
 export interface PaymentStats {
