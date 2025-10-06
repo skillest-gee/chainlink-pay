@@ -362,15 +362,15 @@ export default function Bridge() {
               Bridge Bitcoin or STX tokens to other blockchain networks seamlessly
             </Text>
             
-            {/* Demo Mode Warning */}
-            <Box bg="orange.50" borderColor="orange.200" borderWidth="2px" borderRadius="lg" p={4} maxW="600px">
+            {/* Production Mode - Real Contracts Deployed */}
+            <Box bg="green.50" borderColor="green.200" borderWidth="2px" borderRadius="lg" p={4} maxW="600px">
               <VStack gap={2}>
-                <Text fontSize="sm" fontWeight="bold" color="orange.700">
-                  🚧 Demo Mode
+                <Text fontSize="sm" fontWeight="bold" color="green.700">
+                  ✅ Production Ready
                 </Text>
-                <Text fontSize="xs" color="orange.600" textAlign="center">
-                  This is a demonstration. Real bridge contracts are not deployed. 
-                  Transactions will show "NoSuchContract" error - this is expected behavior.
+                <Text fontSize="xs" color="green.600" textAlign="center">
+                  Smart contracts are deployed and ready for real transactions. 
+                  Bridge Bitcoin and STX tokens across blockchain networks.
                 </Text>
               </VStack>
             </Box>

@@ -410,6 +410,18 @@ export default function AIContractBuilder() {
                 </VStack>
               </Box>
             )}
+            {apiEnabled && (
+              <Box p={4} borderRadius="lg" bg="green.50" borderColor="green.200" borderWidth="1px">
+                <VStack align="start" gap={2}>
+                  <Text color="green.600" fontSize="sm" fontWeight="semibold">
+                    🤖 <strong>AI Contract Builder Active</strong>
+                  </Text>
+                  <Text color="green.600" fontSize="sm">
+                    OpenAI integration enabled. Generate smart contracts from natural language descriptions.
+                  </Text>
+                </VStack>
+              </Box>
+            )}
             <VStack gap={4} pt={4}>
               <HStack gap={4} justify="center" wrap="wrap">
                 <Button 
