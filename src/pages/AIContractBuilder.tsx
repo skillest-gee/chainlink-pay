@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Button, Container, Heading, HStack, Input, Stack, Textarea, Badge, Text, VStack } from '@chakra-ui/react';
 import { getTemplate } from '../ai/templates/library';
-import DemoBar from '../components/DemoBar';
-import { useDemo } from '../context/DemoContext';
+// import DemoBar from '../components/DemoBar'; // Removed for production
+// import { useDemo } from '../context/DemoContext'; // Removed for production
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { generateContract } from '../ai/templates/generator';
@@ -38,24 +38,24 @@ export default function AIContractBuilder() {
   
 
   const currentTemplate = useMemo(() => getTemplate(templateId), [templateId]);
-  const { enabled: demoEnabled, preset } = useDemo();
+  // const { enabled: demoEnabled, preset } = useDemo(); // Removed for production
 
-  React.useEffect(() => {
-    if (!demoEnabled) return;
-    if (preset === 'split') {
-      setTemplateId('SPLIT');
-      setNl('Split $1000 between 3 team members');
-      setInput({ 'recipient-a': 'ST2C2...A', 'recipient-b': 'ST3C3...B', 'pct-a': '60', 'pct-b': '40' });
-    } else if (preset === 'escrow') {
-      setTemplateId('ESCROW');
-      setNl('Escrow payment release on delivery confirmation');
-      setInput({ buyer: 'ST2C2...BUYER', seller: 'ST3C3...SELLR', arbiter: 'ST1A1...ARBI', 'deadline-height': '120000', 'amount-ustx': '1000000' });
-    } else if (preset === 'subscription') {
-      setTemplateId('SUBSCRIPTION');
-      setNl('Monthly subscription payment');
-      setInput({ provider: 'ST2C2...PROV', subscriber: 'ST3C3...SUB', period: '4320', 'price-ustx': '1000000' });
-    }
-  }, [demoEnabled, preset]);
+  // React.useEffect(() => {
+  //   if (!demoEnabled) return;
+  //   if (preset === 'split') {
+  //     setTemplateId('SPLIT');
+  //     setNl('Split $1000 between 3 team members');
+  //     setInput({ 'recipient-a': 'ST2C2...A', 'recipient-b': 'ST3C3...B', 'pct-a': '60', 'pct-b': '40' });
+  //   } else if (preset === 'escrow') {
+  //     setTemplateId('ESCROW');
+  //     setNl('Escrow payment release on delivery confirmation');
+  //     setInput({ buyer: 'ST2C2...BUYER', seller: 'ST3C3...SELLR', arbiter: 'ST1A1...ARBI', 'deadline-height': '120000', 'amount-ustx': '1000000' });
+  //   } else if (preset === 'subscription') {
+  //     setTemplateId('SUBSCRIPTION');
+  //     setNl('Monthly subscription payment');
+  //     setInput({ provider: 'ST2C2...PROV', subscriber: 'ST3C3...SUB', period: '4320', 'price-ustx': '1000000' });
+  //   }
+  // }, [demoEnabled, preset]); // Removed for production
 
   const mapPromptToPlaceholders = async (prompt: string, id: TemplateId): Promise<Record<string, string>> => {
     console.log('AI Mapping - Prompt:', prompt);
@@ -330,7 +330,7 @@ export default function AIContractBuilder() {
           </VStack>
         
         <Box borderWidth="2px" borderColor="blue.200" borderRadius="xl" p={{ base: 4, md: 8 }} bg="white" shadow="lg">
-          <Box mb={4}><DemoBar /></Box>
+          {/* <Box mb={4}><DemoBar /></Box> */} {/* Removed for production */}
           <Stack gap={4}>
             {nl && (
               <Box p={4} bg="blue.50" borderColor="blue.200" borderWidth="2px" borderRadius="lg">

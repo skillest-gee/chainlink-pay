@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Heading, Text, Container, HStack, VStack, Badge, Button } from '@chakra-ui/react';
 import PaymentLinkGenerator from '../components/PaymentLinkGenerator';
-import DemoBar from '../components/DemoBar';
+// import DemoBar from '../components/DemoBar'; // Removed for production
 import { useStacksWallet } from '../hooks/useStacksWallet';
 
 export default function Home() {
@@ -60,13 +60,16 @@ export default function Home() {
               </VStack>
             </Box>
 
-            {/* Demo Bar */}
-            <Box bg="white" borderColor="blue.200" borderWidth="2px" borderRadius="xl" p={8} shadow="lg">
+            {/* Production Features */}
+            <Box bg="white" borderColor="green.200" borderWidth="2px" borderRadius="xl" p={8} shadow="lg">
               <VStack gap={6}>
-                <Text fontSize="xl" fontWeight="bold" color="blue.600">
-                  Try our demo features
+                <Text fontSize="xl" fontWeight="bold" color="green.600">
+                  🚀 Production Ready Features
                 </Text>
-                <DemoBar />
+                <Text fontSize="md" color="gray.600" textAlign="center">
+                  All features are live and ready for real transactions. 
+                  Create payment links, generate smart contracts with AI, and bridge assets across blockchains.
+                </Text>
               </VStack>
             </Box>
 

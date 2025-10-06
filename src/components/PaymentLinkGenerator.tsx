@@ -5,7 +5,7 @@ import { openSTXTransfer } from '@stacks/connect';
 import { stacksNetwork, MERCHANT_ADDRESS, CONTRACT_ADDRESS, CONTRACT_NAME } from '../config/stacksConfig';
 import { openContractCall } from '@stacks/connect';
 import { bufferCVFromString, principalCV, uintCV } from '@stacks/transactions';
-import { useDemo } from '../context/DemoContext';
+// import { useDemo } from '../context/DemoContext'; // Removed for production
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
@@ -33,7 +33,7 @@ export default function PaymentLinkGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [paymentType, setPaymentType] = useState<'STX' | 'BTC'>('STX');
-  const { enabled: demoEnabled, preset } = useDemo();
+  // const { enabled: demoEnabled, preset } = useDemo(); // Removed for production
 
   // Debug configuration
   console.log('PaymentLinkGenerator - Configuration:');
@@ -113,13 +113,13 @@ export default function PaymentLinkGenerator() {
     }
   };
 
-  useEffect(() => {
-    if (!demoEnabled) return;
-    if (preset === 'simple-payment') {
-      setAmount('10');
-      setDescription('Demo coffee payment');
-    }
-  }, [demoEnabled, preset]);
+  // useEffect(() => {
+  //   if (!demoEnabled) return;
+  //   if (preset === 'simple-payment') {
+  //     setAmount('10');
+  //     setDescription('Demo coffee payment');
+  //   }
+  // }, [demoEnabled, preset]); // Removed for production
 
   const onPay = async () => {
     console.log('Pay with Wallet button clicked');
