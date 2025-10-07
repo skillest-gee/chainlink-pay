@@ -31,6 +31,7 @@ function App() {
         position="sticky"
         top="0"
         zIndex="1000"
+        transition="all 0.3s ease"
       >
         <Container maxW="6xl" py={{ base: 2, md: 3 }}>
           <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={{ base: 3, md: 4 }}>

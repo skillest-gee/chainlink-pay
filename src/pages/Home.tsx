@@ -13,8 +13,9 @@ export default function Home() {
     <Box 
       minH="100vh" 
       overflowX="hidden"
-      bg="bg.primary"
+      bg="#0a0a0a"
       backgroundImage="radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 107, 53, 0.1) 0%, transparent 50%)"
+      position="relative"
     >
       <Container maxW="6xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
         <VStack gap={{ base: 4, md: 8 }} align="stretch">

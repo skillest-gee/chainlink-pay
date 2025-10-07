@@ -188,21 +188,32 @@ export default function Dashboard() {
         </VStack>
 
         {/* Stats Cards */}
-        <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={{ base: 3, md: 4 }}>
+        <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={{ base: 4, md: 6 }}>
           <Box 
-            bg="rgba(30, 30, 30, 0.8)" 
-            backdropFilter="blur(10px)"
-            p={{ base: 4, md: 6 }} 
-            borderRadius="xl" 
+            bg="rgba(30, 30, 30, 0.95)" 
+            backdropFilter="blur(20px)"
+            p={{ base: 6, md: 8 }} 
+            borderRadius="2xl" 
             borderWidth="1px" 
             borderColor="rgba(0, 212, 255, 0.3)"
-            shadow="0 8px 32px rgba(0, 0, 0, 0.3)"
+            shadow="0 12px 40px rgba(0, 0, 0, 0.4)"
             _hover={{
-              transform: 'translateY(-2px)',
-              boxShadow: '0 12px 40px rgba(0, 212, 255, 0.2)',
-              borderColor: 'rgba(0, 212, 255, 0.5)'
+              transform: 'translateY(-4px)',
+              boxShadow: '0 20px 60px rgba(0, 212, 255, 0.25)',
+              borderColor: 'rgba(0, 212, 255, 0.6)'
             }}
-            transition="all 0.3s ease"
+            transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
+            position="relative"
+            overflow="hidden"
+            _before={{
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '2px',
+              bg: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+            }}
           >
             <VStack gap={2}>
               <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold" color="#00d4ff">{stats.totalLinks}</Text>

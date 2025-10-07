@@ -330,19 +330,36 @@ export default function PaymentLinkGenerator() {
   return (
     <Box 
       overflowX="hidden" 
-      px={{ base: 4, md: 6 }}
-      py={{ base: 6, md: 8 }}
-      bg="rgba(30, 30, 30, 0.9)"
+      px={{ base: 6, md: 8 }}
+      py={{ base: 8, md: 10 }}
+      bg="rgba(30, 30, 30, 0.95)"
       backdropFilter="blur(20px)"
-      borderRadius="2xl"
+      borderRadius="3xl"
       borderWidth="1px"
       borderColor="rgba(0, 212, 255, 0.3)"
-      shadow="0 20px 60px rgba(0, 0, 0, 0.5)"
+      shadow="0 25px 80px rgba(0, 0, 0, 0.6)"
       _hover={{
         borderColor: 'rgba(0, 212, 255, 0.5)',
-        boxShadow: '0 25px 80px rgba(0, 212, 255, 0.2)'
+        boxShadow: '0 30px 100px rgba(0, 212, 255, 0.25)',
+        transform: 'translateY(-2px)'
       }}
-      transition="all 0.3s ease"
+      transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
+      position="relative"
+      _before={{
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: '3xl',
+        padding: '1px',
+        background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(255, 107, 53, 0.3))',
+        mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        maskComposite: 'xor',
+        WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        WebkitMaskComposite: 'xor',
+      }}
     >
       <VStack gap={{ base: 4, md: 6 }} align="stretch">
         {/* Input Section */}
@@ -456,17 +473,30 @@ export default function PaymentLinkGenerator() {
             <VStack gap={3} w="100%">
               <HStack gap={3} wrap="wrap" justify="center" w="100%">
                 <Button 
-                  colorScheme="blue" 
+                  bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
+                  color="white"
+                  border="none"
+                  borderRadius="xl"
+                  fontWeight="semibold"
+                  px={{ base: 8, md: 10 }}
+                  py={{ base: 4, md: 6 }}
+                  fontSize={{ base: "md", md: "lg" }}
+                  w={{ base: "100%", sm: "auto" }}
                   onClick={onGenerate} 
                   loading={isGenerating}
                   loadingText="Generating..."
-                  size={{ base: "md", md: "lg" }}
                   title="Generate a shareable payment link"
-                  fontWeight="semibold"
-                  px={{ base: 6, md: 8 }}
-                  py={{ base: 4, md: 6 }}
-                  fontSize={{ base: "sm", md: "md" }}
-                  w={{ base: "100%", sm: "auto" }}
+                  _hover={{
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 12px 40px rgba(0, 212, 255, 0.4)',
+                    bg: 'linear-gradient(135deg, #0099cc 0%, #0077aa 100%)'
+                  }}
+                  _active={{
+                    transform: 'translateY(0)',
+                    boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)'
+                  }}
+                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                  boxShadow="0 8px 25px rgba(0, 212, 255, 0.3)"
                 >
                   🔗 Generate Link
                 </Button>
