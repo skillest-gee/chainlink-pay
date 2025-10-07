@@ -18,7 +18,6 @@ export function LoadingSpinner({ size = 'md', text, color = '#00d4ff' }: Loading
       <Spinner
         size={size}
         color={color}
-        emptyColor="rgba(0, 212, 255, 0.2)"
       />
       {text && (
         <Text color={color} fontSize="md" fontWeight="medium">
