@@ -76,7 +76,7 @@ export function ErrorHandler({ error, onDismiss, onRetry, showDetails = false }:
   };
 
   return (
-    <Alert 
+    <Alert.Root 
       status="error" 
       variant="subtle" 
       flexDirection="column"
@@ -161,7 +161,7 @@ export function ErrorHandler({ error, onDismiss, onRetry, showDetails = false }:
           </Tooltip>
         </HStack>
       </VStack>
-    </Alert>
+    </Alert.Root>
   );
 }
 
@@ -192,7 +192,7 @@ export function SuccessHandler({ message, onDismiss, type = 'success' }: Success
   };
 
   return (
-    <Alert 
+    <Alert.Root 
       status="success" 
       variant="subtle"
       borderRadius="xl"
@@ -220,7 +220,7 @@ export function SuccessHandler({ message, onDismiss, type = 'success' }: Success
           ✕
         </IconButton>
       </HStack>
-    </Alert>
+    </Alert.Root>
   );
 }
 
@@ -233,7 +233,7 @@ interface LoadingHandlerProps {
 
 export function LoadingHandler({ message, progress, onCancel }: LoadingHandlerProps) {
   return (
-    <Alert 
+    <Alert.Root 
       status="info" 
       variant="subtle"
       borderRadius="xl"
@@ -283,7 +283,7 @@ export function LoadingHandler({ message, progress, onCancel }: LoadingHandlerPr
           </Box>
         )}
       </VStack>
-    </Alert>
+    </Alert.Root>
   );
 }
 
