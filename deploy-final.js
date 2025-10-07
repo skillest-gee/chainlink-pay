@@ -18,7 +18,7 @@ async function deployContract() {
 
   // Create deployment transaction
   const deployTx = await makeContractDeploy({
-    contractName: 'chainlink-pay-simple',
+    contractName: 'chainlink-pay-final',
     codeBody: CONTRACT_SOURCE,
     senderKey: privateKey,
     network: network,
@@ -32,12 +32,12 @@ async function deployContract() {
   if (result) {
     console.log('✅ Contract deployed successfully!');
     console.log(`🔗 Transaction ID: ${result}`);
-    console.log(`📋 Contract Address: ${address}.chainlink-pay-simple`);
+    console.log(`📋 Contract Address: ${address}.chainlink-pay-final`);
     console.log(`🌐 Explorer: https://explorer.stacks.co/txid/${result}`);
 
     console.log('\n📝 Update your .env file with:');
     console.log(`REACT_APP_CONTRACT_ADDRESS=${address}`);
-    console.log(`REACT_APP_CONTRACT_NAME=chainlink-pay-simple`);
+    console.log(`REACT_APP_CONTRACT_NAME=chainlink-pay-final`);
     console.log(`REACT_APP_MERCHANT_ADDRESS=${address}`);
 
     return {
