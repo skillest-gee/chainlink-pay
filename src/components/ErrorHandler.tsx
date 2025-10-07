@@ -14,7 +14,6 @@ import {
   AlertIndicator, 
   AlertTitle, 
   AlertDescription,
-  Collapse,
   IconButton,
   Tooltip
 } from '@chakra-ui/react';
