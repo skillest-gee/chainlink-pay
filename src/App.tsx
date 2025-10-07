@@ -109,12 +109,6 @@ function App() {
                   bg="rgba(0, 212, 255, 0.08)"
                   border="1px solid"
                   borderColor="rgba(0, 212, 255, 0.2)"
-                  _hover={{ 
-                    bg: 'rgba(0, 212, 255, 0.15)',
-                    borderColor: 'rgba(0, 212, 255, 0.4)',
-                    transform: 'translateY(-3px)',
-                    boxShadow: '0 12px 35px rgba(0, 212, 255, 0.25)'
-                  }}
                   transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                   position="relative"
                   overflow="hidden"
@@ -130,7 +124,11 @@ function App() {
                     transformOrigin: 'left',
                     transition: 'transform 0.3s ease'
                   }}
-                  _hover={{
+                  _hover={{ 
+                    bg: 'rgba(0, 212, 255, 0.15)',
+                    borderColor: 'rgba(0, 212, 255, 0.4)',
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 12px 35px rgba(0, 212, 255, 0.25)',
                     _before: {
                       transform: 'scaleX(1)'
                     }
@@ -152,12 +150,6 @@ function App() {
                       bg="rgba(255, 107, 53, 0.08)"
                       border="1px solid"
                       borderColor="rgba(255, 107, 53, 0.2)"
-                      _hover={{ 
-                        bg: 'rgba(255, 107, 53, 0.15)',
-                        borderColor: 'rgba(255, 107, 53, 0.4)',
-                        transform: 'translateY(-3px)',
-                        boxShadow: '0 12px 35px rgba(255, 107, 53, 0.25)'
-                      }}
                       transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                       position="relative"
                       overflow="hidden"
@@ -173,7 +165,11 @@ function App() {
                         transformOrigin: 'left',
                         transition: 'transform 0.3s ease'
                       }}
-                      _hover={{
+                      _hover={{ 
+                        bg: 'rgba(255, 107, 53, 0.15)',
+                        borderColor: 'rgba(255, 107, 53, 0.4)',
+                        transform: 'translateY(-3px)',
+                        boxShadow: '0 12px 35px rgba(255, 107, 53, 0.25)',
                         _before: {
                           transform: 'scaleX(1)'
                         }
@@ -193,12 +189,6 @@ function App() {
                       bg="rgba(0, 255, 136, 0.08)"
                       border="1px solid"
                       borderColor="rgba(0, 255, 136, 0.2)"
-                      _hover={{ 
-                        bg: 'rgba(0, 255, 136, 0.15)',
-                        borderColor: 'rgba(0, 255, 136, 0.4)',
-                        transform: 'translateY(-3px)',
-                        boxShadow: '0 12px 35px rgba(0, 255, 136, 0.25)'
-                      }}
                       transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                       position="relative"
                       overflow="hidden"
@@ -214,7 +204,11 @@ function App() {
                         transformOrigin: 'left',
                         transition: 'transform 0.3s ease'
                       }}
-                      _hover={{
+                      _hover={{ 
+                        bg: 'rgba(0, 255, 136, 0.15)',
+                        borderColor: 'rgba(0, 255, 136, 0.4)',
+                        transform: 'translateY(-3px)',
+                        boxShadow: '0 12px 35px rgba(0, 255, 136, 0.25)',
                         _before: {
                           transform: 'scaleX(1)'
                         }
@@ -234,12 +228,6 @@ function App() {
                       bg="rgba(170, 0, 255, 0.08)"
                       border="1px solid"
                       borderColor="rgba(170, 0, 255, 0.2)"
-                      _hover={{ 
-                        bg: 'rgba(170, 0, 255, 0.15)',
-                        borderColor: 'rgba(170, 0, 255, 0.4)',
-                        transform: 'translateY(-3px)',
-                        boxShadow: '0 12px 35px rgba(170, 0, 255, 0.25)'
-                      }}
                       transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                       position="relative"
                       overflow="hidden"
@@ -255,7 +243,11 @@ function App() {
                         transformOrigin: 'left',
                         transition: 'transform 0.3s ease'
                       }}
-                      _hover={{
+                      _hover={{ 
+                        bg: 'rgba(170, 0, 255, 0.15)',
+                        borderColor: 'rgba(170, 0, 255, 0.4)',
+                        transform: 'translateY(-3px)',
+                        boxShadow: '0 12px 35px rgba(170, 0, 255, 0.25)',
                         _before: {
                           transform: 'scaleX(1)'
                         }
