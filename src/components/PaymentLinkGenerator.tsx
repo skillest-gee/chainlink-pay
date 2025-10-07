@@ -31,8 +31,11 @@ export default function PaymentLinkGenerator() {
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [paymentType, setPaymentType] = useState<'STX' | 'BTC'>('STX');
+  const [error, setError] = useState<string | null>(null);
   // const { enabled: demoEnabled, preset } = useDemo(); // Removed for production
 
   // Debug configuration
@@ -57,20 +60,28 @@ export default function PaymentLinkGenerator() {
     return `${origin}/pay/${generatedId}?${params.toString()}`;
   }, [generatedId, amount, description]);
 
-  const onGenerate = () => {
+  const onGenerate = async () => {
     setTouched(true);
+    setError(null);
+    
     if (!isValidAmount(amount)) {
-      toast({ title: 'Invalid amount', description: 'Enter a positive number.', status: 'error' });
+      const errorMsg = 'Enter a positive number.';
+      setError(errorMsg);
+      toast({ title: 'Invalid amount', description: errorMsg, status: 'error' });
       return;
     }
 
     if (paymentType === 'BTC' && !btcConnected) {
-      toast({ title: 'Bitcoin wallet required', description: 'Please connect your Bitcoin wallet first', status: 'error' });
+      const errorMsg = 'Please connect your Bitcoin wallet first';
+      setError(errorMsg);
+      toast({ title: 'Bitcoin wallet required', description: errorMsg, status: 'error' });
       return;
     }
 
     if (!MERCHANT_ADDRESS) {
-      toast({ title: 'Merchant address required', description: 'Set REACT_APP_MERCHANT_ADDRESS in .env', status: 'error' });
+      const errorMsg = 'Set REACT_APP_MERCHANT_ADDRESS in .env';
+      setError(errorMsg);
+      toast({ title: 'Merchant address required', description: errorMsg, status: 'error' });
       return;
     }
 
@@ -125,27 +136,32 @@ export default function PaymentLinkGenerator() {
     console.log('Pay with Wallet button clicked');
     console.log('Current state:', { isAuthenticated, amount, MERCHANT_ADDRESS, CONTRACT_ADDRESS, paymentType, btcConnected });
     setTouched(true);
+    setError(null);
+    setIsPaying(true);
     
-    if (paymentType === 'STX') {
-      if (!isAuthenticated) {
-        console.log('STX wallet not authenticated');
-        toast({ title: 'Wallet required', description: 'Please connect your Stacks wallet first', status: 'error' });
-        return;
-      }
-      
-      if (!isValidAmount(amount)) {
-        console.log('Invalid amount:', amount);
-        toast({ title: 'Invalid amount', description: 'Enter a positive number.', status: 'error' });
-        return;
-      }
-      
-      if (!MERCHANT_ADDRESS) {
-        console.log('Missing merchant address');
-        toast({ title: 'Missing merchant address', description: 'Set REACT_APP_MERCHANT_ADDRESS in .env', status: 'error' });
-        return;
-      }
-      
-      try {
+    try {
+      if (paymentType === 'STX') {
+        if (!isAuthenticated) {
+          const errorMsg = 'Please connect your Stacks wallet first';
+          setError(errorMsg);
+          toast({ title: 'Wallet required', description: errorMsg, status: 'error' });
+          return;
+        }
+        
+        if (!isValidAmount(amount)) {
+          const errorMsg = 'Enter a positive number.';
+          setError(errorMsg);
+          toast({ title: 'Invalid amount', description: errorMsg, status: 'error' });
+          return;
+        }
+        
+        if (!MERCHANT_ADDRESS) {
+          const errorMsg = 'Set REACT_APP_MERCHANT_ADDRESS in .env';
+          setError(errorMsg);
+          toast({ title: 'Missing merchant address', description: errorMsg, status: 'error' });
+          return;
+        }
+        
         console.log('Initiating STX transfer...');
         console.log('Amount:', amount, 'STX');
         console.log('Merchant:', MERCHANT_ADDRESS);
@@ -169,30 +185,28 @@ export default function PaymentLinkGenerator() {
             toast({ title: 'Transaction cancelled', status: 'info' });
           },
         });
-      } catch (e: any) {
-        console.error('STX transfer error:', e);
-        toast({ title: 'Payment failed', description: e?.message || 'Could not initiate payment', status: 'error' });
-      }
-    } else if (paymentType === 'BTC') {
-      if (!btcConnected) {
-        console.log('Bitcoin wallet not connected');
-        toast({ title: 'Bitcoin wallet required', description: 'Please connect your Bitcoin wallet first', status: 'error' });
-        return;
-      }
-      
-      if (!isValidAmount(amount)) {
-        console.log('Invalid amount:', amount);
-        toast({ title: 'Invalid amount', description: 'Enter a positive number.', status: 'error' });
-        return;
-      }
-      
-      if (!MERCHANT_ADDRESS) {
-        console.log('Missing merchant address');
-        toast({ title: 'Missing merchant address', description: 'Set REACT_APP_MERCHANT_ADDRESS in .env', status: 'error' });
-        return;
-      }
-      
-      try {
+      } else if (paymentType === 'BTC') {
+        if (!btcConnected) {
+          const errorMsg = 'Please connect your Bitcoin wallet first';
+          setError(errorMsg);
+          toast({ title: 'Bitcoin wallet required', description: errorMsg, status: 'error' });
+          return;
+        }
+        
+        if (!isValidAmount(amount)) {
+          const errorMsg = 'Enter a positive number.';
+          setError(errorMsg);
+          toast({ title: 'Invalid amount', description: errorMsg, status: 'error' });
+          return;
+        }
+        
+        if (!MERCHANT_ADDRESS) {
+          const errorMsg = 'Set REACT_APP_MERCHANT_ADDRESS in .env';
+          setError(errorMsg);
+          toast({ title: 'Missing merchant address', description: errorMsg, status: 'error' });
+          return;
+        }
+        
         console.log('Initiating Bitcoin transfer...');
         console.log('Amount:', amount, 'BTC');
         console.log('Merchant:', MERCHANT_ADDRESS);
@@ -200,64 +214,75 @@ export default function PaymentLinkGenerator() {
         
         // For Bitcoin, we'll use the bridge functionality
         toast({ title: 'Bitcoin Payment', description: 'Bitcoin payments are processed through the cross-chain bridge. Please use the Bridge page for Bitcoin transactions.', status: 'info' });
-      } catch (e: any) {
-        console.error('Bitcoin transfer error:', e);
-        toast({ title: 'Payment failed', description: e?.message || 'Could not initiate payment', status: 'error' });
       }
+    } catch (e: any) {
+      console.error('Payment error:', e);
+      const errorMsg = e?.message || 'Could not initiate payment';
+      setError(errorMsg);
+      toast({ title: 'Payment failed', description: errorMsg, status: 'error' });
+    } finally {
+      setIsPaying(false);
     }
   };
 
   const onRegisterOnChain = async () => {
     console.log('Register On-Chain button clicked');
     console.log('Current state:', { isAuthenticated, amount, CONTRACT_ADDRESS, CONTRACT_NAME, paymentType, btcConnected });
-    
-    // Check if demo mode is enabled
-    if (process.env.REACT_APP_DEMO_MODE === 'true') {
-      toast({ 
-        title: 'Demo Mode', 
-        description: 'Payment registered locally. In production, this would register on the Stacks blockchain.', 
-        status: 'success' 
-      });
-      return;
-    }
-    
-    if (paymentType === 'STX') {
-      if (!isAuthenticated) {
-        console.log('STX wallet not authenticated');
-        toast({ title: 'Wallet required', description: 'Please connect your Stacks wallet first', status: 'error' });
-        return;
-      }
-      
-      if (!CONTRACT_ADDRESS) {
-        console.log('Contract address not configured');
-        toast({ title: 'Contract not configured', description: 'Set REACT_APP_CONTRACT_ADDRESS', status: 'error' });
-        return;
-      }
-      
-      if (!amount || !isValidAmount(amount)) {
-        console.log('Invalid amount for registration:', amount);
-        toast({ title: 'Invalid amount', description: 'Enter a valid amount to register', status: 'error' });
-        return;
-      }
-    } else if (paymentType === 'BTC') {
-      if (!btcConnected) {
-        console.log('Bitcoin wallet not connected');
-        toast({ title: 'Bitcoin wallet required', description: 'Please connect your Bitcoin wallet first', status: 'error' });
-        return;
-      }
-      
-      if (!amount || !isValidAmount(amount)) {
-        console.log('Invalid amount for registration:', amount);
-        toast({ title: 'Invalid amount', description: 'Enter a valid amount to register', status: 'error' });
-        return;
-      }
-      
-      // For Bitcoin, we'll use the bridge functionality
-      toast({ title: 'Bitcoin Registration', description: 'Bitcoin payments are registered through the cross-chain bridge. Please use the Bridge page for Bitcoin transactions.', status: 'info' });
-      return;
-    }
+    setError(null);
+    setIsRegistering(true);
     
     try {
+      // Check if demo mode is enabled
+      if (process.env.REACT_APP_DEMO_MODE === 'true') {
+        toast({ 
+          title: 'Demo Mode', 
+          description: 'Payment registered locally. In production, this would register on the Stacks blockchain.', 
+          status: 'success' 
+        });
+        return;
+      }
+      
+      if (paymentType === 'STX') {
+        if (!isAuthenticated) {
+          const errorMsg = 'Please connect your Stacks wallet first';
+          setError(errorMsg);
+          toast({ title: 'Wallet required', description: errorMsg, status: 'error' });
+          return;
+        }
+        
+        if (!CONTRACT_ADDRESS) {
+          const errorMsg = 'Set REACT_APP_CONTRACT_ADDRESS';
+          setError(errorMsg);
+          toast({ title: 'Contract not configured', description: errorMsg, status: 'error' });
+          return;
+        }
+        
+        if (!amount || !isValidAmount(amount)) {
+          const errorMsg = 'Enter a valid amount to register';
+          setError(errorMsg);
+          toast({ title: 'Invalid amount', description: errorMsg, status: 'error' });
+          return;
+        }
+      } else if (paymentType === 'BTC') {
+        if (!btcConnected) {
+          const errorMsg = 'Please connect your Bitcoin wallet first';
+          setError(errorMsg);
+          toast({ title: 'Bitcoin wallet required', description: errorMsg, status: 'error' });
+          return;
+        }
+        
+        if (!amount || !isValidAmount(amount)) {
+          const errorMsg = 'Enter a valid amount to register';
+          setError(errorMsg);
+          toast({ title: 'Invalid amount', description: errorMsg, status: 'error' });
+          return;
+        }
+        
+        // For Bitcoin, we'll use the bridge functionality
+        toast({ title: 'Bitcoin Registration', description: 'Bitcoin payments are registered through the cross-chain bridge. Please use the Bridge page for Bitcoin transactions.', status: 'info' });
+        return;
+      }
+    
       const id = generatedId || generateId();
       const microStx = Math.round(Number(amount) * 1_000_000);
       
@@ -294,7 +319,11 @@ export default function PaymentLinkGenerator() {
       } as any);
     } catch (e: any) {
       console.error('Contract call error:', e);
-      toast({ title: 'On-chain register failed', description: e?.message || 'Unknown error', status: 'error' });
+      const errorMsg = e?.message || 'Unknown error';
+      setError(errorMsg);
+      toast({ title: 'On-chain register failed', description: errorMsg, status: 'error' });
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -403,6 +432,25 @@ export default function PaymentLinkGenerator() {
         </Box>
       </VStack>
 
+      {/* Error Display */}
+      {error && (
+        <Box 
+          bg="red.50" 
+          borderColor="red.200" 
+          borderWidth="2px" 
+          borderRadius="lg" 
+          p={4}
+          mb={4}
+        >
+          <Text color="red.700" fontWeight="semibold" mb={2}>
+            ⚠️ Error
+          </Text>
+          <Text color="red.600" fontSize="sm">
+            {error}
+          </Text>
+        </Box>
+      )}
+
           {/* Action Buttons */}
           <VStack gap={4}>
             <VStack gap={3} w="100%">
@@ -411,6 +459,7 @@ export default function PaymentLinkGenerator() {
                   colorScheme="blue" 
                   onClick={onGenerate} 
                   loading={isGenerating}
+                  loadingText="Generating..."
                   size={{ base: "md", md: "lg" }}
                   title="Generate a shareable payment link"
                   fontWeight="semibold"
@@ -449,7 +498,9 @@ export default function PaymentLinkGenerator() {
                     console.log('Register On-Chain button clicked');
                     onRegisterOnChain();
                   }} 
-                  disabled={!amount}
+                  disabled={!amount || isRegistering}
+                  loading={isRegistering}
+                  loadingText="Registering..."
                   size={{ base: "md", md: "lg" }}
                   title="Register this payment on the blockchain"
                   fontWeight="semibold"

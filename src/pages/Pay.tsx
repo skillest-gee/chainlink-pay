@@ -20,6 +20,7 @@ export default function Pay() {
   const [payment, setPayment] = useState<PaymentData | null>(null);
   const [contractStatus, setContractStatus] = useState<{ isDeployed: boolean; error?: string } | null>(null);
   const [isPaying, setIsPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   
   // Wallet and payment functionality
   const { isAuthenticated, address, connect } = useStacksWallet();
@@ -37,6 +38,8 @@ export default function Pay() {
     if (!amount || !isAuthenticated) return;
     
     setIsPaying(true);
+    setPaymentError(null);
+    
     try {
       const amountInMicroSTX = BigInt(Math.floor(Number(amount) * 1000000)); // Convert to micro-STX
       const merchantAddress = process.env.REACT_APP_MERCHANT_ADDRESS;
@@ -73,11 +76,14 @@ export default function Pay() {
       });
     } catch (error: any) {
       console.error('Payment error:', error);
+      const errorMsg = error.message || 'Payment could not be completed.';
+      setPaymentError(errorMsg);
       toast({ 
         title: 'Payment Failed', 
-        description: error.message || 'Payment could not be completed.',
+        description: errorMsg,
         status: 'error' 
       });
+    } finally {
       setIsPaying(false);
     }
   };
@@ -245,18 +251,31 @@ export default function Pay() {
                       </Button>
                     </VStack>
                   ) : (
-                    <Button 
-                      colorScheme="green" 
-                      size={{ base: "md", md: "lg" }} 
-                      onClick={handlePayment}
-                      disabled={isPaying}
-                      loading={isPaying}
-                      loadingText="Processing Payment..."
-                      fontWeight="semibold"
-                      w="100%"
-                    >
-                      💳 Pay with Wallet
-                    </Button>
+                    <VStack gap={3} w="100%">
+                      {paymentError && (
+                        <AlertRoot status="error" variant="subtle" borderRadius="lg">
+                          <AlertIndicator>
+                            <Text fontSize="lg">⚠️</Text>
+                          </AlertIndicator>
+                          <AlertContent>
+                            <AlertTitle>Payment Error</AlertTitle>
+                            <AlertDescription>{paymentError}</AlertDescription>
+                          </AlertContent>
+                        </AlertRoot>
+                      )}
+                      <Button 
+                        colorScheme="green" 
+                        size={{ base: "md", md: "lg" }} 
+                        onClick={handlePayment}
+                        disabled={isPaying}
+                        loading={isPaying}
+                        loadingText="Processing Payment..."
+                        fontWeight="semibold"
+                        w="100%"
+                      >
+                        💳 Pay with Wallet
+                      </Button>
+                    </VStack>
                   )}
                 </VStack>
               </Box>

@@ -19,6 +19,8 @@ export default function Dashboard() {
     totalVolume: 0
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Load real payment data
   useEffect(() => {
@@ -27,16 +29,23 @@ export default function Dashboard() {
       return;
     }
 
-    // Check for expired links
-    paymentStorage.checkExpiredLinks();
+    setError(null);
+    try {
+      // Check for expired links
+      paymentStorage.checkExpiredLinks();
 
-    // Load payment links and stats
-    const links = paymentStorage.getPaymentLinks(address);
-    const paymentStats = paymentStorage.getPaymentStats(address);
-    
-    setPaymentLinks(links);
-    setStats(paymentStats);
-    setLoading(false);
+      // Load payment links and stats
+      const links = paymentStorage.getPaymentLinks(address);
+      const paymentStats = paymentStorage.getPaymentStats(address);
+      
+      setPaymentLinks(links);
+      setStats(paymentStats);
+    } catch (err: any) {
+      console.error('Error loading dashboard data:', err);
+      setError(err.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
   }, [isAuthenticated, address]);
 
   // Refresh data when component becomes visible
@@ -55,14 +64,26 @@ export default function Dashboard() {
   }, [isAuthenticated, address]);
 
   // Add refresh function for manual refresh
-  const refreshData = () => {
+  const refreshData = async () => {
     if (!isAuthenticated || !address) return;
     
-    paymentStorage.checkExpiredLinks();
-    const links = paymentStorage.getPaymentLinks(address);
-    const paymentStats = paymentStorage.getPaymentStats(address);
-    setPaymentLinks(links);
-    setStats(paymentStats);
+    setRefreshing(true);
+    setError(null);
+    
+    try {
+      paymentStorage.checkExpiredLinks();
+      const links = paymentStorage.getPaymentLinks(address);
+      const paymentStats = paymentStorage.getPaymentStats(address);
+      setPaymentLinks(links);
+      setStats(paymentStats);
+      toast({ title: 'Dashboard refreshed', description: 'Data updated successfully', status: 'success' });
+    } catch (err: any) {
+      console.error('Error refreshing dashboard:', err);
+      setError(err.message || 'Failed to refresh dashboard data');
+      toast({ title: 'Refresh failed', description: err.message || 'Failed to refresh data', status: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Format time remaining

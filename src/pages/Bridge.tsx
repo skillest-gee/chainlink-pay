@@ -21,7 +21,9 @@ export default function Bridge() {
   const [txHash, setTxHash] = useState<string | undefined>(undefined);
   const [currentStep, setCurrentStep] = useState(1);
   const [isBridging, setIsBridging] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const { estimate, loading, error, getEstimate } = useAxelarEstimates();
   const { status } = useAxelarStatus(txHash);
 
@@ -30,24 +32,34 @@ export default function Bridge() {
     console.log('Starting estimate process...', { sourceChain, destinationChain, amount });
     console.log('Current state:', { btcConnected, btcAddress, btcBalance, balance });
 
-    // Enhanced validation
-    if (!amount || parseFloat(amount) <= 0) {
-      console.log('Invalid amount:', amount);
-      toast({ title: 'Invalid amount', description: 'Please enter a valid amount greater than 0', status: 'error' });
-      return;
-    }
-    
-    const amountNum = parseFloat(amount);
-    console.log('Amount validation:', { amountNum, sourceChain });
-    
-    if (sourceChain === 'bitcoin') {
-      if (amountNum < 0.001) {
-        toast({ title: 'Amount too small', description: 'Minimum bridge amount is 0.001 BTC', status: 'error' });
+    setIsEstimating(true);
+    setValidationError(null);
+    setBridgeError(null);
+
+    try {
+      // Enhanced validation
+      if (!amount || parseFloat(amount) <= 0) {
+        const errorMsg = 'Please enter a valid amount greater than 0';
+        setValidationError(errorMsg);
+        toast({ title: 'Invalid amount', description: errorMsg, status: 'error' });
         return;
       }
-      if (amountNum > 10) {
-        toast({ title: 'Amount too large', description: 'Maximum bridge amount is 10 BTC for security', status: 'error' });
-        return;
+    
+      const amountNum = parseFloat(amount);
+      console.log('Amount validation:', { amountNum, sourceChain });
+      
+      if (sourceChain === 'bitcoin') {
+        if (amountNum < 0.001) {
+          const errorMsg = 'Minimum bridge amount is 0.001 BTC';
+          setValidationError(errorMsg);
+          toast({ title: 'Amount too small', description: errorMsg, status: 'error' });
+          return;
+        }
+        if (amountNum > 10) {
+          const errorMsg = 'Maximum bridge amount is 10 BTC for security';
+          setValidationError(errorMsg);
+          toast({ title: 'Amount too large', description: errorMsg, status: 'error' });
+          return;
       }
       if (!btcConnected) {
         toast({ title: 'Bitcoin wallet required', description: 'Please connect your Bitcoin wallet first', status: 'error' });
@@ -72,15 +84,25 @@ export default function Bridge() {
       }
     }
     
-    console.log('Validation passed, getting estimate...');
-    try {
-      await getEstimate(sourceChain, destinationChain, sourceChain === 'bitcoin' ? 'BTC' : 'STX', amount);
-      setCurrentStep(3);
-      console.log('Estimate successful, step updated to 3');
-      toast({ title: 'Estimate received', description: 'Bridge fees calculated successfully', status: 'success' });
+      console.log('Validation passed, getting estimate...');
+      try {
+        await getEstimate(sourceChain, destinationChain, sourceChain === 'bitcoin' ? 'BTC' : 'STX', amount);
+        setCurrentStep(3);
+        console.log('Estimate successful, step updated to 3');
+        toast({ title: 'Estimate received', description: 'Bridge fees calculated successfully', status: 'success' });
+      } catch (error: any) {
+        console.error('Estimate failed:', error);
+        const errorMsg = error.message || 'Could not get bridge estimate';
+        setBridgeError(errorMsg);
+        toast({ title: 'Estimate failed', description: errorMsg, status: 'error' });
+      }
     } catch (error: any) {
-      console.error('Estimate failed:', error);
-      toast({ title: 'Estimate failed', description: error.message || 'Could not get bridge estimate', status: 'error' });
+      console.error('Estimate process failed:', error);
+      const errorMsg = error.message || 'Estimate process failed';
+      setBridgeError(errorMsg);
+      toast({ title: 'Estimate failed', description: errorMsg, status: 'error' });
+    } finally {
+      setIsEstimating(false);
     }
   };
 

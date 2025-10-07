@@ -31,7 +31,11 @@ export default function AIContractBuilder() {
   const [input, setInput] = useState<Record<string, string>>({});
   const [code, setCode] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [issues, setIssues] = useState<{ level: 'error' | 'warning'; message: string }[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
   const apiEnabled = Boolean(apiKey && apiKey.trim() !== '' && apiKey !== 'your_openai_api_key_here');
