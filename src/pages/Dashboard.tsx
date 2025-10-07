@@ -39,6 +39,32 @@ export default function Dashboard() {
     setLoading(false);
   }, [isAuthenticated, address]);
 
+  // Refresh data when component becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isAuthenticated && address) {
+        const links = paymentStorage.getPaymentLinks(address);
+        const paymentStats = paymentStorage.getPaymentStats(address);
+        setPaymentLinks(links);
+        setStats(paymentStats);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isAuthenticated, address]);
+
+  // Add refresh function for manual refresh
+  const refreshData = () => {
+    if (!isAuthenticated || !address) return;
+    
+    paymentStorage.checkExpiredLinks();
+    const links = paymentStorage.getPaymentLinks(address);
+    const paymentStats = paymentStorage.getPaymentStats(address);
+    setPaymentLinks(links);
+    setStats(paymentStats);
+  };
+
   // Format time remaining
   const getTimeRemaining = (expiresAt: number) => {
     const now = Date.now();
@@ -106,9 +132,19 @@ export default function Dashboard() {
         <VStack gap={{ base: 4, md: 8 }} align="stretch">
         {/* Header */}
         <VStack gap={4} textAlign="center">
-          <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">
-            Dashboard
-          </Heading>
+          <HStack gap={4} align="center">
+            <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">
+              Dashboard
+            </Heading>
+            <Button 
+              size="sm" 
+              colorScheme="blue" 
+              variant="outline"
+              onClick={refreshData}
+            >
+              🔄 Refresh
+            </Button>
+          </HStack>
           <Text fontSize={{ base: "sm", md: "lg" }} color="gray.600" px={{ base: 4, md: 0 }}>
             Manage your payment links and track your earnings
           </Text>
@@ -127,7 +163,7 @@ export default function Dashboard() {
             <VStack gap={2}>
               <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold" color="green.600">{stats.totalPaid}</Text>
               <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" textAlign="center">Paid</Text>
-            </VStack>
+        </VStack>
           </Box>
           
           <Box bg="white" p={{ base: 4, md: 6 }} borderRadius="xl" borderWidth="2px" borderColor="orange.200" shadow="lg">

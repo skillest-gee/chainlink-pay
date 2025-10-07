@@ -15,9 +15,23 @@ export default function Home() {
         <VStack gap={{ base: 4, md: 8 }} align="stretch">
         {/* Hero Section */}
             <VStack gap={{ base: 4, md: 6 }} textAlign="center" py={{ base: 4, md: 8 }}>
-              <Heading size={{ base: "2xl", md: "3xl" }} color="blue.600" fontWeight="bold">
-                ChainLinkPay
-              </Heading>
+              <HStack gap={3} align="center">
+                <Box
+                  w={{ base: "40px", md: "50px" }}
+                  h={{ base: "40px", md: "50px" }}
+                  bg="blue.600"
+                  borderRadius="lg"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  fontSize={{ base: "xl", md: "2xl" }}
+                >
+                  🔗
+                </Box>
+                <Heading size={{ base: "2xl", md: "3xl" }} color="blue.600" fontWeight="bold">
+                  ChainLinkPay
+                </Heading>
+              </HStack>
               <Text fontSize={{ base: "md", md: "xl" }} color="gray.600" maxW={{ base: "100%", md: "700px" }} fontWeight="500" px={{ base: 4, md: 0 }}>
                 Create Bitcoin payment links in seconds. Send invoices, get paid instantly.
               </Text>
