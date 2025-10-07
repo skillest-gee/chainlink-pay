@@ -127,35 +127,65 @@ export default function Dashboard() {
   }
 
   return (
-    <Box minH="100vh" overflowX="hidden">
+    <Box 
+      minH="100vh" 
+      overflowX="hidden"
+      bg="#0a0a0a"
+      backgroundImage="radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 107, 53, 0.1) 0%, transparent 50%)"
+    >
       <Container maxW="6xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
         <VStack gap={{ base: 4, md: 8 }} align="stretch">
         {/* Header */}
         <VStack gap={4} textAlign="center">
           <HStack gap={4} align="center">
-            <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">
+            <Heading 
+              size={{ base: "xl", md: "2xl" }} 
+              bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
+              bgClip="text"
+              fontWeight="bold"
+            >
               Dashboard
             </Heading>
             <Button 
               size="sm" 
-              colorScheme="blue" 
-              variant="outline"
+              bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
+              color="white"
+              border="none"
+              borderRadius="xl"
+              _hover={{
+                transform: 'scale(1.05)',
+                boxShadow: '0 8px 25px rgba(0, 212, 255, 0.4)'
+              }}
               onClick={refreshData}
             >
               🔄 Refresh
             </Button>
           </HStack>
-          <Text fontSize={{ base: "sm", md: "lg" }} color="gray.600" px={{ base: 4, md: 0 }}>
+          <Text fontSize={{ base: "sm", md: "lg" }} color="#a0a0a0" px={{ base: 4, md: 0 }}>
             Manage your payment links and track your earnings
           </Text>
         </VStack>
 
         {/* Stats Cards */}
         <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={{ base: 3, md: 4 }}>
-          <Box bg="white" p={{ base: 4, md: 6 }} borderRadius="xl" borderWidth="2px" borderColor="blue.200" shadow="lg">
+          <Box 
+            bg="rgba(30, 30, 30, 0.8)" 
+            backdropFilter="blur(10px)"
+            p={{ base: 4, md: 6 }} 
+            borderRadius="xl" 
+            borderWidth="1px" 
+            borderColor="rgba(0, 212, 255, 0.3)"
+            shadow="0 8px 32px rgba(0, 0, 0, 0.3)"
+            _hover={{
+              transform: 'translateY(-2px)',
+              boxShadow: '0 12px 40px rgba(0, 212, 255, 0.2)',
+              borderColor: 'rgba(0, 212, 255, 0.5)'
+            }}
+            transition="all 0.3s ease"
+          >
             <VStack gap={2}>
-              <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold" color="blue.600">{stats.totalLinks}</Text>
-              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" textAlign="center">Total Links</Text>
+              <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold" color="#00d4ff">{stats.totalLinks}</Text>
+              <Text fontSize={{ base: "xs", md: "sm" }} color="#a0a0a0" textAlign="center">Total Links</Text>
             </VStack>
           </Box>
           
