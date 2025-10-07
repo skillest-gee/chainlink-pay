@@ -20,31 +20,47 @@ function App() {
   const { isAuthenticated } = useStacksWallet();
   
   return (
-    <Box minH="100vh" bg="gray.50" color="gray.800" overflowX="hidden">
-      <Box as="header" borderBottomWidth="1px" bg="white" shadow="sm">
+    <Box minH="100vh" bg="bg.primary" color="text.primary" overflowX="hidden">
+      <Box 
+        as="header" 
+        borderBottomWidth="1px" 
+        borderColor="bg.tertiary"
+        bg="bg.secondary" 
+        shadow="0 4px 20px rgba(0, 0, 0, 0.3)"
+        backdropFilter="blur(10px)"
+      >
         <Container maxW="6xl" py={{ base: 2, md: 3 }}>
           <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={{ base: 3, md: 4 }}>
             {/* Logo and Brand */}
             <HStack gap={3} align="center" order={{ base: 1, md: 1 }}>
-              <Box position="relative">
-                <Image 
-                  src="/logo.png" 
-                  alt="ChainLinkPay Logo" 
-                  w={{ base: "35px", md: "45px" }}
-                  h={{ base: "35px", md: "45px" }}
-                  borderRadius="lg"
-                  shadow="md"
-                  border="2px solid"
-                  borderColor="blue.300"
-                  _hover={{ 
-                    transform: "scale(1.05)", 
-                    transition: "all 0.2s",
-                    shadow: "lg",
-                    borderColor: "blue.400"
-                  }}
-                />
+              <Box 
+                w={{ base: "40px", md: "50px" }}
+                h={{ base: "40px", md: "50px" }}
+                bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
+                borderRadius="xl"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                fontSize={{ base: "lg", md: "xl" }}
+                boxShadow="0 4px 20px rgba(0, 212, 255, 0.3)"
+                border="2px solid"
+                borderColor="brand.primary"
+                _hover={{
+                  transform: "scale(1.05)",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 8px 30px rgba(0, 212, 255, 0.4)",
+                  borderColor: "brand.secondary"
+                }}
+              >
+                🔗
               </Box>
-              <Heading size={{ base: "md", md: "lg" }} color="blue.600" fontWeight="bold" letterSpacing="tight">
+              <Heading 
+                size={{ base: "md", md: "lg" }} 
+                bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
+                bgClip="text"
+                fontWeight="bold" 
+                letterSpacing="tight"
+              >
                 ChainLinkPay
               </Heading>
             </HStack>
