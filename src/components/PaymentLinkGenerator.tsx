@@ -299,14 +299,29 @@ export default function PaymentLinkGenerator() {
   };
 
   return (
-    <Box overflowX="hidden" px={{ base: 2, md: 0 }}>
+    <Box 
+      overflowX="hidden" 
+      px={{ base: 4, md: 6 }}
+      py={{ base: 6, md: 8 }}
+      bg="rgba(30, 30, 30, 0.9)"
+      backdropFilter="blur(20px)"
+      borderRadius="2xl"
+      borderWidth="1px"
+      borderColor="rgba(0, 212, 255, 0.3)"
+      shadow="0 20px 60px rgba(0, 0, 0, 0.5)"
+      _hover={{
+        borderColor: 'rgba(0, 212, 255, 0.5)',
+        boxShadow: '0 25px 80px rgba(0, 212, 255, 0.2)'
+      }}
+      transition="all 0.3s ease"
+    >
       <VStack gap={{ base: 4, md: 6 }} align="stretch">
         {/* Input Section */}
         <VStack gap={{ base: 3, md: 4 }} align="stretch">
         {/* Payment Type Selector */}
         <Box>
-          <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">
-            Payment Type
+          <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="#ffffff">
+            💳 Payment Type
           </Text>
           <HStack gap={4} justify="center">
             <Button

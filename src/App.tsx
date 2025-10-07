@@ -20,14 +20,17 @@ function App() {
   const { isAuthenticated } = useStacksWallet();
   
   return (
-    <Box minH="100vh" bg="bg.primary" color="text.primary" overflowX="hidden">
+    <Box minH="100vh" bg="#0a0a0a" color="#ffffff" overflowX="hidden">
       <Box 
         as="header" 
         borderBottomWidth="1px" 
-        borderColor="bg.tertiary"
-        bg="bg.secondary" 
-        shadow="0 4px 20px rgba(0, 0, 0, 0.3)"
-        backdropFilter="blur(10px)"
+        borderColor="rgba(0, 212, 255, 0.2)"
+        bg="rgba(17, 17, 17, 0.95)" 
+        shadow="0 8px 32px rgba(0, 0, 0, 0.5)"
+        backdropFilter="blur(20px)"
+        position="sticky"
+        top="0"
+        zIndex="1000"
       >
         <Container maxW="6xl" py={{ base: 2, md: 3 }}>
           <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={{ base: 3, md: 4 }}>
@@ -66,20 +69,96 @@ function App() {
             </HStack>
 
             {/* Navigation */}
-            <HStack gap={{ base: 3, md: 6 }} display="flex" order={{ base: 3, md: 2 }} wrap="wrap" justify="center">
-              <Link to="/" style={{ textDecoration: 'none', color: '#374151', fontWeight: '500', cursor: 'pointer' }} title="Create and manage payment links">
-                <Text _hover={{ color: 'blue.600' }} px={2} py={1} borderRadius="md" fontSize={{ base: "xs", md: "sm" }}>Home</Text>
+            <HStack gap={{ base: 2, md: 4 }} display="flex" order={{ base: 3, md: 2 }} wrap="wrap" justify="center">
+              <Link to="/" style={{ textDecoration: 'none' }} title="Create and manage payment links">
+                <Text 
+                  color="#ffffff" 
+                  fontWeight="600" 
+                  px={4} 
+                  py={2} 
+                  borderRadius="xl" 
+                  fontSize={{ base: "sm", md: "md" }}
+                  bg="rgba(0, 212, 255, 0.1)"
+                  border="1px solid"
+                  borderColor="rgba(0, 212, 255, 0.3)"
+                  _hover={{ 
+                    bg: 'rgba(0, 212, 255, 0.2)',
+                    borderColor: 'rgba(0, 212, 255, 0.5)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)'
+                  }}
+                  transition="all 0.3s ease"
+                >
+                  🏠 Home
+                </Text>
               </Link>
               {isAuthenticated ? (
                 <>
-                  <Link to="/builder" style={{ textDecoration: 'none', color: '#374151', fontWeight: '500', cursor: 'pointer' }} title="AI-powered smart contract builder">
-                    <Text _hover={{ color: 'blue.600' }} px={2} py={1} borderRadius="md" fontSize={{ base: "xs", md: "sm" }}>AI Builder</Text>
+                  <Link to="/builder" style={{ textDecoration: 'none' }} title="AI-powered smart contract builder">
+                    <Text 
+                      color="#ffffff" 
+                      fontWeight="600" 
+                      px={4} 
+                      py={2} 
+                      borderRadius="xl" 
+                      fontSize={{ base: "sm", md: "md" }}
+                      bg="rgba(255, 107, 53, 0.1)"
+                      border="1px solid"
+                      borderColor="rgba(255, 107, 53, 0.3)"
+                      _hover={{ 
+                        bg: 'rgba(255, 107, 53, 0.2)',
+                        borderColor: 'rgba(255, 107, 53, 0.5)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 25px rgba(255, 107, 53, 0.3)'
+                      }}
+                      transition="all 0.3s ease"
+                    >
+                      🤖 AI Builder
+                    </Text>
                   </Link>
-                  <Link to="/bridge" style={{ textDecoration: 'none', color: '#374151', fontWeight: '500', cursor: 'pointer' }} title="Cross-chain bridge for Bitcoin to other networks">
-                    <Text _hover={{ color: 'blue.600' }} px={2} py={1} borderRadius="md" fontSize={{ base: "xs", md: "sm" }}>Bridge</Text>
+                  <Link to="/bridge" style={{ textDecoration: 'none' }} title="Cross-chain bridge for Bitcoin to other networks">
+                    <Text 
+                      color="#ffffff" 
+                      fontWeight="600" 
+                      px={4} 
+                      py={2} 
+                      borderRadius="xl" 
+                      fontSize={{ base: "sm", md: "md" }}
+                      bg="rgba(0, 255, 136, 0.1)"
+                      border="1px solid"
+                      borderColor="rgba(0, 255, 136, 0.3)"
+                      _hover={{ 
+                        bg: 'rgba(0, 255, 136, 0.2)',
+                        borderColor: 'rgba(0, 255, 136, 0.5)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 25px rgba(0, 255, 136, 0.3)'
+                      }}
+                      transition="all 0.3s ease"
+                    >
+                      🌉 Bridge
+                    </Text>
                   </Link>
-                  <Link to="/dashboard" style={{ textDecoration: 'none', color: '#374151', fontWeight: '500', cursor: 'pointer' }} title="View analytics and transaction history">
-                    <Text _hover={{ color: 'blue.600' }} px={2} py={1} borderRadius="md" fontSize={{ base: "xs", md: "sm" }}>Dashboard</Text>
+                  <Link to="/dashboard" style={{ textDecoration: 'none' }} title="View analytics and transaction history">
+                    <Text 
+                      color="#ffffff" 
+                      fontWeight="600" 
+                      px={4} 
+                      py={2} 
+                      borderRadius="xl" 
+                      fontSize={{ base: "sm", md: "md" }}
+                      bg="rgba(170, 0, 255, 0.1)"
+                      border="1px solid"
+                      borderColor="rgba(170, 0, 255, 0.3)"
+                      _hover={{ 
+                        bg: 'rgba(170, 0, 255, 0.2)',
+                        borderColor: 'rgba(170, 0, 255, 0.5)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 25px rgba(170, 0, 255, 0.3)'
+                      }}
+                      transition="all 0.3s ease"
+                    >
+                      📊 Dashboard
+                    </Text>
                   </Link>
                 </>
               ) : (
