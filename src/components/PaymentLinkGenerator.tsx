@@ -211,6 +211,16 @@ export default function PaymentLinkGenerator() {
     console.log('Register On-Chain button clicked');
     console.log('Current state:', { isAuthenticated, amount, CONTRACT_ADDRESS, CONTRACT_NAME, paymentType, btcConnected });
     
+    // Check if demo mode is enabled
+    if (process.env.REACT_APP_DEMO_MODE === 'true') {
+      toast({ 
+        title: 'Demo Mode', 
+        description: 'Payment registered locally. In production, this would register on the Stacks blockchain.', 
+        status: 'success' 
+      });
+      return;
+    }
+    
     if (paymentType === 'STX') {
       if (!isAuthenticated) {
         console.log('STX wallet not authenticated');
