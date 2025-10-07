@@ -49,12 +49,6 @@ function App() {
                 boxShadow="0 8px 32px rgba(0, 212, 255, 0.4)"
                 border="2px solid"
                 borderColor="rgba(0, 212, 255, 0.3)"
-                _hover={{
-                  transform: "scale(1.08)",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  boxShadow: "0 12px 40px rgba(0, 212, 255, 0.5)",
-                  borderColor: "rgba(0, 212, 255, 0.6)"
-                }}
                 position="relative"
                 _before={{
                   content: '""',
@@ -70,6 +64,10 @@ function App() {
                   transition: 'opacity 0.3s ease'
                 }}
                 _hover={{
+                  transform: "scale(1.08)",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: "0 12px 40px rgba(0, 212, 255, 0.5)",
+                  borderColor: "rgba(0, 212, 255, 0.6)",
                   _before: {
                     opacity: 1
                   }
