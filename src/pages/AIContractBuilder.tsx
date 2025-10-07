@@ -323,17 +323,38 @@ export default function AIContractBuilder() {
   }
 
   return (
-    <Box minH="100vh" overflowX="hidden">
+    <Box minH="100vh" overflowX="hidden" bg="#0a0a0a">
       <Container maxW="6xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
         <VStack gap={{ base: 4, md: 8 }} align="stretch">
           <VStack gap={4} textAlign="center">
-            <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">AI Contract Builder</Heading>
-            <Text fontSize={{ base: "md", md: "lg" }} color="gray.600" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
+            <Heading 
+              size={{ base: "xl", md: "2xl" }} 
+              bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
+              bgClip="text"
+              fontWeight="bold"
+            >
+              🤖 AI Contract Builder
+            </Heading>
+            <Text fontSize={{ base: "md", md: "lg" }} color="#a0a0a0" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
               Generate smart contracts from natural language using AI
             </Text>
           </VStack>
         
-        <Box borderWidth="2px" borderColor="blue.200" borderRadius="xl" p={{ base: 4, md: 8 }} bg="white" shadow="lg">
+        <Box 
+          borderWidth="2px" 
+          borderColor="rgba(0, 212, 255, 0.3)" 
+          borderRadius="3xl" 
+          p={{ base: 6, md: 8 }} 
+          bg="rgba(30, 30, 30, 0.95)"
+          backdropFilter="blur(20px)"
+          shadow="0 25px 80px rgba(0, 0, 0, 0.6)"
+          _hover={{
+            borderColor: 'rgba(0, 212, 255, 0.5)',
+            boxShadow: '0 30px 100px rgba(0, 212, 255, 0.25)',
+            transform: 'translateY(-2px)'
+          }}
+          transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
+        >
           {/* <Box mb={4}><DemoBar /></Box> */} {/* Removed for production */}
           <Stack gap={4}>
             {nl && (
@@ -344,83 +365,121 @@ export default function AIContractBuilder() {
               </Box>
             )}
             <Box>
-              <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Template</Text>
+              <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="#ffffff">
+                📋 Template
+              </Text>
               <select 
                 value={templateId} 
                 onChange={(e: any) => setTemplateId(e.target.value as TemplateId)} 
                 style={{ 
                   padding: '12px 16px', 
-                  borderRadius: '8px', 
-                  backgroundColor: 'white', 
-                  color: '#374151', 
-                  border: '2px solid #D1D5DB',
+                  borderRadius: '12px', 
+                  backgroundColor: 'rgba(30, 30, 30, 0.8)', 
+                  color: '#ffffff', 
+                  border: '2px solid rgba(0, 212, 255, 0.3)',
                   fontSize: '16px',
-                  width: '100%'
+                  width: '100%',
+                  transition: 'all 0.2s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#00d4ff';
+                  e.target.style.backgroundColor = 'rgba(30, 30, 30, 0.95)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(0, 212, 255, 0.3)';
+                  e.target.style.backgroundColor = 'rgba(30, 30, 30, 0.8)';
                 }}
               >
-                <option value="ESCROW">Escrow</option>
-                <option value="SPLIT">Split</option>
-                <option value="SUBSCRIPTION">Subscription</option>
+                <option value="ESCROW" style={{ backgroundColor: '#1e1e1e', color: '#ffffff' }}>🔒 Escrow</option>
+                <option value="SPLIT" style={{ backgroundColor: '#1e1e1e', color: '#ffffff' }}>💰 Split Payment</option>
+                <option value="SUBSCRIPTION" style={{ backgroundColor: '#1e1e1e', color: '#ffffff' }}>🔄 Subscription</option>
               </select>
             </Box>
             <Box>
-              <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Natural language request</Text>
+              <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="#ffffff">
+                🤖 Natural Language Request
+              </Text>
               <Textarea 
                 placeholder={DEFAULT_PROMPTS[templateId]} 
                 value={nl} 
                 onChange={e => setNl(e.target.value)}
-                bg="white"
-                borderColor="gray.300"
+                bg="rgba(30, 30, 30, 0.8)"
+                borderColor="rgba(0, 212, 255, 0.3)"
                 borderWidth="2px"
-                size={{ base: "md", md: "lg" }}
-                _hover={{ borderColor: "blue.300" }}
-                _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)" }}
+                borderRadius="xl"
+                color="#ffffff"
+                fontSize={{ base: "sm", md: "md" }}
+                minH="120px"
+                _placeholder={{ color: "#a0a0a0" }}
+                _hover={{ 
+                  borderColor: "rgba(0, 212, 255, 0.5)",
+                  bg: "rgba(30, 30, 30, 0.9)"
+                }}
+                _focus={{ 
+                  borderColor: "#00d4ff", 
+                  boxShadow: "0 0 0 3px rgba(0, 212, 255, 0.1)",
+                  bg: "rgba(30, 30, 30, 0.95)"
+                }}
+                transition="all 0.2s ease"
               />
             </Box>
-            <Box borderTop="2px" borderColor="gray.200" pt={6} />
-            <Heading size={{ base: "sm", md: "md" }} color="blue.600" mb={4}>Placeholders</Heading>
+            <Box borderTop="2px" borderColor="rgba(0, 212, 255, 0.2)" pt={6} />
+            <Heading size={{ base: "sm", md: "md" }} color="#00d4ff" mb={4}>
+              🔧 Placeholders
+            </Heading>
             <VStack gap={4} align="stretch">
               {currentTemplate.placeholders.map(ph => (
                 <VStack key={ph.key} gap={2} align="stretch">
-                  <Text fontWeight="semibold" color="gray.700" fontSize={{ base: "sm", md: "md" }}>
-                    {ph.key} {ph.required && <Text as="span" color="red.500">*</Text>}
+                  <Text fontWeight="semibold" color="#ffffff" fontSize={{ base: "sm", md: "md" }}>
+                    {ph.key} {ph.required && <Text as="span" color="#ff4444">*</Text>}
                   </Text>
                   <Input 
                     placeholder={ph.type} 
                     value={input[ph.key] || ''} 
                     onChange={e => setInput({ ...input, [ph.key]: e.target.value })}
-                    bg="white"
-                    borderColor="gray.300"
+                    bg="rgba(30, 30, 30, 0.8)"
+                    borderColor="rgba(0, 212, 255, 0.3)"
                     borderWidth="2px"
-                    size={{ base: "md", md: "lg" }}
-                    _hover={{ borderColor: "blue.300" }}
-                    _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)" }}
+                    borderRadius="xl"
+                    color="#ffffff"
+                    fontSize={{ base: "sm", md: "md" }}
+                    _placeholder={{ color: "#a0a0a0" }}
+                    _hover={{ 
+                      borderColor: "rgba(0, 212, 255, 0.5)",
+                      bg: "rgba(30, 30, 30, 0.9)"
+                    }}
+                    _focus={{ 
+                      borderColor: "#00d4ff", 
+                      boxShadow: "0 0 0 3px rgba(0, 212, 255, 0.1)",
+                      bg: "rgba(30, 30, 30, 0.95)"
+                    }}
+                    transition="all 0.2s ease"
                   />
                 </VStack>
               ))}
             </VStack>
             {!apiEnabled && (
-              <Box p={4} borderRadius="lg" bg="blue.50" borderColor="blue.200" borderWidth="1px">
+              <Box p={4} borderRadius="xl" bg="rgba(0, 212, 255, 0.1)" borderColor="rgba(0, 212, 255, 0.3)" borderWidth="2px">
                 <VStack align="start" gap={2}>
-                  <Text color="blue.600" fontSize="sm" fontWeight="semibold">
+                  <Text color="#00d4ff" fontSize="sm" fontWeight="semibold">
                     💡 <strong>AI Enhancement Available</strong>
                   </Text>
-                  <Text color="blue.600" fontSize="sm">
+                  <Text color="#a0a0a0" fontSize="sm">
                     Add REACT_APP_OPENAI_API_KEY to your environment for enhanced AI contract generation. Currently using local templates.
                   </Text>
-                  <Text color="blue.500" fontSize="xs" fontFamily="mono">
+                  <Text color="#00d4ff" fontSize="xs" fontFamily="mono">
                     Create a .env file with: REACT_APP_OPENAI_API_KEY=your_key_here
                   </Text>
                 </VStack>
               </Box>
             )}
             {apiEnabled && (
-              <Box p={4} borderRadius="lg" bg="green.50" borderColor="green.200" borderWidth="1px">
+              <Box p={4} borderRadius="xl" bg="rgba(0, 255, 136, 0.1)" borderColor="rgba(0, 255, 136, 0.3)" borderWidth="2px">
                 <VStack align="start" gap={2}>
-                  <Text color="green.600" fontSize="sm" fontWeight="semibold">
+                  <Text color="#00ff88" fontSize="sm" fontWeight="semibold">
                     🤖 <strong>AI Contract Builder Active</strong>
                   </Text>
-                  <Text color="green.600" fontSize="sm">
+                  <Text color="#a0a0a0" fontSize="sm">
                     OpenAI integration enabled. Generate smart contracts from natural language descriptions.
                   </Text>
                 </VStack>
@@ -429,7 +488,8 @@ export default function AIContractBuilder() {
             <VStack gap={4} pt={4}>
               <HStack gap={4} justify="center" wrap="wrap">
                 <Button 
-                  colorScheme="blue" 
+                  bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
+                  color="white"
                   onClick={onGenerate} 
                   loading={loading}
                   size={{ base: "md", md: "lg" }}
@@ -438,8 +498,19 @@ export default function AIContractBuilder() {
                   fontWeight="semibold"
                   disabled={loading}
                   w={{ base: "100%", sm: "auto" }}
+                  borderRadius="xl"
+                  _hover={{
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 12px 40px rgba(0, 212, 255, 0.4)',
+                    bg: 'linear-gradient(135deg, #0099cc 0%, #0077aa 100%)'
+                  }}
+                  _active={{
+                    transform: 'translateY(0)',
+                    boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)'
+                  }}
+                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                 >
-                  {loading ? 'Generating...' : 'Generate Contract'}
+                  {loading ? 'Generating...' : '🤖 Generate Contract'}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -450,12 +521,23 @@ export default function AIContractBuilder() {
                   py={{ base: 4, md: 6 }}
                   fontWeight="semibold"
                   borderWidth="2px"
-                  borderColor="green.300"
-                  color="green.600"
-                  _hover={{ bg: "green.50", borderColor: "green.400" }}
+                  borderColor="rgba(0, 255, 136, 0.5)"
+                  color="#00ff88"
+                  bg="rgba(0, 255, 136, 0.1)"
+                  borderRadius="xl"
+                  _hover={{ 
+                    bg: "rgba(0, 255, 136, 0.2)", 
+                    borderColor: "#00ff88",
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 25px rgba(0, 255, 136, 0.3)'
+                  }}
+                  _active={{
+                    transform: 'translateY(0)'
+                  }}
+                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                   w={{ base: "100%", sm: "auto" }}
                 >
-                  Deploy Contract
+                  🚀 Deploy Contract
                 </Button>
               </HStack>
               <Button 
@@ -471,9 +553,17 @@ export default function AIContractBuilder() {
                   console.log('================================');
                 }}
                 size="sm"
-                colorScheme="gray"
+                borderColor="rgba(160, 160, 160, 0.3)"
+                color="#a0a0a0"
+                bg="rgba(30, 30, 30, 0.5)"
+                _hover={{
+                  borderColor: "rgba(160, 160, 160, 0.5)",
+                  color: "#ffffff",
+                  bg: "rgba(30, 30, 30, 0.8)"
+                }}
+                borderRadius="lg"
               >
-                Debug Info
+                🔍 Debug Info
               </Button>
             </VStack>
             {issues.length > 0 && (
@@ -482,13 +572,13 @@ export default function AIContractBuilder() {
                   <Box 
                     key={idx} 
                     p={4} 
-                    borderRadius="lg" 
-                    bg={i.level === 'error' ? 'red.50' : 'yellow.50'}
-                    borderColor={i.level === 'error' ? 'red.200' : 'yellow.200'}
+                    borderRadius="xl" 
+                    bg={i.level === 'error' ? 'rgba(255, 68, 68, 0.1)' : 'rgba(255, 170, 0, 0.1)'}
+                    borderColor={i.level === 'error' ? 'rgba(255, 68, 68, 0.3)' : 'rgba(255, 170, 0, 0.3)'}
                     borderWidth="2px"
                   >
-                    <Text color={i.level === 'error' ? 'red.700' : 'yellow.700'} fontWeight="semibold">
-                      {i.message}
+                    <Text color={i.level === 'error' ? '#ff4444' : '#ffaa00'} fontWeight="semibold">
+                      {i.level === 'error' ? '❌' : '⚠️'} {i.message}
                     </Text>
                   </Box>
                 ))}
@@ -497,12 +587,37 @@ export default function AIContractBuilder() {
           </Stack>
         </Box>
         {code && (
-          <Box borderWidth="2px" borderColor="blue.200" borderRadius="xl" overflow="hidden" bg="white" shadow="lg">
-            <Box p={4} bg="blue.50" borderBottom="2px" borderColor="blue.200">
-              <Text color="blue.700" fontWeight="bold">Generated Contract Code</Text>
+          <Box 
+            borderWidth="2px" 
+            borderColor="rgba(0, 212, 255, 0.3)" 
+            borderRadius="3xl" 
+            overflow="hidden" 
+            bg="rgba(30, 30, 30, 0.95)"
+            backdropFilter="blur(20px)"
+            shadow="0 25px 80px rgba(0, 0, 0, 0.6)"
+            _hover={{
+              borderColor: 'rgba(0, 212, 255, 0.5)',
+              boxShadow: '0 30px 100px rgba(0, 212, 255, 0.25)',
+              transform: 'translateY(-2px)'
+            }}
+            transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
+          >
+            <Box p={4} bg="rgba(0, 212, 255, 0.1)" borderBottom="2px" borderColor="rgba(0, 212, 255, 0.3)">
+              <Text color="#00d4ff" fontWeight="bold" fontSize="lg">
+                📄 Generated Contract Code
+              </Text>
             </Box>
-            <SyntaxHighlighter language="clojure" style={oneDark} customStyle={{ margin: 0, padding: '20px' }}>
-    {code}
+            <SyntaxHighlighter 
+              language="clojure" 
+              style={oneDark} 
+              customStyle={{ 
+                margin: 0, 
+                padding: '20px',
+                background: 'rgba(10, 10, 10, 0.8)',
+                borderRadius: '0 0 24px 24px'
+              }}
+            >
+              {code}
             </SyntaxHighlighter>
           </Box>
         )}
