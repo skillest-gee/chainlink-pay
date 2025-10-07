@@ -18,8 +18,6 @@ export function LoadingSpinner({ size = 'md', text, color = '#00d4ff' }: Loading
       <Spinner
         size={size}
         color={color}
-        thickness="3px"
-        speed="0.8s"
         emptyColor="rgba(0, 212, 255, 0.2)"
       />
       {text && (
@@ -50,7 +48,7 @@ export function LoadingCard({ title, description, showSkeleton = true }: Loading
     >
       <VStack gap={4} align="center">
         <HStack gap={3} align="center">
-          <Spinner size="md" color="#00d4ff" thickness="3px" />
+          <Spinner size="md" color="#00d4ff" />
           <Text fontSize="lg" fontWeight="semibold" color="#00d4ff">
             {title}
           </Text>
@@ -90,7 +88,7 @@ export function LoadingButton({ isLoading, loadingText, children, ...props }: Lo
           transform="translate(-50%, -50%)"
           zIndex={1}
         >
-          <Spinner size="sm" color="white" thickness="2px" />
+          <Spinner size="sm" color="white" />
         </Box>
       )}
       <Box
