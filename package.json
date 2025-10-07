@@ -16,10 +16,10 @@
   "homepage": "https://chainlink-pay.vercel.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/chainlink-pay.git"
+    "url": "https://github.com/skillest-gee/chainlink-pay.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/chainlink-pay/issues"
+    "url": "https://github.com/skillest-gee/chainlink-pay/issues"
   },
   "private": false,
   "dependencies": {
