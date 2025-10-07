@@ -147,18 +147,24 @@ export function ErrorHandler({ error, onDismiss, onRetry, showDetails = false }:
             </Button>
           )}
           
-          <Tooltip label="Dismiss error">
-            <IconButton
-              size="sm"
-              variant="ghost"
-              color="#a0a0a0"
-              _hover={{ color: '#ff4444' }}
-              onClick={onDismiss}
-              aria-label="Dismiss error"
-            >
-              ✕
-            </IconButton>
-          </Tooltip>
+          <Tooltip.Root>
+            <Tooltip.Trigger asChild>
+              <IconButton
+                size="sm"
+                variant="ghost"
+                color="#a0a0a0"
+                _hover={{ color: '#ff4444' }}
+                onClick={onDismiss}
+                aria-label="Dismiss error"
+              >
+                ✕
+              </IconButton>
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              <Tooltip.Arrow />
+              Dismiss error
+            </Tooltip.Content>
+          </Tooltip.Root>
         </HStack>
       </VStack>
     </Alert.Root>
