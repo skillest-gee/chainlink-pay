@@ -33,133 +33,238 @@ function App() {
         zIndex="1000"
         transition="all 0.3s ease"
       >
-        <Container maxW="6xl" py={{ base: 2, md: 3 }}>
-          <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={{ base: 3, md: 4 }}>
+        <Container maxW="7xl" py={{ base: 3, md: 4 }}>
+          <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={{ base: 4, md: 6 }}>
             {/* Logo and Brand */}
-            <HStack gap={3} align="center" order={{ base: 1, md: 1 }}>
+            <HStack gap={4} align="center" order={{ base: 1, md: 1 }}>
               <Box 
-                w={{ base: "40px", md: "50px" }}
-                h={{ base: "40px", md: "50px" }}
+                w={{ base: "45px", md: "55px" }}
+                h={{ base: "45px", md: "55px" }}
                 bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
-                borderRadius="xl"
+                borderRadius="2xl"
                 display="flex"
                 alignItems="center"
                 justifyContent="center"
-                fontSize={{ base: "lg", md: "xl" }}
-                boxShadow="0 4px 20px rgba(0, 212, 255, 0.3)"
+                fontSize={{ base: "xl", md: "2xl" }}
+                boxShadow="0 8px 32px rgba(0, 212, 255, 0.4)"
                 border="2px solid"
-                borderColor="brand.primary"
+                borderColor="rgba(0, 212, 255, 0.3)"
                 _hover={{
-                  transform: "scale(1.05)",
-                  transition: "all 0.3s ease",
-                  boxShadow: "0 8px 30px rgba(0, 212, 255, 0.4)",
-                  borderColor: "brand.secondary"
+                  transform: "scale(1.08)",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: "0 12px 40px rgba(0, 212, 255, 0.5)",
+                  borderColor: "rgba(0, 212, 255, 0.6)"
+                }}
+                position="relative"
+                _before={{
+                  content: '""',
+                  position: 'absolute',
+                  top: '-2px',
+                  left: '-2px',
+                  right: '-2px',
+                  bottom: '-2px',
+                  borderRadius: '2xl',
+                  background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.5), rgba(255, 107, 53, 0.5))',
+                  zIndex: -1,
+                  opacity: 0,
+                  transition: 'opacity 0.3s ease'
+                }}
+                _hover={{
+                  _before: {
+                    opacity: 1
+                  }
                 }}
               >
                 🔗
               </Box>
-              <Heading 
-                size={{ base: "md", md: "lg" }} 
-                bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
-                bgClip="text"
-                fontWeight="bold" 
-                letterSpacing="tight"
-              >
-                ChainLinkPay
-              </Heading>
+              <VStack align="start" gap={1}>
+                <Heading 
+                  size={{ base: "lg", md: "xl" }} 
+                  bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
+                  bgClip="text"
+                  fontWeight="bold" 
+                  letterSpacing="tight"
+                >
+                  ChainLinkPay
+                </Heading>
+                <Text 
+                  fontSize={{ base: "xs", md: "sm" }} 
+                  color="#a0a0a0" 
+                  fontWeight="medium"
+                  letterSpacing="wide"
+                >
+                  Bitcoin Payment Platform
+                </Text>
+              </VStack>
             </HStack>
 
             {/* Navigation */}
-            <HStack gap={{ base: 2, md: 4 }} display="flex" order={{ base: 3, md: 2 }} wrap="wrap" justify="center">
+            <HStack gap={{ base: 3, md: 2 }} display="flex" order={{ base: 3, md: 2 }} wrap="wrap" justify="center">
               <Link to="/" style={{ textDecoration: 'none' }} title="Create and manage payment links">
-                <Text 
+                <Box
                   color="#ffffff" 
                   fontWeight="600" 
-                  px={4} 
-                  py={2} 
-                  borderRadius="xl" 
+                  px={{ base: 4, md: 5 }} 
+                  py={{ base: 3, md: 4 }} 
+                  borderRadius="2xl" 
                   fontSize={{ base: "sm", md: "md" }}
-                  bg="rgba(0, 212, 255, 0.1)"
+                  bg="rgba(0, 212, 255, 0.08)"
                   border="1px solid"
-                  borderColor="rgba(0, 212, 255, 0.3)"
+                  borderColor="rgba(0, 212, 255, 0.2)"
                   _hover={{ 
-                    bg: 'rgba(0, 212, 255, 0.2)',
-                    borderColor: 'rgba(0, 212, 255, 0.5)',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)'
+                    bg: 'rgba(0, 212, 255, 0.15)',
+                    borderColor: 'rgba(0, 212, 255, 0.4)',
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 12px 35px rgba(0, 212, 255, 0.25)'
                   }}
-                  transition="all 0.3s ease"
+                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                  position="relative"
+                  overflow="hidden"
+                  _before={{
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '2px',
+                    bg: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+                    transform: 'scaleX(0)',
+                    transformOrigin: 'left',
+                    transition: 'transform 0.3s ease'
+                  }}
+                  _hover={{
+                    _before: {
+                      transform: 'scaleX(1)'
+                    }
+                  }}
                 >
                   🏠 Home
-                </Text>
+                </Box>
               </Link>
               {isAuthenticated ? (
                 <>
                   <Link to="/builder" style={{ textDecoration: 'none' }} title="AI-powered smart contract builder">
-                    <Text 
+                    <Box
                       color="#ffffff" 
                       fontWeight="600" 
-                      px={4} 
-                      py={2} 
-                      borderRadius="xl" 
+                      px={{ base: 4, md: 5 }} 
+                      py={{ base: 3, md: 4 }} 
+                      borderRadius="2xl" 
                       fontSize={{ base: "sm", md: "md" }}
-                      bg="rgba(255, 107, 53, 0.1)"
+                      bg="rgba(255, 107, 53, 0.08)"
                       border="1px solid"
-                      borderColor="rgba(255, 107, 53, 0.3)"
+                      borderColor="rgba(255, 107, 53, 0.2)"
                       _hover={{ 
-                        bg: 'rgba(255, 107, 53, 0.2)',
-                        borderColor: 'rgba(255, 107, 53, 0.5)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 25px rgba(255, 107, 53, 0.3)'
+                        bg: 'rgba(255, 107, 53, 0.15)',
+                        borderColor: 'rgba(255, 107, 53, 0.4)',
+                        transform: 'translateY(-3px)',
+                        boxShadow: '0 12px 35px rgba(255, 107, 53, 0.25)'
                       }}
-                      transition="all 0.3s ease"
+                      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                      position="relative"
+                      overflow="hidden"
+                      _before={{
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '2px',
+                        bg: 'linear-gradient(90deg, #ff6b35, #ffaa00)',
+                        transform: 'scaleX(0)',
+                        transformOrigin: 'left',
+                        transition: 'transform 0.3s ease'
+                      }}
+                      _hover={{
+                        _before: {
+                          transform: 'scaleX(1)'
+                        }
+                      }}
                     >
                       🤖 AI Builder
-                    </Text>
+                    </Box>
                   </Link>
                   <Link to="/bridge" style={{ textDecoration: 'none' }} title="Cross-chain bridge for Bitcoin to other networks">
-                    <Text 
+                    <Box
                       color="#ffffff" 
                       fontWeight="600" 
-                      px={4} 
-                      py={2} 
-                      borderRadius="xl" 
+                      px={{ base: 4, md: 5 }} 
+                      py={{ base: 3, md: 4 }} 
+                      borderRadius="2xl" 
                       fontSize={{ base: "sm", md: "md" }}
-                      bg="rgba(0, 255, 136, 0.1)"
+                      bg="rgba(0, 255, 136, 0.08)"
                       border="1px solid"
-                      borderColor="rgba(0, 255, 136, 0.3)"
+                      borderColor="rgba(0, 255, 136, 0.2)"
                       _hover={{ 
-                        bg: 'rgba(0, 255, 136, 0.2)',
-                        borderColor: 'rgba(0, 255, 136, 0.5)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 25px rgba(0, 255, 136, 0.3)'
+                        bg: 'rgba(0, 255, 136, 0.15)',
+                        borderColor: 'rgba(0, 255, 136, 0.4)',
+                        transform: 'translateY(-3px)',
+                        boxShadow: '0 12px 35px rgba(0, 255, 136, 0.25)'
                       }}
-                      transition="all 0.3s ease"
+                      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                      position="relative"
+                      overflow="hidden"
+                      _before={{
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '2px',
+                        bg: 'linear-gradient(90deg, #00ff88, #00d4ff)',
+                        transform: 'scaleX(0)',
+                        transformOrigin: 'left',
+                        transition: 'transform 0.3s ease'
+                      }}
+                      _hover={{
+                        _before: {
+                          transform: 'scaleX(1)'
+                        }
+                      }}
                     >
                       🌉 Bridge
-                    </Text>
+                    </Box>
                   </Link>
                   <Link to="/dashboard" style={{ textDecoration: 'none' }} title="View analytics and transaction history">
-                    <Text 
+                    <Box
                       color="#ffffff" 
                       fontWeight="600" 
-                      px={4} 
-                      py={2} 
-                      borderRadius="xl" 
+                      px={{ base: 4, md: 5 }} 
+                      py={{ base: 3, md: 4 }} 
+                      borderRadius="2xl" 
                       fontSize={{ base: "sm", md: "md" }}
-                      bg="rgba(170, 0, 255, 0.1)"
+                      bg="rgba(170, 0, 255, 0.08)"
                       border="1px solid"
-                      borderColor="rgba(170, 0, 255, 0.3)"
+                      borderColor="rgba(170, 0, 255, 0.2)"
                       _hover={{ 
-                        bg: 'rgba(170, 0, 255, 0.2)',
-                        borderColor: 'rgba(170, 0, 255, 0.5)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 25px rgba(170, 0, 255, 0.3)'
+                        bg: 'rgba(170, 0, 255, 0.15)',
+                        borderColor: 'rgba(170, 0, 255, 0.4)',
+                        transform: 'translateY(-3px)',
+                        boxShadow: '0 12px 35px rgba(170, 0, 255, 0.25)'
                       }}
-                      transition="all 0.3s ease"
+                      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                      position="relative"
+                      overflow="hidden"
+                      _before={{
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '2px',
+                        bg: 'linear-gradient(90deg, #aa00ff, #8a2be2)',
+                        transform: 'scaleX(0)',
+                        transformOrigin: 'left',
+                        transition: 'transform 0.3s ease'
+                      }}
+                      _hover={{
+                        _before: {
+                          transform: 'scaleX(1)'
+                        }
+                      }}
                     >
                       📊 Dashboard
-                    </Text>
+                    </Box>
                   </Link>
                 </>
               ) : (
@@ -173,7 +278,7 @@ function App() {
             </HStack>
 
             {/* Wallet */}
-            <HStack gap={{ base: 2, md: 4 }} order={{ base: 2, md: 3 }}>
+            <HStack gap={{ base: 3, md: 4 }} order={{ base: 2, md: 3 }}>
               <NetworkStatus />
               <WalletConnectButton />
             </HStack>
