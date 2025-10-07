@@ -1,6 +1,8 @@
 import React from 'react';
 import { Box, Heading, Text, Container, HStack, VStack, Badge, Button } from '@chakra-ui/react';
 import PaymentLinkGenerator from '../components/PaymentLinkGenerator';
+import { UniformButton } from '../components/UniformButton';
+import { UniformCard } from '../components/UniformCard';
 // import DemoBar from '../components/DemoBar'; // Removed for production
 import { useStacksWallet } from '../hooks/useStacksWallet';
 
@@ -80,14 +82,13 @@ export default function Home() {
                 <Text fontSize={{ base: "sm", md: "md" }} color="orange.600" textAlign="center" px={{ base: 2, md: 0 }}>
                   Get free testnet STX tokens to try the app. Click the button below to get tokens from the faucet.
                 </Text>
-                <Button 
-                  colorScheme="orange" 
+                <UniformButton 
+                  variant="accent" 
                   size="lg"
                   onClick={() => window.open('https://explorer.hiro.so/sandbox/faucet?chain=testnet', '_blank')}
-                  fontWeight="bold"
                 >
                   🚰 Get Testnet Tokens
-                </Button>
+                </UniformButton>
               </VStack>
             </Box>
 

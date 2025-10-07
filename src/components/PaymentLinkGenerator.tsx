@@ -10,6 +10,9 @@ import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
+import { UniformButton } from './UniformButton';
+import { UniformInput, UniformTextarea } from './UniformInput';
+import { UniformCard } from './UniformCard';
 
 function generateId() {
   // Simple unique ID using timestamp + random segment

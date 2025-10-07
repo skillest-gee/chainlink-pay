@@ -1,6 +1,8 @@
 import React from 'react';
 import { Box, Container, Flex, Heading, HStack, VStack, Image, Text } from '@chakra-ui/react';
 import WalletConnectButton from './components/WalletConnectButton';
+import { UniformButton } from './components/UniformButton';
+import { UniformCard } from './components/UniformCard';
 import Home from './pages/Home';
 import Pay from './pages/Pay';
 import AIContractBuilder from './pages/AIContractBuilder';
@@ -98,172 +100,51 @@ function App() {
 
             {/* Navigation */}
             <HStack gap={{ base: 3, md: 2 }} display="flex" order={{ base: 3, md: 2 }} wrap="wrap" justify="center">
-              <Link to="/" style={{ textDecoration: 'none' }} title="Create and manage payment links">
-                <Box
-                  color="#ffffff" 
-                  fontWeight="600" 
-                  px={{ base: 4, md: 5 }} 
-                  py={{ base: 3, md: 4 }} 
-                  borderRadius="2xl" 
-                  fontSize={{ base: "sm", md: "md" }}
-                  bg="rgba(0, 212, 255, 0.08)"
-                  border="1px solid"
-                  borderColor="rgba(0, 212, 255, 0.2)"
-                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                  position="relative"
-                  overflow="hidden"
-                  _before={{
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '2px',
-                    bg: 'linear-gradient(90deg, #00d4ff, #0099cc)',
-                    transform: 'scaleX(0)',
-                    transformOrigin: 'left',
-                    transition: 'transform 0.3s ease'
-                  }}
-                  _hover={{ 
-                    bg: 'rgba(0, 212, 255, 0.15)',
-                    borderColor: 'rgba(0, 212, 255, 0.4)',
-                    transform: 'translateY(-3px)',
-                    boxShadow: '0 12px 35px rgba(0, 212, 255, 0.25)',
-                    _before: {
-                      transform: 'scaleX(1)'
-                    }
-                  }}
+              <Link to="/" style={{ textDecoration: 'none' }}>
+                <UniformButton
+                  variant="ghost"
+                  size="md"
+                  title="Create and manage payment links"
                 >
                   🏠 Home
-                </Box>
+                </UniformButton>
               </Link>
-              {isAuthenticated ? (
-                <>
-                  <Link to="/builder" style={{ textDecoration: 'none' }} title="AI-powered smart contract builder">
-                    <Box
-                      color="#ffffff" 
-                      fontWeight="600" 
-                      px={{ base: 4, md: 5 }} 
-                      py={{ base: 3, md: 4 }} 
-                      borderRadius="2xl" 
-                      fontSize={{ base: "sm", md: "md" }}
-                      bg="rgba(255, 107, 53, 0.08)"
-                      border="1px solid"
-                      borderColor="rgba(255, 107, 53, 0.2)"
-                      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                      position="relative"
-                      overflow="hidden"
-                      _before={{
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '2px',
-                        bg: 'linear-gradient(90deg, #ff6b35, #ffaa00)',
-                        transform: 'scaleX(0)',
-                        transformOrigin: 'left',
-                        transition: 'transform 0.3s ease'
-                      }}
-                      _hover={{ 
-                        bg: 'rgba(255, 107, 53, 0.15)',
-                        borderColor: 'rgba(255, 107, 53, 0.4)',
-                        transform: 'translateY(-3px)',
-                        boxShadow: '0 12px 35px rgba(255, 107, 53, 0.25)',
-                        _before: {
-                          transform: 'scaleX(1)'
-                        }
-                      }}
-                    >
-                      🤖 AI Builder
-                    </Box>
-                  </Link>
-                  <Link to="/bridge" style={{ textDecoration: 'none' }} title="Cross-chain bridge for Bitcoin to other networks">
-                    <Box
-                      color="#ffffff" 
-                      fontWeight="600" 
-                      px={{ base: 4, md: 5 }} 
-                      py={{ base: 3, md: 4 }} 
-                      borderRadius="2xl" 
-                      fontSize={{ base: "sm", md: "md" }}
-                      bg="rgba(0, 255, 136, 0.08)"
-                      border="1px solid"
-                      borderColor="rgba(0, 255, 136, 0.2)"
-                      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                      position="relative"
-                      overflow="hidden"
-                      _before={{
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '2px',
-                        bg: 'linear-gradient(90deg, #00ff88, #00d4ff)',
-                        transform: 'scaleX(0)',
-                        transformOrigin: 'left',
-                        transition: 'transform 0.3s ease'
-                      }}
-                      _hover={{ 
-                        bg: 'rgba(0, 255, 136, 0.15)',
-                        borderColor: 'rgba(0, 255, 136, 0.4)',
-                        transform: 'translateY(-3px)',
-                        boxShadow: '0 12px 35px rgba(0, 255, 136, 0.25)',
-                        _before: {
-                          transform: 'scaleX(1)'
-                        }
-                      }}
-                    >
-                      🌉 Bridge
-                    </Box>
-                  </Link>
-                  <Link to="/dashboard" style={{ textDecoration: 'none' }} title="View analytics and transaction history">
-                    <Box
-                      color="#ffffff" 
-                      fontWeight="600" 
-                      px={{ base: 4, md: 5 }} 
-                      py={{ base: 3, md: 4 }} 
-                      borderRadius="2xl" 
-                      fontSize={{ base: "sm", md: "md" }}
-                      bg="rgba(170, 0, 255, 0.08)"
-                      border="1px solid"
-                      borderColor="rgba(170, 0, 255, 0.2)"
-                      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                      position="relative"
-                      overflow="hidden"
-                      _before={{
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '2px',
-                        bg: 'linear-gradient(90deg, #aa00ff, #8a2be2)',
-                        transform: 'scaleX(0)',
-                        transformOrigin: 'left',
-                        transition: 'transform 0.3s ease'
-                      }}
-                      _hover={{ 
-                        bg: 'rgba(170, 0, 255, 0.15)',
-                        borderColor: 'rgba(170, 0, 255, 0.4)',
-                        transform: 'translateY(-3px)',
-                        boxShadow: '0 12px 35px rgba(170, 0, 255, 0.25)',
-                        _before: {
-                          transform: 'scaleX(1)'
-                        }
-                      }}
-                    >
-                      📊 Dashboard
-                    </Box>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Text color="gray.400" px={2} py={1} borderRadius="md" fontSize="sm" title="Connect wallet to access AI Builder">AI Builder</Text>
-                  <Text color="gray.400" px={2} py={1} borderRadius="md" fontSize="sm" title="Connect wallet to access Bridge">Bridge</Text>
-                  <Text color="gray.400" px={2} py={1} borderRadius="md" fontSize="sm" title="Connect wallet to access Dashboard">Dashboard</Text>
-                </>
-              )}
+              <Link to="/generate" style={{ textDecoration: 'none' }}>
+                <UniformButton
+                  variant="ghost"
+                  size="md"
+                  title="Create and manage payment links"
+                >
+                  💳 Payments
+                </UniformButton>
+              </Link>
+              <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+                <UniformButton
+                  variant="ghost"
+                  size="md"
+                  title="View analytics and payment history"
+                >
+                  📊 Dashboard
+                </UniformButton>
+              </Link>
+              <Link to="/ai-builder" style={{ textDecoration: 'none' }}>
+                <UniformButton
+                  variant="ghost"
+                  size="md"
+                  title="AI-powered smart contract builder"
+                >
+                  🤖 AI Builder
+                </UniformButton>
+              </Link>
+              <Link to="/bridge" style={{ textDecoration: 'none' }}>
+                <UniformButton
+                  variant="ghost"
+                  size="md"
+                  title="Cross-chain asset bridging"
+                >
+                  🌉 Bridge
+                </UniformButton>
+              </Link>
               <TutorialModal />
             </HStack>
 
@@ -280,8 +161,9 @@ function App() {
         <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/generate" element={<PaymentLinkGenerator />} />
             <Route path="/pay/:id" element={<Pay />} />
-            <Route path="/builder" element={
+            <Route path="/ai-builder" element={
               <WalletGuard title="AI Contract Builder" description="Connect your wallet to generate smart contracts with AI">
                 <AIContractBuilder />
               </WalletGuard>
