@@ -5,6 +5,7 @@ import { UniformButton } from './components/UniformButton';
 import { UniformCard } from './components/UniformCard';
 import Home from './pages/Home';
 import Pay from './pages/Pay';
+import PaymentLinkGenerator from './components/PaymentLinkGenerator';
 import AIContractBuilder from './pages/AIContractBuilder';
 import Bridge from './pages/Bridge';
 import Dashboard from './pages/Dashboard';
