@@ -24,6 +24,12 @@ export default function Bridge() {
   const [isEstimating, setIsEstimating] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [supportedAssets, setSupportedAssets] = useState([
+    { symbol: 'STX', name: 'Stacks', icon: '🔗', balance: balance || '0', chain: 'stacks' },
+    { symbol: 'BTC', name: 'Bitcoin', icon: '₿', balance: btcBalance || '0', chain: 'bitcoin' },
+    { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', balance: '0', chain: 'ethereum' },
+    { symbol: 'USDC', name: 'USD Coin', icon: '💵', balance: '0', chain: 'ethereum' }
+  ]);
   const { estimate, loading, error, getEstimate } = useAxelarEstimates();
   const { status } = useAxelarStatus(txHash);
 
