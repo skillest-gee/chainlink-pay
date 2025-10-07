@@ -11,7 +11,7 @@ import {
   Text, 
   Button, 
   Alert, 
-  AlertIcon, 
+  AlertIndicator, 
   AlertTitle, 
   AlertDescription,
   Collapse,
