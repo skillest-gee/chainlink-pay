@@ -6,11 +6,11 @@
 import React from 'react';
 import { Input, InputProps, Textarea, TextareaProps } from '@chakra-ui/react';
 
-interface UniformInputProps extends InputProps {
+interface UniformInputProps extends Omit<InputProps, 'variant'> {
   variant?: 'default' | 'search' | 'password';
 }
 
-interface UniformTextareaProps extends TextareaProps {
+interface UniformTextareaProps extends Omit<TextareaProps, 'variant'> {
   variant?: 'default' | 'code';
 }
 
