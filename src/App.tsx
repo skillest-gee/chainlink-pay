@@ -17,7 +17,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { Toast } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { useStacksWallet } from './hooks/useStacksWallet';
-import WalletGuard from './components/WalletGuard';
 function App() {
   const { toasts, removeToast } = useToast();
   const { isAuthenticated } = useStacksWallet();
