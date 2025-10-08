@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, HStack, Text, Spinner, Box, Badge, VStack } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useStxBalance } from '../hooks/useStxBalance';
+import MobileWalletGuide from './MobileWalletGuide';
 
 export function WalletConnectButton() {
   const { address, isAuthenticated, isConnecting, error, connect, disconnect } = useStacksWallet();
   const { balance, loading: balanceLoading, error: balanceError } = useStxBalance(address);
+  const [showMobileGuide, setShowMobileGuide] = useState(false);
+  
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   const content = () => {
     if (isConnecting) {
@@ -18,9 +22,27 @@ export function WalletConnectButton() {
     }
     if (!isAuthenticated || !address) {
       return (
-        <Button colorScheme="blue" onClick={connect} size="md" title="Connect your Stacks wallet to start making payments">
-          🔗 Connect Wallet
-        </Button>
+        <VStack gap={2}>
+          <Button 
+            colorScheme="blue" 
+            onClick={connect} 
+            size="md" 
+            title="Connect your Stacks wallet to start making payments"
+          >
+            🔗 Connect Wallet
+          </Button>
+          {isMobile && (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => setShowMobileGuide(true)}
+              color="#737373"
+              borderColor="rgba(255, 255, 255, 0.2)"
+            >
+              📱 Mobile Wallet Help
+            </Button>
+          )}
+        </VStack>
       );
     }
         return (
@@ -78,6 +100,9 @@ export function WalletConnectButton() {
         </Badge>
       )}
       {content()}
+      {showMobileGuide && (
+        <MobileWalletGuide onClose={() => setShowMobileGuide(false)} />
+      )}
     </Box>
   );
 }

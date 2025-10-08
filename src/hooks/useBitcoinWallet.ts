@@ -19,23 +19,46 @@ export function useBitcoinWallet() {
 
   // Check if Bitcoin wallet is available
   const checkBitcoinWallet = useCallback(() => {
+    // Enhanced mobile wallet detection
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    console.log('Mobile device detected for Bitcoin wallet:', isMobile);
+    
     // Check for common Bitcoin wallet providers
     if (typeof (window as any).unisat !== 'undefined') {
+      console.log('Unisat wallet detected');
       return 'unisat';
     }
     if (typeof (window as any).okxwallet !== 'undefined') {
+      console.log('OKX wallet detected');
       return 'okxwallet';
     }
     if (typeof (window as any).bitget !== 'undefined') {
+      console.log('Bitget wallet detected');
       return 'bitget';
     }
     if (typeof (window as any).bitcoin !== 'undefined') {
+      console.log('Bitcoin wallet detected');
       return 'bitcoin';
     }
     if (typeof (window as any).btc !== 'undefined') {
+      console.log('BTC wallet detected');
       return 'btc';
     }
+    
+    // Check for mobile-specific Bitcoin wallets
+    if (isMobile) {
+      // Check for mobile Bitcoin wallet apps
+      if (typeof (window as any).xverse !== 'undefined') {
+        console.log('Xverse wallet detected on mobile');
+        return 'xverse';
+      }
+      if (typeof (window as any).leather !== 'undefined') {
+        console.log('Leather wallet detected on mobile');
+        return 'leather';
+      }
+    }
 
+    console.log('No Bitcoin wallet detected');
     return null;
   }, []);
 

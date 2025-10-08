@@ -202,9 +202,15 @@ export function useStacksWallet() {
       console.log('App details:', appDetails);
       console.log('User session:', userSession);
       
+      // Enhanced mobile wallet support
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      console.log('Mobile device detected:', isMobile);
+      
       showConnect({
         userSession,
         appDetails,
+        // Enhanced mobile support
+        redirectTo: isMobile ? window.location.origin : undefined,
         onFinish: () => {
           console.log('=== WALLET CONNECTION ONFINISH CALLED ===');
           console.log('Wallet connection onFinish called');
