@@ -3,11 +3,6 @@ import { Box, Container, Flex, Heading, HStack, VStack, Image, Text } from '@cha
 import WalletConnectButton from './components/WalletConnectButton';
 import { UniformButton } from './components/UniformButton';
 import { UniformCard } from './components/UniformCard';
-import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
-import { useReactiveWalletState } from './hooks/useReactiveWalletState';
-import { useMobileOptimization } from './hooks/useMobileOptimization';
-import { useAccessibility } from './hooks/useAccessibility';
-import { useAnalytics } from './hooks/useAnalytics';
 import Home from './pages/Home';
 import Pay from './pages/Pay';
 import PaymentLinkGenerator from './components/PaymentLinkGenerator';
@@ -27,25 +22,7 @@ function App() {
   const { toasts, removeToast } = useToast();
   const { isAuthenticated } = useStacksWallet();
   
-  // Enhanced hooks for comprehensive functionality
-  const walletState = useReactiveWalletState();
-  const mobileOptimization = useMobileOptimization();
-  const accessibility = useAccessibility();
-  const analytics = useAnalytics();
-  
-  // Track app initialization
-  useEffect(() => {
-    analytics.trackEvent('app_initialized', {
-      isMobile: mobileOptimization.isMobile,
-      isTablet: mobileOptimization.isTablet,
-      screenWidth: mobileOptimization.screenWidth,
-      orientation: mobileOptimization.orientation,
-      touchDevice: mobileOptimization.touchDevice
-    });
-  }, [analytics, mobileOptimization]);
-  
   return (
-    <GlobalErrorBoundary>
       <Box minH="100vh" bg="#0a0a0a" color="#ffffff" overflowX="hidden">
       <Box 
         as="header" 
@@ -220,7 +197,6 @@ function App() {
         />
       ))}
       </Box>
-    </GlobalErrorBoundary>
   );
 }
 
