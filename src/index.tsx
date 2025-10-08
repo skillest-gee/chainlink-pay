@@ -3,9 +3,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { BrowserRouter } from 'react-router-dom';
 import { ChakraProvider, createSystem, defaultConfig } from '@chakra-ui/react';
-import { DemoProvider } from './context/DemoContext';
-import { StatsProvider } from './context/StatsContext';
-import './mobile-fixes.css';
 
 const system = createSystem(defaultConfig, {
   globalCss: {
@@ -40,11 +37,7 @@ root.render(
   <React.StrictMode>
     <ChakraProvider value={system}>
       <BrowserRouter>
-        <DemoProvider>
-          <StatsProvider>
-            <App />
-          </StatsProvider>
-        </DemoProvider>
+        <App />
       </BrowserRouter>
     </ChakraProvider>
   </React.StrictMode>
