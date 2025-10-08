@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Box, Container, Heading, Stack, Text, Badge, Skeleton, VStack, HStack, AlertContent, AlertDescription, AlertIndicator, AlertRoot, AlertTitle, Button } from '@chakra-ui/react';
 import { getPayment, PaymentData, PaymentServiceError, checkContractStatus } from '../services/payments';
-import LoadingState from '../components/LoadingState';
-import ErrorDisplay from '../components/ErrorDisplay';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useToast } from '../hooks/useToast';
 import { openSTXTransfer } from '@stacks/connect';
