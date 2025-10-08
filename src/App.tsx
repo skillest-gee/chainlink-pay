@@ -163,21 +163,9 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/generate" element={<PaymentLinkGenerator />} />
             <Route path="/pay/:id" element={<Pay />} />
-            <Route path="/ai-builder" element={
-              <WalletGuard title="AI Contract Builder" description="Connect your wallet to generate smart contracts with AI">
-                <AIContractBuilder />
-              </WalletGuard>
-            } />
-            <Route path="/bridge" element={
-              <WalletGuard title="Cross-Chain Bridge" description="Connect your wallet to bridge Bitcoin to other networks">
-                <Bridge />
-              </WalletGuard>
-            } />
-            <Route path="/dashboard" element={
-              <WalletGuard title="Dashboard" description="Connect your wallet to view your analytics and transaction history">
-                <Dashboard />
-              </WalletGuard>
-            } />
+            <Route path="/ai-builder" element={<AIContractBuilder />} />
+            <Route path="/bridge" element={<Bridge />} />
+            <Route path="/dashboard" element={<Dashboard />} />
           </Routes>
         </ErrorBoundary>
       </Box>
