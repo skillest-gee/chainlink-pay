@@ -6,9 +6,15 @@
 import React from 'react';
 import { Button, ButtonProps } from '@chakra-ui/react';
 
-interface UniformButtonProps extends Omit<ButtonProps, 'colorScheme'> {
+interface UniformButtonProps {
   variant?: 'primary' | 'secondary' | 'accent' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
+  children?: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  title?: string;
+  [key: string]: any;
 }
 
 export function UniformButton({
