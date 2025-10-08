@@ -598,15 +598,27 @@ export default function Bridge() {
               </Box>
             )}
             
-            {/* Bridge Error Handler */}
-            <BridgeErrorHandler 
-              error={bridgeError} 
-              onRetry={() => {
-                setBridgeError(null);
-                setCurrentStep(1);
-              }}
-              onDismiss={() => setBridgeError(null)}
-            />
+            {/* Bridge Error Display */}
+            {bridgeError && (
+              <Box p={4} bg="red.50" borderColor="red.200" borderWidth="2px" borderRadius="lg">
+                <VStack gap={2} align="start">
+                  <Text fontWeight="semibold" color="red.700">
+                    Error: {bridgeError}
+                  </Text>
+                  <HStack gap={2}>
+                    <Button size="sm" colorScheme="red" onClick={() => {
+                      setBridgeError(null);
+                      setCurrentStep(1);
+                    }}>
+                      Retry
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setBridgeError(null)}>
+                      Dismiss
+                    </Button>
+                  </HStack>
+                </VStack>
+              </Box>
+            )}
             {estimate && (
               <Box p={4} bg="blue.50" borderColor="blue.200" borderWidth="2px" borderRadius="lg">
                 <VStack gap={2} align="start">
