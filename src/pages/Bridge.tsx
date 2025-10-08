@@ -8,7 +8,6 @@ import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
 import { openSTXTransfer, openContractCall } from '@stacks/connect';
 import { ClarityType, bufferCV, stringAsciiCV, uintCV } from '@stacks/transactions';
-import BridgeErrorHandler from '../components/BridgeErrorHandler';
 
 export default function Bridge() {
   const { toast } = useToast();
