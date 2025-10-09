@@ -120,7 +120,7 @@ export default function TutorialModal() {
               
               <IconButton
                 aria-label="Close tutorial"
-                icon={<Text fontSize="lg">✕</Text>}
+                children={<Text fontSize="lg">✕</Text>}
                 size="sm"
                 variant="ghost"
                 color="#9ca3af"

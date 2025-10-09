@@ -81,7 +81,7 @@ export default function MobileWalletGuide({ onClose }: MobileWalletGuideProps) {
               
               <IconButton
                 aria-label="Close guide"
-                icon={<Text fontSize="lg">✕</Text>}
+                children={<Text fontSize="lg">✕</Text>}
                 size="sm"
                 variant="ghost"
                 color="#9ca3af"
