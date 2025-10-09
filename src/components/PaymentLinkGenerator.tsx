@@ -53,7 +53,7 @@ export default function PaymentLinkGenerator() {
         description,
         paymentType,
         status: 'pending',
-        createdAt: new Date().toISOString(),
+        createdAt: Date.now(),
         merchantAddress: isAuthenticated ? 'connected' : 'local'
       };
 
