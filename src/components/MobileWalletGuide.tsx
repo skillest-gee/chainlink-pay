@@ -1,10 +1,7 @@
-/**
- * Mobile Wallet Connection Guide
- * Helps users connect their wallets on mobile devices
- */
-
 import React from 'react';
-import { Box, VStack, HStack, Text, Button, Link, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription } from '@chakra-ui/react';
+import { Box, VStack, HStack, Text, IconButton, Heading, Badge } from '@chakra-ui/react';
+import { UniformButton } from './UniformButton';
+import { UniformCard } from './UniformCard';
 
 interface MobileWalletGuideProps {
   onClose: () => void;
@@ -17,6 +14,37 @@ export default function MobileWalletGuide({ onClose }: MobileWalletGuideProps) {
     return null;
   }
 
+  const wallets = [
+    {
+      name: 'Xverse',
+      type: 'Stacks & Bitcoin',
+      icon: '🟦',
+      description: 'Multi-chain wallet for Stacks and Bitcoin',
+      link: 'https://www.xverse.app/'
+    },
+    {
+      name: 'Leather',
+      type: 'Stacks',
+      icon: '🟫',
+      description: 'Stacks-native wallet with Bitcoin support',
+      link: 'https://leather.io/'
+    },
+    {
+      name: 'Unisat',
+      type: 'Bitcoin',
+      icon: '🟠',
+      description: 'Bitcoin wallet with Ordinals support',
+      link: 'https://unisat.io/'
+    },
+    {
+      name: 'OKX',
+      type: 'Multi-chain',
+      icon: '🔵',
+      description: 'Multi-chain wallet supporting Bitcoin and Stacks',
+      link: 'https://www.okx.com/web3'
+    }
+  ];
+
   return (
     <Box
       position="fixed"
@@ -24,115 +52,149 @@ export default function MobileWalletGuide({ onClose }: MobileWalletGuideProps) {
       left="0"
       right="0"
       bottom="0"
-      bg="rgba(0, 0, 0, 0.8)"
+      bg="rgba(0, 0, 0, 0.9)"
+      backdropFilter="blur(10px)"
       zIndex="9999"
       display="flex"
       alignItems="center"
       justifyContent="center"
       p={4}
     >
-      <Box
-        bg="rgba(17, 17, 17, 0.95)"
-        borderRadius="2xl"
-        p={6}
-        maxW="md"
+      <UniformCard
+        maxW={{ base: "95%", md: "500px" }}
         w="full"
-        border="1px solid"
-        borderColor="rgba(0, 212, 255, 0.3)"
-        backdropFilter="blur(20px)"
+        p={0}
+        overflow="hidden"
       >
-        <VStack gap={4} align="stretch">
-          <Text fontSize="xl" fontWeight="bold" color="#00d4ff" textAlign="center">
-            📱 Mobile Wallet Setup
-          </Text>
-          
-          <AlertRoot status="info">
-            <AlertIndicator />
-            <AlertContent>
-              <AlertTitle>Connect Your Mobile Wallet</AlertTitle>
-              <AlertDescription>
-                To use ChainLinkPay on mobile, you need to install a compatible wallet app.
-              </AlertDescription>
-            </AlertContent>
-          </AlertRoot>
-
-          <VStack gap={3} align="stretch">
-            <Text fontWeight="semibold" color="#ffffff">
-              🔗 Stacks Wallets:
-            </Text>
-            
-            <HStack justify="space-between" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
+        <VStack gap={0} align="stretch">
+          {/* Header */}
+          <Box p={6} borderBottom="1px solid" borderColor="rgba(255, 255, 255, 0.1)">
+            <HStack justify="space-between" align="center">
               <VStack align="start" gap={1}>
-                <Text fontWeight="semibold">Xverse</Text>
-                <Text fontSize="sm" color="#737373">Best for mobile</Text>
+                <Heading size="md" color="#ffffff">
+                  📱 Mobile Wallet Guide
+                </Heading>
+                <Text fontSize="sm" color="#9ca3af">
+                  Connect your wallet on mobile devices
+                </Text>
               </VStack>
-              <Badge colorScheme="green">Recommended</Badge>
+              
+              <IconButton
+                aria-label="Close guide"
+                icon={<Text fontSize="lg">✕</Text>}
+                size="sm"
+                variant="ghost"
+                color="#9ca3af"
+                _hover={{ color: "#ffffff", bg: "rgba(255, 255, 255, 0.1)" }}
+                onClick={onClose}
+              />
             </HStack>
+          </Box>
 
-            <HStack justify="space-between" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
-              <VStack align="start" gap={1}>
-                <Text fontWeight="semibold">Hiro Wallet</Text>
-                <Text fontSize="sm" color="#737373">Official wallet</Text>
+          {/* Content */}
+          <Box p={6}>
+            <VStack gap={6} align="stretch">
+              <Text fontSize="md" color="#ffffff" textAlign="center">
+                Install one of these mobile wallets to connect and start using ChainLinkPay:
+              </Text>
+
+              {/* Wallet List */}
+              <VStack gap={4} align="stretch">
+                {wallets.map((wallet, index) => (
+                  <Box
+                    key={index}
+                    p={4}
+                    bg="rgba(255, 255, 255, 0.05)"
+                    borderRadius="lg"
+                    border="1px solid"
+                    borderColor="rgba(255, 255, 255, 0.1)"
+                  >
+                    <HStack gap={4} align="start">
+                      <Text fontSize="2xl">{wallet.icon}</Text>
+                      
+                      <VStack align="start" gap={2} flex="1">
+                        <HStack gap={2} align="center">
+                          <Text fontSize="md" fontWeight="medium" color="#ffffff">
+                            {wallet.name}
+                          </Text>
+                          <Badge 
+                            colorScheme={wallet.type.includes('Bitcoin') ? 'orange' : 'blue'} 
+                            fontSize="xs"
+                          >
+                            {wallet.type}
+                          </Badge>
+                        </HStack>
+                        
+                        <Text fontSize="sm" color="#9ca3af">
+                          {wallet.description}
+                        </Text>
+                        
+                        <UniformButton
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => window.open(wallet.link, '_blank')}
+                        >
+                          Install Wallet
+                        </UniformButton>
+                      </VStack>
+                    </HStack>
+                  </Box>
+                ))}
               </VStack>
-              <Badge colorScheme="blue">Popular</Badge>
-            </HStack>
 
-            <HStack justify="space-between" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
-              <VStack align="start" gap={1}>
-                <Text fontWeight="semibold">Leather</Text>
-                <Text fontSize="sm" color="#737373">Lightweight</Text>
-              </VStack>
-              <Badge colorScheme="purple">New</Badge>
-            </HStack>
+              {/* Instructions */}
+              <Box p={4} bg="rgba(59, 130, 246, 0.1)" borderRadius="lg" border="1px solid" borderColor="rgba(59, 130, 246, 0.3)">
+                <VStack gap={3} align="stretch">
+                  <Text fontSize="sm" fontWeight="medium" color="#3b82f6">
+                    How to Connect:
+                  </Text>
+                  
+                  <VStack gap={2} align="stretch">
+                    <HStack gap={3} align="start">
+                      <Text fontSize="sm" color="#3b82f6" fontWeight="bold">1.</Text>
+                      <Text fontSize="sm" color="#ffffff">
+                        Install your preferred wallet from the links above
+                      </Text>
+                    </HStack>
+                    
+                    <HStack gap={3} align="start">
+                      <Text fontSize="sm" color="#3b82f6" fontWeight="bold">2.</Text>
+                      <Text fontSize="sm" color="#ffffff">
+                        Create or import your wallet in the mobile app
+                      </Text>
+                    </HStack>
+                    
+                    <HStack gap={3} align="start">
+                      <Text fontSize="sm" color="#3b82f6" fontWeight="bold">3.</Text>
+                      <Text fontSize="sm" color="#ffffff">
+                        Return to ChainLinkPay and click "Connect Wallet"
+                      </Text>
+                    </HStack>
+                    
+                    <HStack gap={3} align="start">
+                      <Text fontSize="sm" color="#3b82f6" fontWeight="bold">4.</Text>
+                      <Text fontSize="sm" color="#ffffff">
+                        Select your wallet and approve the connection
+                      </Text>
+                    </HStack>
+                  </VStack>
+                </VStack>
+              </Box>
+            </VStack>
+          </Box>
 
-            <Text fontWeight="semibold" color="#ffffff" mt={4}>
-              ₿ Bitcoin Wallets:
-            </Text>
-            
-            <HStack justify="space-between" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
-              <VStack align="start" gap={1}>
-                <Text fontWeight="semibold">Unisat</Text>
-                <Text fontSize="sm" color="#737373">Bitcoin Ordinals</Text>
-              </VStack>
-              <Badge colorScheme="orange">Bitcoin</Badge>
-            </HStack>
-
-            <HStack justify="space-between" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
-              <VStack align="start" gap={1}>
-                <Text fontWeight="semibold">OKX Wallet</Text>
-                <Text fontSize="sm" color="#737373">Multi-chain</Text>
-              </VStack>
-              <Badge colorScheme="cyan">Multi-chain</Badge>
-            </HStack>
-          </VStack>
-
-          <VStack gap={2} align="stretch">
-            <Text fontSize="sm" color="#737373" textAlign="center">
-              💡 After installing a wallet, refresh this page and try connecting again.
-            </Text>
-            
-            <Button
-              onClick={() => window.location.reload()}
-              colorScheme="blue"
-              size="sm"
-            >
-              🔄 Refresh Page
-            </Button>
-          </VStack>
-
-          <HStack gap={2} justify="center">
-            <Button
+          {/* Footer */}
+          <Box p={6} borderTop="1px solid" borderColor="rgba(255, 255, 255, 0.1)">
+            <UniformButton
+              variant="primary"
               onClick={onClose}
-              variant="outline"
-              size="sm"
-              color="#737373"
-              borderColor="rgba(255, 255, 255, 0.2)"
+              w="full"
             >
-              Close
-            </Button>
-          </HStack>
+              Got it, let's connect!
+            </UniformButton>
+          </Box>
         </VStack>
-      </Box>
+      </UniformCard>
     </Box>
   );
 }

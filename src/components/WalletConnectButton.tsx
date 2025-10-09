@@ -1,104 +1,115 @@
 import React, { useState } from 'react';
-import { Button, HStack, Text, Spinner, Box, Badge, VStack } from '@chakra-ui/react';
+import { HStack, Text, Spinner, Box, Badge, VStack } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
+import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useStxBalance } from '../hooks/useStxBalance';
+import { UniformButton } from './UniformButton';
 import MobileWalletGuide from './MobileWalletGuide';
 
 export function WalletConnectButton() {
   const { address, isAuthenticated, isConnecting, error, connect, disconnect } = useStacksWallet();
-  const { balance, loading: balanceLoading, error: balanceError } = useStxBalance(address);
+  const { isConnected: btcConnected, address: btcAddress } = useBitcoinWallet();
+  const { balance, loading: balanceLoading } = useStxBalance(address);
   const [showMobileGuide, setShowMobileGuide] = useState(false);
   
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+  const formatBalance = (balance: number | null) => {
+    if (balance === null) return '0.00';
+    return balance.toFixed(6);
+  };
+
   const content = () => {
     if (isConnecting) {
       return (
-        <Button size="md" disabled colorScheme="blue" title="Connecting to your Stacks wallet...">
+        <UniformButton
+          variant="secondary"
+          size="md"
+          disabled
+          title="Connecting to your Stacks wallet..."
+        >
           <Spinner size="xs" mr={2} />
           Connecting...
-        </Button>
+        </UniformButton>
       );
     }
-    if (!isAuthenticated || !address) {
+    
+    if (!isAuthenticated && !btcConnected) {
       return (
         <VStack gap={2}>
-          <Button 
-            colorScheme="blue" 
-            onClick={connect} 
-            size="md" 
+          <UniformButton
+            variant="primary"
+            onClick={connect}
+            size="md"
             title="Connect your Stacks wallet to start making payments"
           >
             🔗 Connect Wallet
-          </Button>
+          </UniformButton>
           {isMobile && (
-            <Button
-              variant="outline"
+            <UniformButton
+              variant="ghost"
               size="xs"
               onClick={() => setShowMobileGuide(true)}
-              color="#737373"
-              borderColor="rgba(255, 255, 255, 0.2)"
             >
-              📱 Mobile Wallet Help
-            </Button>
+              📱 Mobile Help
+            </UniformButton>
           )}
         </VStack>
       );
     }
-        return (
-          <HStack gap={4} align="center">
-            {/* Wallet Info */}
-            <VStack gap={1} align="end">
-              <HStack gap={2} align="center">
-                <Text fontSize="sm" color="gray.500" fontWeight="medium">Wallet:</Text>
-                <Text fontSize="sm" color="blue.600" fontFamily="mono" fontWeight="bold">
-                  {address.slice(0, 6)}...{address.slice(-4)}
-                </Text>
-              </HStack>
-              <HStack gap={2} align="center">
-                <Text fontSize="sm" color="gray.500" fontWeight="medium">Balance:</Text>
-                <Text fontSize="sm" color="green.600" fontWeight="bold">
-                  {balanceLoading ? '...' : balanceError ? 'N/A' : `${(Number(balance || '0') / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 })} STX`}
-                </Text>
-                {Number(balance || '0') === 0 && (
-                  <Text 
-                    fontSize="xs" 
-                    color="orange.500" 
-                    fontWeight="medium"
-                    cursor="pointer"
-                    _hover={{ color: "orange.600", textDecoration: "underline" }}
-                    onClick={() => window.open('https://explorer.hiro.so/sandbox/faucet?chain=testnet', '_blank')}
-                    title="Click to get testnet tokens"
-                  >
-                    (Get tokens)
-                  </Text>
-                )}
-              </HStack>
-            </VStack>
 
-            {/* Disconnect Button */}
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={disconnect}
-              colorScheme="red"
-              fontWeight="semibold"
-              borderWidth="1px"
-              _hover={{ bg: "red.50" }}
-            >
-              Disconnect
-            </Button>
-          </HStack>
-        );
+    // Show connected wallet info
+    const connectedWallet = isAuthenticated ? {
+      type: 'Stacks',
+      address: address,
+      balance: balance,
+      loading: balanceLoading
+    } : {
+      type: 'Bitcoin',
+      address: btcAddress,
+      balance: null,
+      loading: false
+    };
+
+    return (
+      <VStack gap={2} align="end">
+        <HStack gap={3} align="center">
+          {/* Wallet Info */}
+          <VStack align="end" gap={1}>
+            <HStack gap={2} align="center">
+              <Badge 
+                colorScheme={connectedWallet.type === 'Stacks' ? 'blue' : 'orange'} 
+                fontSize="xs"
+              >
+                {connectedWallet.type}
+              </Badge>
+              <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
+                {connectedWallet.address?.slice(0, 6)}...{connectedWallet.address?.slice(-4)}
+              </Text>
+            </HStack>
+            {connectedWallet.type === 'Stacks' && (
+              <Text fontSize="xs" color="#10b981" fontWeight="medium">
+                {formatBalance(connectedWallet.balance)} STX
+              </Text>
+            )}
+          </VStack>
+
+          {/* Disconnect Button */}
+          <UniformButton
+            variant="ghost"
+            size="sm"
+            onClick={disconnect}
+            title="Disconnect wallet"
+          >
+            Disconnect
+          </UniformButton>
+        </HStack>
+      </VStack>
+    );
   };
 
   return (
     <Box>
-      {error && (
-        <Badge colorScheme="red" mb={2} fontSize="xs">
-          {error}
-        </Badge>
-      )}
       {content()}
       {showMobileGuide && (
         <MobileWalletGuide onClose={() => setShowMobileGuide(false)} />
@@ -108,4 +119,3 @@ export function WalletConnectButton() {
 }
 
 export default WalletConnectButton;
-

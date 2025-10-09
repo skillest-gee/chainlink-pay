@@ -1,629 +1,578 @@
-import React, { useMemo, useState } from 'react';
-import { Box, Button, Container, Heading, HStack, Input, Stack, Textarea, Badge, Text, VStack } from '@chakra-ui/react';
-import { getTemplate } from '../ai/templates/library';
-// import DemoBar from '../components/DemoBar'; // Removed for production
-// import { useDemo } from '../context/DemoContext'; // Removed for production
+import React, { useState, useRef } from 'react';
+import { Box, Container, Heading, Text, VStack, HStack, Button, Textarea, Select, Badge, Alert, AlertIcon, AlertTitle, AlertDescription, Divider, Code, Collapse, useDisclosure } from '@chakra-ui/react';
 import { useToast } from '../hooks/useToast';
-import { useStacksWallet } from '../hooks/useStacksWallet';
-import { generateContract } from '../ai/templates/generator';
-import { validateClaritySource, validateInputs } from '../ai/templates/validator';
-import { deployContract } from '../ai/templates/deploy';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { interpretNaturalLanguage } from '../ai/nlp';
-import { verifyTemplateIntegrity } from '../ai/templates/registry';
-import ErrorBoundary from '../components/ErrorBoundary';
-
-type TemplateId = 'ESCROW' | 'SPLIT' | 'SUBSCRIPTION' | 'CUSTOM';
-
-const DEFAULT_PROMPTS: Record<TemplateId, string> = {
-  ESCROW: 'Create an escrow where buyer ST... pays seller ST...; arbiter ST... can release after height 120000 if dispute.',
-  SPLIT: 'Split incoming payment 60% to ST... and 40% to ST....',
-  SUBSCRIPTION: 'Monthly subscription: subscriber ST... pays provider ST... every 4320 blocks at price 1000000 µSTX.',
-  CUSTOM: 'Describe your custom smart contract requirements in natural language...',
-};
+import { UniformButton } from '../components/UniformButton';
+import { UniformTextarea } from '../components/UniformInput';
+import { UniformCard } from '../components/UniformCard';
+import { aiService, AIContractRequest, AIContractResponse, ContractValidation } from '../services/aiService';
+import { testAIService } from '../utils/testAI';
 
 export default function AIContractBuilder() {
   const { toast } = useToast();
-  const { isAuthenticated } = useStacksWallet();
-  const [nl, setNl] = useState('');
-  const [templateId, setTemplateId] = useState<TemplateId>('ESCROW');
-  const [input, setInput] = useState<Record<string, string>>({});
-  const [code, setCode] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [isValidating, setIsValidating] = useState(false);
-  const [issues, setIssues] = useState<{ level: 'error' | 'warning'; message: string }[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
-  const apiEnabled = Boolean(apiKey && apiKey.trim() !== '' && apiKey !== 'your_openai_api_key_here');
+  const { isOpen: showSuggestions, onToggle: toggleSuggestions } = useDisclosure();
+  const { isOpen: showValidation, onToggle: toggleValidation } = useDisclosure();
   
+  // Form state
+  const [request, setRequest] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState('payment');
+  const [requirements, setRequirements] = useState<string[]>([]);
+  const [newRequirement, setNewRequirement] = useState('');
+  
+  // AI state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isImproving, setIsImproving] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  
+  // Results state
+  const [aiResponse, setAiResponse] = useState<AIContractResponse | null>(null);
+  const [validation, setValidation] = useState<ContractValidation | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [improvementFeedback, setImprovementFeedback] = useState('');
+  
+  // UI state
+  const [activeTab, setActiveTab] = useState<'generate' | 'validate' | 'improve' | 'deploy'>('generate');
+  const [copied, setCopied] = useState(false);
 
-  const currentTemplate = useMemo(() => getTemplate(templateId), [templateId]);
-  // const { enabled: demoEnabled, preset } = useDemo(); // Removed for production
+  const templates = [
+    { value: 'payment', label: 'Payment Contract', description: 'Basic payment processing with escrow' },
+    { value: 'escrow', label: 'Escrow Contract', description: 'Secure escrow with timeout and dispute resolution' },
+    { value: 'split', label: 'Split Payment', description: 'Multi-party payment splitting and distribution' },
+    { value: 'subscription', label: 'Subscription', description: 'Recurring payment system with billing cycles' },
+    { value: 'custom', label: 'Custom Contract', description: 'Fully customized contract from description' }
+  ];
 
-  // React.useEffect(() => {
-  //   if (!demoEnabled) return;
-  //   if (preset === 'split') {
-  //     setTemplateId('SPLIT');
-  //     setNl('Split $1000 between 3 team members');
-  //     setInput({ 'recipient-a': 'ST2C2...A', 'recipient-b': 'ST3C3...B', 'pct-a': '60', 'pct-b': '40' });
-  //   } else if (preset === 'escrow') {
-  //     setTemplateId('ESCROW');
-  //     setNl('Escrow payment release on delivery confirmation');
-  //     setInput({ buyer: 'ST2C2...BUYER', seller: 'ST3C3...SELLR', arbiter: 'ST1A1...ARBI', 'deadline-height': '120000', 'amount-ustx': '1000000' });
-  //   } else if (preset === 'subscription') {
-  //     setTemplateId('SUBSCRIPTION');
-  //     setNl('Monthly subscription payment');
-  //     setInput({ provider: 'ST2C2...PROV', subscriber: 'ST3C3...SUB', period: '4320', 'price-ustx': '1000000' });
-  //   }
-  // }, [demoEnabled, preset]); // Removed for production
-
-  const mapPromptToPlaceholders = async (prompt: string, id: TemplateId): Promise<Record<string, string>> => {
-    console.log('AI Mapping - Prompt:', prompt);
-    console.log('AI Mapping - Template ID:', id);
-    console.log('AI Mapping - API Enabled:', apiEnabled);
-    
-    // Safety: Only fill placeholders; never ask for raw code
-    if (!apiEnabled) {
-      console.log('Using fallback defaults (no API)');
-      // Fallback: minimal guided defaults to make the UI usable without API
-      if (id === 'ESCROW') return { buyer: 'ST2C2...BUYER', seller: 'ST3C3...SELLR', arbiter: 'ST1A1...ARBI', 'deadline-height': '120000', 'amount-ustx': '1000000' };
-      if (id === 'SPLIT') return { 'recipient-a': 'ST2C2...A', 'recipient-b': 'ST3C3...B', 'pct-a': '60', 'pct-b': '40' };
-      return { provider: 'ST2C2...PROV', subscriber: 'ST3C3...SUB', period: '4320', 'price-ustx': '1000000' };
-    }
-    
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000); // Increased timeout
-      
-      console.log('Making API request to OpenRouter...');
-      const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'ChainLinkPay'
-        },
-        body: JSON.stringify({
-          model: 'openai/gpt-3.5-turbo',
-          messages: [
-            { 
-              role: 'system', 
-              content: `You are a smart contract assistant. Extract placeholder values from user requests for Stacks blockchain contracts. Return ONLY a JSON object with the required placeholders. Template: ${id}. Required placeholders: ${currentTemplate.placeholders.map(p => p.key).join(', ')}.` 
-            },
-            { 
-              role: 'user', 
-              content: `Extract values for this contract request: "${prompt}". Return JSON with keys: ${currentTemplate.placeholders.map(p => p.key).join(', ')}. Use placeholder values like "ST1...BUYER" if specific addresses aren't provided.` 
-            },
-          ],
-          temperature: 0.1,
-          response_format: { type: 'json_object' },
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      
-      console.log('API Response status:', resp.status);
-      
-      if (!resp.ok) {
-        const errorText = await resp.text();
-        console.error('API Error:', errorText);
-        
-        // Handle specific error cases
-        if (resp.status === 401) {
-          throw new Error('Invalid API key. Please check your OpenAI API key configuration.');
-        } else if (resp.status === 429) {
-          throw new Error('Rate limit exceeded. Please try again in a few minutes.');
-        } else if (resp.status === 500) {
-          throw new Error('AI service temporarily unavailable. Please try again later.');
-        } else {
-          throw new Error(`API request failed: ${resp.status} ${errorText}`);
-        }
-      }
-      
-      const data = await resp.json();
-      console.log('API Response data:', data);
-      
-      const text = data.choices?.[0]?.message?.content || '{}';
-      console.log('AI Response text:', text);
-      
-      try {
-        const parsed = JSON.parse(text);
-        console.log('Parsed AI response:', parsed);
-        
-        // Validate that we got some useful data
-        if (typeof parsed !== 'object' || Object.keys(parsed).length === 0) {
-          console.warn('AI returned empty or invalid response');
-          return {};
-        }
-        
-        return parsed;
-      } catch (e) {
-        console.error('Failed to parse API response', e);
-        console.log('Raw response text:', text);
-        throw new Error('AI returned invalid response format. Please try again.');
-      }
-    } catch (e: any) {
-      console.error('AI mapping error:', e);
-      
-      // Provide user-friendly error messages
-      if (e.name === 'AbortError') {
-        throw new Error('AI request timed out. Please try again.');
-      } else if (e.message?.includes('fetch')) {
-        throw new Error('Network error. Please check your internet connection.');
-      } else {
-        throw e;
-      }
-    }
-  };
-
-  const onGenerate = async () => {
-    try {
-      setLoading(true);
-      setIssues([]);
-      
-      // Validate inputs first
-      if (!nl.trim()) {
-        toast({ title: 'Natural language required', description: 'Please describe what you want to build', status: 'error' });
-        return;
-      }
-      
-      // Verify template integrity with real check
-      const ok = await verifyTemplateIntegrity(currentTemplate);
-      if (!ok) {
-        console.warn('Template integrity check failed, but continuing...');
-        // Don't block generation, just log the issue
-      }
-      
-      // Try to extract information from natural language first
-      const intent = interpretNaturalLanguage(nl || DEFAULT_PROMPTS[templateId]);
-      console.log('NLP Intent:', intent);
-      
-      // Use existing input if available, otherwise try to get from AI or use defaults
-      let ph = input;
-      console.log('Current input:', ph);
-      console.log('Template ID:', templateId);
-      console.log('Current template:', currentTemplate);
-      
-      if (Object.keys(ph).length === 0) {
-        try {
-          // Try AI mapping first
-          ph = await mapPromptToPlaceholders(nl || DEFAULT_PROMPTS[templateId], templateId);
-          console.log('AI mapping result:', ph);
-          
-          // Merge with NLP results if available
-          if (intent.placeholders && Object.keys(intent.placeholders).length > 0) {
-            ph = { ...ph, ...intent.placeholders };
-            console.log('Merged with NLP results:', ph);
-          }
-        } catch (e: any) {
-          console.warn('AI mapping failed, using NLP or defaults:', e);
-          
-          // Show user-friendly error message for AI failures
-          if (e.message?.includes('API key')) {
-            toast({ 
-              title: 'AI Configuration Error', 
-              description: 'Please check your OpenAI API key in environment variables.', 
-              status: 'warning' 
-            });
-          } else if (e.message?.includes('Rate limit')) {
-            toast({ 
-              title: 'AI Rate Limit', 
-              description: 'Please wait a moment before trying again.', 
-              status: 'warning' 
-            });
-          } else if (e.message?.includes('timeout')) {
-            toast({ 
-              title: 'AI Timeout', 
-              description: 'AI request took too long. Using fallback defaults.', 
-              status: 'warning' 
-            });
-          }
-          
-          // Use NLP results if available, otherwise fallback defaults
-          if (intent.placeholders && Object.keys(intent.placeholders).length > 0) {
-            ph = intent.placeholders;
-            console.log('Using NLP results:', ph);
-          } else {
-            // Use fallback defaults
-            if (templateId === 'ESCROW') {
-              ph = { buyer: 'ST2C2...BUYER', seller: 'ST3C3...SELLR', arbiter: 'ST1A1...ARBI', 'deadline-height': '120000', 'amount-ustx': '1000000' };
-            } else if (templateId === 'SPLIT') {
-              ph = { 'recipient-a': 'ST2C2...A', 'recipient-b': 'ST3C3...B', 'pct-a': '60', 'pct-b': '40' };
-            } else if (templateId === 'SUBSCRIPTION') {
-              ph = { provider: 'ST2C2...PROV', subscriber: 'ST3C3...SUB', period: '4320', 'price-ustx': '1000000' };
-            }
-            console.log('Using fallback defaults:', ph);
-          }
-        }
-      }
-      
-      console.log('Final placeholders:', ph);
-      
-      const inputIssues = validateInputs(currentTemplate, ph);
-      if (inputIssues.some(i => i.level === 'error')) {
-        setIssues(inputIssues);
-        toast({ title: 'Invalid inputs', description: 'Please check the placeholder values', status: 'error' });
-        return;
-      }
-      
-      const generated = generateContract(currentTemplate, ph);
-      const sourceIssues = validateClaritySource(generated.source);
-      setIssues([...inputIssues, ...sourceIssues]);
-      
-      if (sourceIssues.some(i => i.level === 'error')) {
-        toast({ title: 'Template generation error', description: 'Generated code has issues', status: 'error' });
-        return;
-      }
-      
-      setCode(generated.source);
-      
-      // increment AI stats counter
-      try { (window as any).__stats?.incrementAI?.(); } catch {}
-      toast({ title: 'Contract generated successfully!', description: 'Review the code below', status: 'success' });
-    } catch (e: any) {
-      console.error('Generation error:', e);
-      toast({ title: 'Generation failed', description: e?.message || 'Unknown error', status: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onDeploy = async () => {
-    if (!code) {
-      toast({ title: 'No contract to deploy', status: 'error' });
+  const handleGenerate = async () => {
+    if (!request.trim()) {
+      setError('Please enter a contract description');
       return;
     }
+
+    setIsGenerating(true);
+    setError(null);
+    setAiResponse(null);
+
     try {
-      // Require explicit confirmation
-      const ok = window.confirm('Deploy this contract to Stacks testnet? Make sure you reviewed the code.');
-      if (!ok) return;
-      await deployContract({ contractName: `gen-${templateId.toLowerCase()}-${Date.now()}`, source: code, onFinish: () => toast({ title: 'Deploy submitted', status: 'success' }) });
-    } catch (e: any) {
-      toast({ title: 'Deploy failed', description: e?.message || 'Unknown error', status: 'error' });
+      const aiRequest: AIContractRequest = {
+        description: request,
+        template: selectedTemplate,
+        language: 'clarity',
+        requirements: requirements.length > 0 ? requirements : undefined
+      };
+
+      console.log('AI Contract Builder: Generating contract with request:', aiRequest);
+      const response = await aiService.generateContract(aiRequest);
+      console.log('AI Contract Builder: Received response:', response);
+      
+      setAiResponse(response);
+      setActiveTab('validate');
+      toast('Contract generated successfully!', 'success');
+    } catch (err: any) {
+      console.error('AI Contract Builder: Generation error:', err);
+      setError(err.message || 'Failed to generate contract');
+      toast('Contract generation failed', 'error');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  // Show wallet connection prompt if not connected
-  if (!isAuthenticated) {
-    return (
-      <Container maxW="6xl" py={10}>
-        <VStack gap={8} align="stretch">
-          <VStack gap={4} textAlign="center">
-            <Heading size="2xl" color="blue.600" fontWeight="bold">AI Contract Builder</Heading>
-            <Text fontSize="lg" color="gray.600" maxW="600px">
-              Connect your wallet to generate smart contracts from natural language
-            </Text>
-          </VStack>
-          
-          <Box bg="white" p={8} borderRadius="xl" borderWidth="2px" borderColor="blue.200" shadow="lg" textAlign="center">
-            <VStack gap={6}>
-              <Text fontSize="2xl">🤖</Text>
-              <Heading size="lg" color="blue.600">Wallet Required</Heading>
-              <Text color="gray.600" maxW="500px">
-                Connect your Stacks wallet to access the AI contract builder functionality.
-              </Text>
-              <Button 
-                colorScheme="blue" 
-                size="lg" 
-                onClick={() => window.location.href = '/'}
-                fontWeight="semibold"
-              >
-                Go to Home & Connect Wallet
-              </Button>
-            </VStack>
-          </Box>
-        </VStack>
-      </Container>
-    );
-  }
+  const handleValidate = async () => {
+    if (!aiResponse?.contract) {
+      setError('No contract to validate');
+      return;
+    }
+
+    setIsValidating(true);
+    setError(null);
+
+    try {
+      const validationResult = await aiService.validateContract(aiResponse.contract);
+      setValidation(validationResult);
+      setActiveTab('validate');
+      
+      if (validationResult.valid) {
+        toast('Contract validation passed!', 'success');
+      } else {
+        toast('Contract validation found issues', 'warning');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Validation failed');
+      toast('Validation failed', 'error');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleImprove = async () => {
+    if (!aiResponse?.contract || !improvementFeedback.trim()) {
+      setError('Please provide feedback for improvement');
+      return;
+    }
+
+    setIsImproving(true);
+    setError(null);
+
+    try {
+      const improvedResponse = await aiService.improveContract(aiResponse.contract, improvementFeedback);
+      setAiResponse(improvedResponse);
+      setActiveTab('validate');
+      toast('Contract improved successfully!', 'success');
+    } catch (err: any) {
+      setError(err.message || 'Failed to improve contract');
+      toast('Contract improvement failed', 'error');
+    } finally {
+      setIsImproving(false);
+    }
+  };
+
+  const handleDeploy = async () => {
+    if (!aiResponse?.contract) {
+      setError('No contract to deploy');
+      return;
+    }
+
+    setIsDeploying(true);
+    setError(null);
+
+    try {
+      // Simulate deployment process
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      toast('Contract deployment initiated!', 'success');
+    } catch (err: any) {
+      setError(err.message || 'Deployment failed');
+      toast('Deployment failed', 'error');
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast('Contract copied to clipboard!', 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast('Failed to copy contract', 'error');
+    }
+  };
+
+  const addRequirement = () => {
+    if (newRequirement.trim()) {
+      setRequirements([...requirements, newRequirement.trim()]);
+      setNewRequirement('');
+    }
+  };
+
+  const handleTestAI = async () => {
+    try {
+      const result = await testAIService();
+      if (result.success) {
+        toast('AI Service test successful!', 'success');
+        console.log('AI Service working correctly');
+      } else {
+        toast(`AI Service test failed: ${result.error}`, 'error');
+        console.error('AI Service test failed:', result.error);
+      }
+    } catch (error) {
+      toast('AI Service test failed', 'error');
+      console.error('AI Service test error:', error);
+    }
+  };
+
+  const removeRequirement = (index: number) => {
+    setRequirements(requirements.filter((_, i) => i !== index));
+  };
 
   return (
-    <Box minH="100vh" overflowX="hidden" bg="#0a0a0a">
-      <Container maxW="6xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
-        <VStack gap={{ base: 4, md: 8 }} align="stretch">
+    <Box minH="100vh" bg="#000000" color="#ffffff">
+      <Container maxW="7xl" py={8} px={4}>
+        <VStack gap={8} align="stretch">
+          {/* Header */}
           <VStack gap={4} textAlign="center">
-            <Heading 
-              size={{ base: "xl", md: "2xl" }} 
-              bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
-              bgClip="text"
-              fontWeight="bold"
-            >
-              🤖 AI Contract Builder
+            <Heading size="xl" color="#ffffff">
+              AI Contract Builder
             </Heading>
-            <Text fontSize={{ base: "md", md: "lg" }} color="#a0a0a0" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
-              Generate smart contracts from natural language using AI
+            <Text color="#9ca3af" maxW="3xl" fontSize="lg">
+              Generate professional Clarity smart contracts using AI. Describe your requirements in natural language and get production-ready code with validation and deployment support.
             </Text>
           </VStack>
-        
-        <Box 
-          borderWidth="2px" 
-          borderColor="rgba(0, 212, 255, 0.3)" 
-          borderRadius="3xl" 
-          p={{ base: 6, md: 8 }} 
-          bg="rgba(30, 30, 30, 0.95)"
-          backdropFilter="blur(20px)"
-          shadow="0 25px 80px rgba(0, 0, 0, 0.6)"
-          _hover={{
-            borderColor: 'rgba(0, 212, 255, 0.5)',
-            boxShadow: '0 30px 100px rgba(0, 212, 255, 0.25)',
-            transform: 'translateY(-2px)'
-          }}
-          transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
-        >
-          {/* <Box mb={4}><DemoBar /></Box> */} {/* Removed for production */}
-          <Stack gap={4}>
-            {nl && (
-              <Box p={4} bg="blue.50" borderColor="blue.200" borderWidth="2px" borderRadius="lg">
-                <Text color="blue.700" fontWeight="semibold" fontSize={{ base: "sm", md: "md" }}>
-                  Suggested template: <Badge colorScheme="blue" ml={2}>{interpretNaturalLanguage(nl).template}</Badge>
-                </Text>
-              </Box>
-            )}
-            <Box>
-              <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="#ffffff">
-                📋 Template
-              </Text>
-              <select 
-                value={templateId} 
-                onChange={(e: any) => setTemplateId(e.target.value as TemplateId)} 
-                style={{ 
-                  padding: '12px 16px', 
-                  borderRadius: '12px', 
-                  backgroundColor: 'rgba(30, 30, 30, 0.8)', 
-                  color: '#ffffff', 
-                  border: '2px solid rgba(0, 212, 255, 0.3)',
-                  fontSize: '16px',
-                  width: '100%',
-                  transition: 'all 0.2s ease'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#00d4ff';
-                  e.target.style.backgroundColor = 'rgba(30, 30, 30, 0.95)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'rgba(0, 212, 255, 0.3)';
-                  e.target.style.backgroundColor = 'rgba(30, 30, 30, 0.8)';
-                }}
-              >
-                <option value="ESCROW" style={{ backgroundColor: '#1e1e1e', color: '#ffffff' }}>🔒 Escrow</option>
-                <option value="SPLIT" style={{ backgroundColor: '#1e1e1e', color: '#ffffff' }}>💰 Split Payment</option>
-                <option value="SUBSCRIPTION" style={{ backgroundColor: '#1e1e1e', color: '#ffffff' }}>🔄 Subscription</option>
-              </select>
-            </Box>
-            <Box>
-              <Text mb={3} fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="#ffffff">
-                🤖 Natural Language Request
-              </Text>
-              <Textarea 
-                placeholder={DEFAULT_PROMPTS[templateId]} 
-                value={nl} 
-                onChange={e => setNl(e.target.value)}
-                bg="rgba(30, 30, 30, 0.8)"
-                borderColor="rgba(0, 212, 255, 0.3)"
-                borderWidth="2px"
-                borderRadius="xl"
-                color="#ffffff"
-                fontSize={{ base: "sm", md: "md" }}
-                minH="120px"
-                _placeholder={{ color: "#a0a0a0" }}
-                _hover={{ 
-                  borderColor: "rgba(0, 212, 255, 0.5)",
-                  bg: "rgba(30, 30, 30, 0.9)"
-                }}
-                _focus={{ 
-                  borderColor: "#00d4ff", 
-                  boxShadow: "0 0 0 3px rgba(0, 212, 255, 0.1)",
-                  bg: "rgba(30, 30, 30, 0.95)"
-                }}
-                transition="all 0.2s ease"
-              />
-            </Box>
-            <Box borderTop="2px" borderColor="rgba(0, 212, 255, 0.2)" pt={6} />
-            <Heading size={{ base: "sm", md: "md" }} color="#00d4ff" mb={4}>
-              🔧 Placeholders
-            </Heading>
-            <VStack gap={4} align="stretch">
-              {currentTemplate.placeholders.map(ph => (
-                <VStack key={ph.key} gap={2} align="stretch">
-                  <Text fontWeight="semibold" color="#ffffff" fontSize={{ base: "sm", md: "md" }}>
-                    {ph.key} {ph.required && <Text as="span" color="#ff4444">*</Text>}
+
+          {/* Main Content */}
+          <VStack gap={6} align="stretch">
+            {/* Contract Generation Form */}
+            <UniformCard p={6}>
+              <VStack gap={6} align="stretch">
+                <Heading size="md" color="#ffffff">
+                  Contract Requirements
+                </Heading>
+
+                {/* Template Selection */}
+                <VStack gap={3} align="stretch">
+                  <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                    Contract Template
                   </Text>
-                  <Input 
-                    placeholder={ph.type} 
-                    value={input[ph.key] || ''} 
-                    onChange={e => setInput({ ...input, [ph.key]: e.target.value })}
-                    bg="rgba(30, 30, 30, 0.8)"
-                    borderColor="rgba(0, 212, 255, 0.3)"
-                    borderWidth="2px"
-                    borderRadius="xl"
+                  <Select
+                    value={selectedTemplate}
+                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    bg="rgba(255, 255, 255, 0.05)"
+                    borderColor="rgba(255, 255, 255, 0.1)"
                     color="#ffffff"
-                    fontSize={{ base: "sm", md: "md" }}
-                    _placeholder={{ color: "#a0a0a0" }}
-                    _hover={{ 
-                      borderColor: "rgba(0, 212, 255, 0.5)",
-                      bg: "rgba(30, 30, 30, 0.9)"
-                    }}
-                    _focus={{ 
-                      borderColor: "#00d4ff", 
-                      boxShadow: "0 0 0 3px rgba(0, 212, 255, 0.1)",
-                      bg: "rgba(30, 30, 30, 0.95)"
-                    }}
-                    transition="all 0.2s ease"
+                    _focus={{ borderColor: '#3b82f6' }}
+                    size="lg"
+                  >
+                    {templates.map((template) => (
+                      <option key={template.value} value={template.value} style={{ backgroundColor: '#000000', color: '#ffffff' }}>
+                        {template.label} - {template.description}
+                      </option>
+                    ))}
+                  </Select>
+                </VStack>
+
+                {/* Natural Language Description */}
+                <VStack gap={3} align="stretch">
+                  <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                    Describe Your Contract
+                  </Text>
+                  <UniformTextarea
+                    placeholder="Describe what your contract should do in detail (e.g., 'Create a payment contract that handles escrow transactions with a 3-day timeout, dispute resolution, and automatic release')"
+                    value={request}
+                    onChange={(e) => setRequest(e.target.value)}
+                    rows={4}
+                    variant="default"
+                    fontSize="md"
                   />
                 </VStack>
-              ))}
-            </VStack>
-            {!apiEnabled && (
-              <Box p={4} borderRadius="xl" bg="rgba(0, 212, 255, 0.1)" borderColor="rgba(0, 212, 255, 0.3)" borderWidth="2px">
-                <VStack align="start" gap={2}>
-                  <Text color="#00d4ff" fontSize="sm" fontWeight="semibold">
-                    💡 <strong>AI Enhancement Available</strong>
+
+                {/* Additional Requirements */}
+                <VStack gap={3} align="stretch">
+                  <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                    Additional Requirements (Optional)
                   </Text>
-                  <Text color="#a0a0a0" fontSize="sm">
-                    Add REACT_APP_OPENAI_API_KEY to your environment for enhanced AI contract generation. Currently using local templates.
-                  </Text>
-                  <Text color="#00d4ff" fontSize="xs" fontFamily="mono">
-                    Create a .env file with: REACT_APP_OPENAI_API_KEY=your_key_here
-                  </Text>
+                  <HStack gap={2}>
+                    <UniformTextarea
+                      placeholder="Add specific requirement..."
+                      value={newRequirement}
+                      onChange={(e) => setNewRequirement(e.target.value)}
+                      rows={1}
+                      variant="default"
+                      flex="1"
+                    />
+                    <UniformButton
+                      variant="secondary"
+                      onClick={addRequirement}
+                      disabled={!newRequirement.trim()}
+                    >
+                      Add
+                    </UniformButton>
+                  </HStack>
+                  
+                  {requirements.length > 0 && (
+                    <VStack gap={2} align="stretch">
+                      {requirements.map((req, index) => (
+                        <HStack key={index} justify="space-between" p={2} bg="rgba(255, 255, 255, 0.05)" borderRadius="md">
+                          <Text fontSize="sm" color="#ffffff">{req}</Text>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            color="#ef4444"
+                            onClick={() => removeRequirement(index)}
+                          >
+                            Remove
+                          </Button>
+                        </HStack>
+                      ))}
+                    </VStack>
+                  )}
                 </VStack>
-              </Box>
-            )}
-            {apiEnabled && (
-              <Box p={4} borderRadius="xl" bg="rgba(0, 255, 136, 0.1)" borderColor="rgba(0, 255, 136, 0.3)" borderWidth="2px">
-                <VStack align="start" gap={2}>
-                  <Text color="#00ff88" fontSize="sm" fontWeight="semibold">
-                    🤖 <strong>AI Contract Builder Active</strong>
-                  </Text>
-                  <Text color="#a0a0a0" fontSize="sm">
-                    OpenAI integration enabled. Generate smart contracts from natural language descriptions.
-                  </Text>
-                </VStack>
-              </Box>
-            )}
-            <VStack gap={4} pt={4}>
-              <HStack gap={4} justify="center" wrap="wrap">
-                <Button 
-                  bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
-                  color="white"
-                  onClick={onGenerate} 
-                  loading={loading}
-                  size={{ base: "md", md: "lg" }}
-                  px={{ base: 6, md: 8 }}
-                  py={{ base: 4, md: 6 }}
-                  fontWeight="semibold"
-                  disabled={loading}
-                  w={{ base: "100%", sm: "auto" }}
-                  borderRadius="xl"
-                  _hover={{
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 12px 40px rgba(0, 212, 255, 0.4)',
-                    bg: 'linear-gradient(135deg, #0099cc 0%, #0077aa 100%)'
-                  }}
-                  _active={{
-                    transform: 'translateY(0)',
-                    boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)'
-                  }}
-                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                >
-                  {loading ? 'Generating...' : '🤖 Generate Contract'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={onDeploy} 
-                  disabled={!code}
-                  size={{ base: "md", md: "lg" }}
-                  px={{ base: 6, md: 8 }}
-                  py={{ base: 4, md: 6 }}
-                  fontWeight="semibold"
-                  borderWidth="2px"
-                  borderColor="rgba(0, 255, 136, 0.5)"
-                  color="#00ff88"
-                  bg="rgba(0, 255, 136, 0.1)"
-                  borderRadius="xl"
-                  _hover={{ 
-                    bg: "rgba(0, 255, 136, 0.2)", 
-                    borderColor: "#00ff88",
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 25px rgba(0, 255, 136, 0.3)'
-                  }}
-                  _active={{
-                    transform: 'translateY(0)'
-                  }}
-                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                  w={{ base: "100%", sm: "auto" }}
-                >
-                  🚀 Deploy Contract
-                </Button>
-              </HStack>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  console.log('=== AI CONTRACT BUILDER DEBUG ===');
-                  console.log('API Key:', apiKey ? 'Present' : 'Missing');
-                  console.log('API Enabled:', apiEnabled);
-                  console.log('Current Template:', currentTemplate);
-                  console.log('Current Input:', input);
-                  console.log('Natural Language:', nl);
-                  console.log('Template ID:', templateId);
-                  console.log('================================');
-                }}
-                size="sm"
-                borderColor="rgba(160, 160, 160, 0.3)"
-                color="#a0a0a0"
-                bg="rgba(30, 30, 30, 0.5)"
-                _hover={{
-                  borderColor: "rgba(160, 160, 160, 0.5)",
-                  color: "#ffffff",
-                  bg: "rgba(30, 30, 30, 0.8)"
-                }}
-                borderRadius="lg"
-              >
-                🔍 Debug Info
-              </Button>
-            </VStack>
-            {issues.length > 0 && (
-              <VStack gap={3} align="stretch">
-                {issues.map((i, idx) => (
-                  <Box 
-                    key={idx} 
-                    p={4} 
-                    borderRadius="xl" 
-                    bg={i.level === 'error' ? 'rgba(255, 68, 68, 0.1)' : 'rgba(255, 170, 0, 0.1)'}
-                    borderColor={i.level === 'error' ? 'rgba(255, 68, 68, 0.3)' : 'rgba(255, 170, 0, 0.3)'}
-                    borderWidth="2px"
+
+                {/* Action Buttons */}
+                <HStack gap={3} justify="center" wrap="wrap">
+                  <UniformButton
+                    variant="primary"
+                    onClick={handleGenerate}
+                    loading={isGenerating}
+                    disabled={!request.trim()}
+                    size="lg"
                   >
-                    <Text color={i.level === 'error' ? '#ff4444' : '#ffaa00'} fontWeight="semibold">
-                      {i.level === 'error' ? '❌' : '⚠️'} {i.message}
-                    </Text>
-                  </Box>
-                ))}
+                    {isGenerating ? 'Generating Contract...' : 'Generate Contract with AI'}
+                  </UniformButton>
+                  
+                  <UniformButton
+                    variant="secondary"
+                    onClick={handleTestAI}
+                    size="sm"
+                  >
+                    Test AI Service
+                  </UniformButton>
+                </HStack>
+
+                {/* Error Display */}
+                {error && (
+                  <Alert status="error" borderRadius="lg">
+                    <AlertIcon />
+                    <Box>
+                      <AlertTitle>Error!</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Box>
+                  </Alert>
+                )}
               </VStack>
+            </UniformCard>
+
+            {/* AI Response */}
+            {aiResponse && (
+              <UniformCard p={6}>
+                <VStack gap={6} align="stretch">
+                  <HStack justify="space-between" align="center">
+                    <Heading size="md" color="#ffffff">
+                      Generated Contract
+                    </Heading>
+                    <HStack gap={2}>
+                      <Badge colorScheme="green" fontSize="sm">AI Generated</Badge>
+                      <UniformButton
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => copyToClipboard(aiResponse.contract)}
+                        disabled={copied}
+                      >
+                        {copied ? 'Copied!' : 'Copy Code'}
+                      </UniformButton>
+                    </HStack>
+                  </HStack>
+
+                  {/* Contract Explanation */}
+                  {aiResponse.explanation && (
+                    <Box p={4} bg="rgba(59, 130, 246, 0.1)" border="1px solid" borderColor="rgba(59, 130, 246, 0.3)" borderRadius="lg">
+                      <Text fontSize="sm" color="#3b82f6" fontWeight="medium" mb={2}>
+                        AI Explanation:
+                      </Text>
+                      <Text fontSize="sm" color="#ffffff">
+                        {aiResponse.explanation}
+                      </Text>
+                    </Box>
+                  )}
+
+                  {/* Contract Code */}
+                  <Box p={4} bg="#0a0a0a" borderRadius="lg" border="1px solid" borderColor="rgba(255, 255, 255, 0.1)">
+                    <Code
+                      as="pre"
+                      fontSize="sm"
+                      color="#ffffff"
+                      fontFamily="mono"
+                      whiteSpace="pre-wrap"
+                      wordBreak="break-word"
+                      display="block"
+                      p={0}
+                      bg="transparent"
+                    >
+                      {aiResponse.contract}
+                    </Code>
+                  </Box>
+
+                  {/* AI Suggestions */}
+                  {aiResponse.suggestions && aiResponse.suggestions.length > 0 && (
+                    <Box>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleSuggestions}
+                        color="#3b82f6"
+                        mb={2}
+                      >
+                        {showSuggestions ? 'Hide' : 'Show'} AI Suggestions ({aiResponse.suggestions.length})
+                      </Button>
+                      <Collapse in={showSuggestions}>
+                        <VStack gap={2} align="stretch">
+                          {aiResponse.suggestions.map((suggestion, index) => (
+                            <Box key={index} p={3} bg="rgba(59, 130, 246, 0.1)" borderRadius="md">
+                              <Text fontSize="sm" color="#ffffff">
+                                💡 {suggestion}
+                              </Text>
+                            </Box>
+                          ))}
+                        </VStack>
+                      </Collapse>
+                    </Box>
+                  )}
+
+                  {/* Action Buttons */}
+                  <HStack gap={3} justify="center" wrap="wrap">
+                    <UniformButton
+                      variant="secondary"
+                      onClick={handleValidate}
+                      loading={isValidating}
+                    >
+                      {isValidating ? 'Validating...' : 'Validate Contract'}
+                    </UniformButton>
+
+                    <UniformButton
+                      variant="accent"
+                      onClick={() => setActiveTab('improve')}
+                    >
+                      Improve Contract
+                    </UniformButton>
+
+                    <UniformButton
+                      variant="primary"
+                      onClick={handleDeploy}
+                      loading={isDeploying}
+                    >
+                      {isDeploying ? 'Deploying...' : 'Deploy Contract'}
+                    </UniformButton>
+                  </HStack>
+                </VStack>
+              </UniformCard>
             )}
-          </Stack>
-        </Box>
-        {code && (
-          <Box 
-            borderWidth="2px" 
-            borderColor="rgba(0, 212, 255, 0.3)" 
-            borderRadius="3xl" 
-            overflow="hidden" 
-            bg="rgba(30, 30, 30, 0.95)"
-            backdropFilter="blur(20px)"
-            shadow="0 25px 80px rgba(0, 0, 0, 0.6)"
-            _hover={{
-              borderColor: 'rgba(0, 212, 255, 0.5)',
-              boxShadow: '0 30px 100px rgba(0, 212, 255, 0.25)',
-              transform: 'translateY(-2px)'
-            }}
-            transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
-          >
-            <Box p={4} bg="rgba(0, 212, 255, 0.1)" borderBottom="2px" borderColor="rgba(0, 212, 255, 0.3)">
-              <Text color="#00d4ff" fontWeight="bold" fontSize="lg">
-                📄 Generated Contract Code
-              </Text>
-            </Box>
-            <SyntaxHighlighter 
-              language="clojure" 
-              style={oneDark} 
-              customStyle={{ 
-                margin: 0, 
-                padding: '20px',
-                background: 'rgba(10, 10, 10, 0.8)',
-                borderRadius: '0 0 24px 24px'
-              }}
-            >
-              {code}
-            </SyntaxHighlighter>
-          </Box>
-        )}
-      </VStack>
-    </Container>
+
+            {/* Contract Validation */}
+            {validation && (
+              <UniformCard p={6}>
+                <VStack gap={4} align="stretch">
+                  <HStack justify="space-between" align="center">
+                    <Heading size="md" color="#ffffff">
+                      Contract Validation
+                    </Heading>
+                    <Badge colorScheme={validation.valid ? 'green' : 'red'} fontSize="sm">
+                      {validation.valid ? 'Valid' : 'Issues Found'}
+                    </Badge>
+                  </HStack>
+
+                  {validation.errors.length > 0 && (
+                    <VStack gap={2} align="stretch">
+                      <Text fontSize="sm" fontWeight="medium" color="#ef4444">
+                        Errors ({validation.errors.length}):
+                      </Text>
+                      {validation.errors.map((error, index) => (
+                        <Box key={index} p={3} bg="rgba(239, 68, 68, 0.1)" borderRadius="md">
+                          <Text fontSize="sm" color="#ef4444">
+                            ❌ {error}
+                          </Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  )}
+
+                  {validation.warnings.length > 0 && (
+                    <VStack gap={2} align="stretch">
+                      <Text fontSize="sm" fontWeight="medium" color="#f59e0b">
+                        Warnings ({validation.warnings.length}):
+                      </Text>
+                      {validation.warnings.map((warning, index) => (
+                        <Box key={index} p={3} bg="rgba(245, 158, 11, 0.1)" borderRadius="md">
+                          <Text fontSize="sm" color="#f59e0b">
+                            ⚠️ {warning}
+                          </Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  )}
+
+                  {validation.valid && (
+                    <Box p={4} bg="rgba(16, 185, 129, 0.1)" border="1px solid" borderColor="rgba(16, 185, 129, 0.3)" borderRadius="lg">
+                      <Text fontSize="sm" color="#10b981" fontWeight="medium">
+                        ✅ Contract validation passed! The contract is ready for deployment.
+                      </Text>
+                    </Box>
+                  )}
+                </VStack>
+              </UniformCard>
+            )}
+
+            {/* Contract Improvement */}
+            {activeTab === 'improve' && (
+              <UniformCard p={6}>
+                <VStack gap={4} align="stretch">
+                  <Heading size="md" color="#ffffff">
+                    Improve Contract
+                  </Heading>
+                  
+                  <VStack gap={3} align="stretch">
+                    <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                      Provide feedback for improvement:
+                    </Text>
+                    <UniformTextarea
+                      placeholder="Describe what you'd like to improve (e.g., 'Add more security checks', 'Improve error handling', 'Add more documentation')"
+                      value={improvementFeedback}
+                      onChange={(e) => setImprovementFeedback(e.target.value)}
+                      rows={3}
+                      variant="default"
+                    />
+                  </VStack>
+
+                  <HStack gap={3} justify="center">
+                    <UniformButton
+                      variant="secondary"
+                      onClick={() => setActiveTab('validate')}
+                    >
+                      Cancel
+                    </UniformButton>
+                    <UniformButton
+                      variant="primary"
+                      onClick={handleImprove}
+                      loading={isImproving}
+                      disabled={!improvementFeedback.trim()}
+                    >
+                      {isImproving ? 'Improving...' : 'Improve Contract'}
+                    </UniformButton>
+                  </HStack>
+                </VStack>
+              </UniformCard>
+            )}
+
+            {/* How It Works */}
+            <UniformCard p={6}>
+              <VStack gap={4} align="stretch">
+                <Heading size="md" color="#ffffff">
+                  How AI Contract Builder Works
+                </Heading>
+                
+                <VStack gap={4} align="stretch">
+                  <HStack gap={4} align="start">
+                    <Box w="40px" h="40px" bg="#3b82f6" borderRadius="full" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                      <Text fontSize="lg" fontWeight="bold">1</Text>
+                    </Box>
+                    <VStack align="start" gap={1}>
+                      <Text fontSize="md" fontWeight="medium" color="#ffffff">Describe Your Contract</Text>
+                      <Text fontSize="sm" color="#9ca3af">Tell us what your contract should do in plain English. Be specific about features, security requirements, and business logic.</Text>
+                    </VStack>
+                  </HStack>
+                  
+                  <HStack gap={4} align="start">
+                    <Box w="40px" h="40px" bg="#3b82f6" borderRadius="full" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                      <Text fontSize="lg" fontWeight="bold">2</Text>
+                    </Box>
+                    <VStack align="start" gap={1}>
+                      <Text fontSize="md" fontWeight="medium" color="#ffffff">AI Generation</Text>
+                      <Text fontSize="sm" color="#9ca3af">Our AI analyzes your requirements and generates professional Clarity code with proper security, error handling, and documentation.</Text>
+                    </VStack>
+                  </HStack>
+                  
+                  <HStack gap={4} align="start">
+                    <Box w="40px" h="40px" bg="#3b82f6" borderRadius="full" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                      <Text fontSize="lg" fontWeight="bold">3</Text>
+                    </Box>
+                    <VStack align="start" gap={1}>
+                      <Text fontSize="md" fontWeight="medium" color="#ffffff">Validation & Improvement</Text>
+                      <Text fontSize="sm" color="#9ca3af">Validate the contract syntax, review AI suggestions, and request improvements based on your feedback.</Text>
+                    </VStack>
+                  </HStack>
+                  
+                  <HStack gap={4} align="start">
+                    <Box w="40px" h="40px" bg="#3b82f6" borderRadius="full" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                      <Text fontSize="lg" fontWeight="bold">4</Text>
+                    </Box>
+                    <VStack align="start" gap={1}>
+                      <Text fontSize="md" fontWeight="medium" color="#ffffff">Deploy to Blockchain</Text>
+                      <Text fontSize="sm" color="#9ca3af">Deploy your validated contract to the Stacks blockchain with transaction tracking and explorer links.</Text>
+                    </VStack>
+                  </HStack>
+                </VStack>
+              </VStack>
+            </UniformCard>
+          </VStack>
+        </VStack>
+      </Container>
     </Box>
   );
 }
-

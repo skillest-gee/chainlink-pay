@@ -1,31 +1,85 @@
-import React from 'react';
-import { Button, Box, Text, VStack, HStack, IconButton, Container, Heading, Badge } from '@chakra-ui/react';
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { Box, Text, VStack, HStack, IconButton, Heading, Badge, Button, Container } from '@chakra-ui/react';
+import { UniformButton } from './UniformButton';
+import { UniformCard } from './UniformCard';
 
 export default function TutorialModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
   
+  const tutorialSteps = [
+    {
+      title: "Welcome to ChainLinkPay",
+      icon: "🔗",
+      content: "ChainLinkPay is a professional Bitcoin payment platform that allows you to create payment links, manage transactions, and bridge assets across blockchain networks.",
+      features: ["Create secure payment links", "Manage Bitcoin and STX transactions", "Cross-chain asset bridging", "AI-powered smart contracts"]
+    },
+    {
+      title: "Connect Your Wallet",
+      icon: "👛",
+      content: "Start by connecting your wallet to access all features. We support both Stacks and Bitcoin wallets.",
+      features: ["Stacks wallets (Hiro, Xverse, Leather)", "Bitcoin wallets (Unisat, OKX, Bitget)", "Mobile wallet support", "Secure connection"]
+    },
+    {
+      title: "Create Payment Links",
+      icon: "💳",
+      content: "Generate secure payment links for your customers. Support both Bitcoin and STX payments with QR codes.",
+      features: ["Custom payment amounts", "Payment descriptions", "QR code generation", "Real-time tracking"]
+    },
+    {
+      title: "AI Contract Builder",
+      icon: "🤖",
+      content: "Generate smart contracts using AI. Describe your requirements in natural language and get production-ready Clarity code.",
+      features: ["Natural language input", "Template-based generation", "Contract validation", "Deployment support"]
+    },
+    {
+      title: "Cross-Chain Bridge",
+      icon: "🌉",
+      content: "Bridge assets between different blockchain networks. Transfer Bitcoin, STX, and other supported tokens.",
+      features: ["Multi-asset support", "Real-time fee estimation", "Transaction tracking", "Secure bridging"]
+    },
+    {
+      title: "Dashboard & Analytics",
+      icon: "📊",
+      content: "Track your payment statistics, view transaction history, and monitor your business performance.",
+      features: ["Real-time statistics", "Payment history", "Monthly growth tracking", "Quick actions"]
+    }
+  ];
+
+  const nextStep = () => {
+    if (currentStep < tutorialSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      setIsOpen(false);
+      setCurrentStep(0);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const skipTutorial = () => {
+    setIsOpen(false);
+    setCurrentStep(0);
+  };
+
   if (!isOpen) {
     return (
-      <Button 
-        size="sm" 
-        variant="outline" 
+      <UniformButton
+        variant="ghost"
+        size="sm"
         onClick={() => setIsOpen(true)}
-        bg="rgba(0, 212, 255, 0.1)"
-        borderColor="rgba(0, 212, 255, 0.3)"
-        color="#00d4ff"
-        _hover={{
-          bg: 'rgba(0, 212, 255, 0.2)',
-          borderColor: 'rgba(0, 212, 255, 0.5)',
-          transform: 'translateY(-1px)'
-        }}
-        transition="all 0.2s ease"
-        fontWeight="medium"
+        title="Learn how to use ChainLinkPay"
       >
         📚 Tutorial
-      </Button>
+      </UniformButton>
     );
   }
+
+  const currentTutorial = tutorialSteps[currentStep];
 
   return (
     <Box
@@ -34,269 +88,144 @@ export default function TutorialModal() {
       left={0}
       right={0}
       bottom={0}
-      bg="rgba(0, 0, 0, 0.8)"
-      backdropFilter="blur(8px)"
+      bg="rgba(0, 0, 0, 0.9)"
+      backdropFilter="blur(10px)"
       zIndex={9999}
       display="flex"
       alignItems="center"
       justifyContent="center"
       p={4}
     >
-      <Box
-        bg="rgba(17, 17, 17, 0.95)"
-        backdropFilter="blur(20px)"
-        p={{ base: 6, md: 8 }}
-        borderRadius="3xl"
-        maxW={{ base: "95%", md: "700px" }}
-        w="100%"
-        position="relative"
-        shadow="0 25px 80px rgba(0, 0, 0, 0.6)"
-        border="1px solid"
-        borderColor="rgba(0, 212, 255, 0.3)"
-        _before={{
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: '3xl',
-          padding: '1px',
-          background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(255, 107, 53, 0.3))',
-          mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-          maskComposite: 'xor',
-          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-          WebkitMaskComposite: 'xor',
-        }}
+      <UniformCard
+        maxW={{ base: "95%", md: "600px" }}
+        w="full"
+        p={0}
+        overflow="hidden"
       >
-        <IconButton
-          position="absolute"
-          top={4}
-          right={4}
-          size="sm"
-          variant="ghost"
-          onClick={() => setIsOpen(false)}
-          color="#a0a0a0"
-          _hover={{ 
-            color: "#ff4444",
-            bg: 'rgba(255, 68, 68, 0.1)',
-            transform: 'scale(1.1)'
-          }}
-          transition="all 0.2s ease"
-          aria-label="Close tutorial"
-        >
-          ✕
-        </IconButton>
-        
-        <VStack align="stretch" gap={6}>
+        <VStack gap={0} align="stretch">
           {/* Header */}
-          <VStack gap={3} textAlign="center">
-            <HStack gap={3} align="center">
-              <Box
-                w="50px"
-                h="50px"
-                bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
-                borderRadius="xl"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                fontSize="xl"
-                boxShadow="0 8px 32px rgba(0, 212, 255, 0.3)"
-              >
-                🚀
-              </Box>
-              <Heading 
-                size="lg" 
-                bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
-                bgClip="text"
-                fontWeight="bold"
-              >
-                ChainLinkPay Tutorial
-              </Heading>
+          <Box p={6} borderBottom="1px solid" borderColor="rgba(255, 255, 255, 0.1)">
+            <HStack justify="space-between" align="center">
+              <HStack gap={3} align="center">
+                <Text fontSize="2xl">{currentTutorial.icon}</Text>
+                <VStack align="start" gap={1}>
+                  <Heading size="md" color="#ffffff">
+                    {currentTutorial.title}
+                  </Heading>
+                  <Badge colorScheme="blue" fontSize="xs">
+                    Step {currentStep + 1} of {tutorialSteps.length}
+                  </Badge>
+                </VStack>
+              </HStack>
+              
+              <IconButton
+                aria-label="Close tutorial"
+                icon={<Text fontSize="lg">✕</Text>}
+                size="sm"
+                variant="ghost"
+                color="#9ca3af"
+                _hover={{ color: "#ffffff", bg: "rgba(255, 255, 255, 0.1)" }}
+                onClick={skipTutorial}
+              />
             </HStack>
-            <Text color="#a0a0a0" fontSize="md">
-              Learn how to use ChainLinkPay in 4 simple steps
-            </Text>
-          </VStack>
+          </Box>
 
-          {/* Tutorial Steps */}
-          <VStack gap={4} align="stretch">
-            {/* Step 1 */}
-            <Box 
-              p={6} 
-              bg="rgba(0, 212, 255, 0.05)" 
-              borderRadius="2xl" 
-              border="1px solid"
-              borderColor="rgba(0, 212, 255, 0.2)"
-              _hover={{
-                borderColor: 'rgba(0, 212, 255, 0.4)',
-                bg: 'rgba(0, 212, 255, 0.08)',
-                transform: 'translateY(-2px)'
-              }}
-              transition="all 0.3s ease"
-            >
-              <HStack gap={4} align="start">
-                <Badge 
-                  bg="linear-gradient(135deg, #00d4ff, #0099cc)" 
-                  color="white" 
-                  px={3} 
-                  py={1} 
+          {/* Content */}
+          <Box p={6}>
+            <VStack gap={6} align="stretch">
+              <Text fontSize="md" color="#ffffff" lineHeight="1.6">
+                {currentTutorial.content}
+              </Text>
+
+              {/* Features List */}
+              <VStack gap={3} align="stretch">
+                <Text fontSize="sm" fontWeight="medium" color="#9ca3af">
+                  Key Features:
+                </Text>
+                {currentTutorial.features.map((feature, index) => (
+                  <HStack key={index} gap={3} align="start">
+                    <Text fontSize="sm" color="#10b981" mt={0.5}>✓</Text>
+                    <Text fontSize="sm" color="#ffffff">
+                      {feature}
+                    </Text>
+                  </HStack>
+                ))}
+              </VStack>
+
+              {/* Progress Bar */}
+              <VStack gap={2} align="stretch">
+                <HStack justify="space-between" align="center">
+                  <Text fontSize="xs" color="#9ca3af">Progress</Text>
+                  <Text fontSize="xs" color="#9ca3af">
+                    {Math.round(((currentStep + 1) / tutorialSteps.length) * 100)}%
+                  </Text>
+                </HStack>
+                <Box
+                  w="full"
+                  h="4px"
+                  bg="rgba(255, 255, 255, 0.1)"
                   borderRadius="full"
-                  fontSize="sm"
-                  fontWeight="bold"
+                  overflow="hidden"
                 >
-                  1
-                </Badge>
-                <VStack align="start" gap={2} flex={1}>
-                  <Text fontWeight="bold" color="#00d4ff" fontSize="lg">
-                    💳 Connect Your Wallet
-                  </Text>
-                  <Text color="#ffffff" fontSize="md" lineHeight="1.6">
-                    Click "Connect Wallet" to link your Stacks wallet and start using ChainLinkPay
-                  </Text>
-                </VStack>
-              </HStack>
-            </Box>
+                  <Box
+                    w={`${((currentStep + 1) / tutorialSteps.length) * 100}%`}
+                    h="full"
+                    bg="linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%)"
+                    borderRadius="full"
+                    transition="width 0.3s ease"
+                  />
+                </Box>
+              </VStack>
+            </VStack>
+          </Box>
 
-            {/* Step 2 */}
-            <Box 
-              p={6} 
-              bg="rgba(0, 255, 136, 0.05)" 
-              borderRadius="2xl" 
-              border="1px solid"
-              borderColor="rgba(0, 255, 136, 0.2)"
-              _hover={{
-                borderColor: 'rgba(0, 255, 136, 0.4)',
-                bg: 'rgba(0, 255, 136, 0.08)',
-                transform: 'translateY(-2px)'
-              }}
-              transition="all 0.3s ease"
-            >
-              <HStack gap={4} align="start">
-                <Badge 
-                  bg="linear-gradient(135deg, #00ff88, #00d4ff)" 
-                  color="white" 
-                  px={3} 
-                  py={1} 
-                  borderRadius="full"
-                  fontSize="sm"
-                  fontWeight="bold"
+          {/* Footer */}
+          <Box p={6} borderTop="1px solid" borderColor="rgba(255, 255, 255, 0.1)">
+            <HStack justify="space-between" align="center">
+              <HStack gap={2}>
+                {tutorialSteps.map((_, index) => (
+                  <Box
+                    key={index}
+                    w="8px"
+                    h="8px"
+                    borderRadius="full"
+                    bg={index === currentStep ? "#3b82f6" : "rgba(255, 255, 255, 0.3)"}
+                    transition="background-color 0.2s ease"
+                  />
+                ))}
+              </HStack>
+
+              <HStack gap={3}>
+                {currentStep > 0 && (
+                  <UniformButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={prevStep}
+                  >
+                    Previous
+                  </UniformButton>
+                )}
+                
+                <UniformButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={skipTutorial}
                 >
-                  2
-                </Badge>
-                <VStack align="start" gap={2} flex={1}>
-                  <Text fontWeight="bold" color="#00ff88" fontSize="lg">
-                    🔗 Create Payment Links
-                  </Text>
-                  <Text color="#ffffff" fontSize="md" lineHeight="1.6">
-                    Generate secure payment links and QR codes for easy Bitcoin payments
-                  </Text>
-                </VStack>
-              </HStack>
-            </Box>
-
-            {/* Step 3 */}
-            <Box 
-              p={6} 
-              bg="rgba(255, 107, 53, 0.05)" 
-              borderRadius="2xl" 
-              border="1px solid"
-              borderColor="rgba(255, 107, 53, 0.2)"
-              _hover={{
-                borderColor: 'rgba(255, 107, 53, 0.4)',
-                bg: 'rgba(255, 107, 53, 0.08)',
-                transform: 'translateY(-2px)'
-              }}
-              transition="all 0.3s ease"
-            >
-              <HStack gap={4} align="start">
-                <Badge 
-                  bg="linear-gradient(135deg, #ff6b35, #ffaa00)" 
-                  color="white" 
-                  px={3} 
-                  py={1} 
-                  borderRadius="full"
-                  fontSize="sm"
-                  fontWeight="bold"
+                  Skip Tutorial
+                </UniformButton>
+                
+                <UniformButton
+                  variant="primary"
+                  size="sm"
+                  onClick={nextStep}
                 >
-                  3
-                </Badge>
-                <VStack align="start" gap={2} flex={1}>
-                  <Text fontWeight="bold" color="#ff6b35" fontSize="lg">
-                    🤖 AI Contract Builder
-                  </Text>
-                  <Text color="#ffffff" fontSize="md" lineHeight="1.6">
-                    Use natural language to generate smart contracts with AI assistance
-                  </Text>
-                </VStack>
+                  {currentStep === tutorialSteps.length - 1 ? 'Get Started' : 'Next'}
+                </UniformButton>
               </HStack>
-            </Box>
-
-            {/* Step 4 */}
-            <Box 
-              p={6} 
-              bg="rgba(138, 43, 226, 0.05)" 
-              borderRadius="2xl" 
-              border="1px solid"
-              borderColor="rgba(138, 43, 226, 0.2)"
-              _hover={{
-                borderColor: 'rgba(138, 43, 226, 0.4)',
-                bg: 'rgba(138, 43, 226, 0.08)',
-                transform: 'translateY(-2px)'
-              }}
-              transition="all 0.3s ease"
-            >
-              <HStack gap={4} align="start">
-                <Badge 
-                  bg="linear-gradient(135deg, #8a2be2, #ff6b35)" 
-                  color="white" 
-                  px={3} 
-                  py={1} 
-                  borderRadius="full"
-                  fontSize="sm"
-                  fontWeight="bold"
-                >
-                  4
-                </Badge>
-                <VStack align="start" gap={2} flex={1}>
-                  <Text fontWeight="bold" color="#8a2be2" fontSize="lg">
-                    🌉 Cross-Chain Bridge
-                  </Text>
-                  <Text color="#ffffff" fontSize="md" lineHeight="1.6">
-                    Bridge Bitcoin to other blockchain networks seamlessly
-                  </Text>
-                </VStack>
-              </HStack>
-            </Box>
-          </VStack>
-
-          {/* Action Button */}
-          <Button 
-            bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
-            color="white"
-            border="none"
-            borderRadius="xl"
-            fontWeight="semibold"
-            size="lg"
-            onClick={() => setIsOpen(false)}
-            _hover={{
-              transform: 'translateY(-2px)',
-              boxShadow: '0 12px 40px rgba(0, 212, 255, 0.4)',
-              bg: 'linear-gradient(135deg, #0099cc 0%, #0077aa 100%)'
-            }}
-            _active={{
-              transform: 'translateY(0)',
-              boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)'
-            }}
-            transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-            boxShadow="0 8px 25px rgba(0, 212, 255, 0.3)"
-            py={6}
-          >
-            🎉 Got it! Let's start building
-          </Button>
+            </HStack>
+          </Box>
         </VStack>
-      </Box>
+      </UniformCard>
     </Box>
   );
 }
-

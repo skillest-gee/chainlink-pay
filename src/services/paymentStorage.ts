@@ -75,13 +75,23 @@ class PaymentStorage {
   }
 
   // Get all payment links (for admin purposes)
-  private getAllPaymentLinks(): PaymentLink[] {
+  getAllPaymentLinks(): PaymentLink[] {
     try {
       const stored = localStorage.getItem(this.storageKey);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
       console.error('Error loading all payment links:', error);
       return [];
+    }
+  }
+
+  // Save all payment links (for admin purposes)
+  saveAllPaymentLinks(paymentLinks: PaymentLink[]): void {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(paymentLinks));
+      this.updateStats();
+    } catch (error) {
+      console.error('Error saving all payment links:', error);
     }
   }
 

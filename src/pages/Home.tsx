@@ -1,217 +1,360 @@
-import React from 'react';
-import { Box, Heading, Text, Container, HStack, VStack, Badge, Button } from '@chakra-ui/react';
+import React, { useEffect, useState } from 'react';
+import { Box, Heading, Text, Container, VStack, HStack, Badge, ProgressBar, Skeleton } from '@chakra-ui/react';
 import PaymentLinkGenerator from '../components/PaymentLinkGenerator';
 import { UniformButton } from '../components/UniformButton';
 import { UniformCard } from '../components/UniformCard';
-// import DemoBar from '../components/DemoBar'; // Removed for production
 import { useStacksWallet } from '../hooks/useStacksWallet';
+import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
+import { useStxBalance } from '../hooks/useStxBalance';
+import { Link } from 'react-router-dom';
+import { paymentStorage } from '../services/paymentStorage';
+
+interface HomeStats {
+  totalPayments: number;
+  totalVolume: number;
+  activePayments: number;
+  recentActivity: any[];
+}
 
 export default function Home() {
-  const { isAuthenticated, connect, address } = useStacksWallet();
+  const { isAuthenticated, address, connect } = useStacksWallet();
+  const { isConnected: btcConnected, address: btcAddress, balance: btcBalance } = useBitcoinWallet();
+  const { balance: stxBalance, loading: balanceLoading } = useStxBalance(address);
   
-  console.log('Home component - isAuthenticated:', isAuthenticated, 'address:', address);
-  
+  const [stats, setStats] = useState<HomeStats>({
+    totalPayments: 0,
+    totalVolume: 0,
+    activePayments: 0,
+    recentActivity: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Load user statistics
+  useEffect(() => {
+    const loadStats = async () => {
+      setLoading(true);
+      try {
+        const allPayments = paymentStorage.getAllPaymentLinks();
+        const totalPayments = allPayments.length;
+        const totalVolume = allPayments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+        const activePayments = allPayments.filter(p => p.status === 'pending').length;
+        const recentActivity = allPayments.slice(0, 5);
+
+        setStats({
+          totalPayments,
+          totalVolume,
+          activePayments,
+          recentActivity
+        });
+      } catch (error) {
+        console.error('Failed to load stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStats();
+  }, [isAuthenticated, address, btcConnected, btcAddress]);
+
+  const formatBalance = (balance: number | null) => {
+    if (balance === null) return '0.00';
+    return balance.toFixed(6);
+  };
+
+  const getWalletInfo = () => {
+    if (isAuthenticated && address) {
+      return {
+        type: 'Stacks',
+        address: address,
+        balance: stxBalance,
+        loading: balanceLoading
+      };
+    }
+    if (btcConnected && btcAddress) {
+      return {
+        type: 'Bitcoin',
+        address: btcAddress,
+        balance: btcBalance,
+        loading: false
+      };
+    }
+    return null;
+  };
+
+  const walletInfo = getWalletInfo();
+
   return (
-    <Box 
-      minH="100vh" 
-      overflowX="hidden"
-      bg="#0a0a0a"
-      backgroundImage="radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 107, 53, 0.1) 0%, transparent 50%)"
-      position="relative"
-    >
-      <Container maxW="6xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
-        <VStack gap={{ base: 4, md: 8 }} align="stretch">
-        {/* Hero Section */}
-            <VStack gap={{ base: 4, md: 6 }} textAlign="center" py={{ base: 4, md: 8 }}>
-              <HStack gap={3} align="center">
-                <Box
-                  w={{ base: "50px", md: "60px" }}
-                  h={{ base: "50px", md: "60px" }}
-                  bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
-                  borderRadius="xl"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  fontSize={{ base: "xl", md: "2xl" }}
-                  boxShadow="0 8px 32px rgba(0, 212, 255, 0.3)"
-                  _hover={{
-                    transform: 'scale(1.05)',
-                    boxShadow: '0 12px 40px rgba(0, 212, 255, 0.4)'
-                  }}
-                  transition="all 0.3s ease"
-                >
-                  🔗
-                </Box>
-                <Heading 
-                  size={{ base: "2xl", md: "3xl" }} 
-                  bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
-                  bgClip="text"
-                  fontWeight="bold"
-                >
+    <Box minH="100vh" bg="#000000" color="#ffffff">
+      <Container maxW="6xl" py={8} px={4}>
+        <VStack gap={8} align="stretch">
+          {/* Hero Section */}
+          <VStack gap={6} textAlign="center" py={8}>
+            <HStack gap={3} align="center">
+              <Box
+                w="60px"
+                h="60px"
+                bg="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
+                borderRadius="2xl"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                fontSize="2xl"
+                color="#ffffff"
+                fontWeight="bold"
+                boxShadow="0 8px 32px rgba(59, 130, 246, 0.4)"
+              >
+                🔗
+              </Box>
+              <VStack align="start" gap={1}>
+                <Heading size="2xl" fontWeight="bold" color="#ffffff">
                   ChainLinkPay
                 </Heading>
-              </HStack>
-              <Text fontSize={{ base: "md", md: "xl" }} color="text.secondary" maxW={{ base: "100%", md: "700px" }} fontWeight="500" px={{ base: 4, md: 0 }}>
-                Create Bitcoin payment links in seconds. Send invoices, get paid instantly.
-              </Text>
-              <Text fontSize={{ base: "sm", md: "lg" }} color="text.tertiary" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
-                Perfect for freelancers, businesses, and anyone who wants to accept Bitcoin payments easily.
-              </Text>
-              <HStack gap={{ base: 2, md: 4 }} wrap="wrap" justify="center">
-                <Badge colorScheme="blue" fontSize={{ base: "sm", md: "md" }} px={{ base: 3, md: 4 }} py={{ base: 1, md: 2 }} borderRadius="full" fontWeight="semibold">
-                  ⚡ Instant Payments
-                </Badge>
-                <Badge colorScheme="green" fontSize={{ base: "sm", md: "md" }} px={{ base: 3, md: 4 }} py={{ base: 1, md: 2 }} borderRadius="full" fontWeight="semibold">
-                  🔗 Shareable Links
-                </Badge>
-                <Badge colorScheme="purple" fontSize={{ base: "sm", md: "md" }} px={{ base: 3, md: 4 }} py={{ base: 1, md: 2 }} borderRadius="full" fontWeight="semibold">
-                  🤖 AI Smart Contracts
-                </Badge>
+                <Text fontSize="lg" color="#9ca3af">
+                  Professional Bitcoin Payment Platform
+                </Text>
+              </VStack>
+            </HStack>
+            
+            <Text fontSize="lg" color="#9ca3af" maxW="3xl" mx="auto">
+              Create secure payment links, manage transactions, bridge assets across blockchain networks, and generate smart contracts with AI.
+            </Text>
+          </VStack>
+
+          {/* Wallet Status */}
+          {walletInfo && (
+            <UniformCard p={6}>
+              <VStack gap={4} align="stretch">
+                <Heading size="md" color="#ffffff">
+                  Wallet Status
+                </Heading>
+                
+                <HStack justify="space-between" align="center" p={4} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
+                  <VStack align="start" gap={1}>
+                    <Text fontSize="sm" color="#9ca3af">{walletInfo.type} Wallet</Text>
+                    <Text fontSize="lg" fontWeight="bold" color="#ffffff">
+                      {formatBalance(typeof walletInfo.balance === 'number' ? walletInfo.balance : 0)} {walletInfo.type === 'Stacks' ? 'STX' : 'BTC'}
+                    </Text>
+                  </VStack>
+                  <VStack align="end" gap={1}>
+                    <Badge colorScheme="green" fontSize="xs">Connected</Badge>
+                    <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
+                      {walletInfo.address?.slice(0, 6)}...{walletInfo.address?.slice(-4)}
+                    </Text>
+                  </VStack>
+                </HStack>
+
+                {walletInfo.loading && (
+                  <Box>
+                    <Text fontSize="sm" color="#9ca3af" mb={2}>Loading balance...</Text>
+                    <ProgressBar value={undefined} colorScheme="blue" size="sm" />
+                  </Box>
+                )}
+              </VStack>
+            </UniformCard>
+          )}
+
+          {/* Quick Stats */}
+          {!loading && (
+            <VStack gap={4} align="stretch">
+              <Heading size="lg" color="#ffffff" textAlign="center">
+                Your Statistics
+              </Heading>
+              
+              <VStack gap={4} align="stretch">
+                <HStack gap={4} align="stretch">
+                  <UniformCard p={4} flex="1">
+                    <VStack align="center" gap={2}>
+                      <Text fontSize="2xl" fontWeight="bold" color="#3b82f6">
+                        {stats.totalPayments}
+                      </Text>
+                      <Text fontSize="sm" color="#9ca3af" textAlign="center">
+                        Total Payments
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+
+                  <UniformCard p={4} flex="1">
+                    <VStack align="center" gap={2}>
+                      <Text fontSize="2xl" fontWeight="bold" color="#10b981">
+                        {stats.totalVolume.toFixed(2)}
+                      </Text>
+                      <Text fontSize="sm" color="#9ca3af" textAlign="center">
+                        Total Volume
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+
+                  <UniformCard p={4} flex="1">
+                    <VStack align="center" gap={2}>
+                      <Text fontSize="2xl" fontWeight="bold" color="#f59e0b">
+                        {stats.activePayments}
+                      </Text>
+                      <Text fontSize="sm" color="#9ca3af" textAlign="center">
+                        Active Payments
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+                </HStack>
+              </VStack>
+            </VStack>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <VStack gap={4} align="stretch">
+              <Skeleton height="100px" borderRadius="lg" />
+              <HStack gap={4} align="stretch">
+                <Skeleton height="80px" flex="1" borderRadius="lg" />
+                <Skeleton height="80px" flex="1" borderRadius="lg" />
+                <Skeleton height="80px" flex="1" borderRadius="lg" />
               </HStack>
             </VStack>
+          )}
 
-            {/* Testnet Token Faucet */}
-            <Box bg="orange.50" borderColor="orange.200" borderWidth="2px" borderRadius="xl" p={{ base: 4, md: 6 }} shadow="lg" mx={{ base: 2, md: 0 }}>
+          {/* Features Grid */}
+          <VStack gap={6} align="stretch">
+            <Heading size="lg" color="#ffffff" textAlign="center">
+              Platform Features
+            </Heading>
+            
+            <VStack gap={4} align="stretch">
+              <UniformCard p={6}>
+                <VStack gap={4} align="stretch">
+                  <HStack gap={3} align="center">
+                    <Text fontSize="2xl">💳</Text>
+                    <VStack align="start" gap={1}>
+                      <Heading size="md" color="#ffffff">Payment Links</Heading>
+                      <Text fontSize="sm" color="#9ca3af">
+                        Create secure payment links for Bitcoin and STX transactions
+                      </Text>
+                    </VStack>
+                  </HStack>
+                  
+                  <HStack gap={3} justify="center">
+                    <Link to="/generate" style={{ textDecoration: 'none' }}>
+                      <UniformButton variant="primary" size="md">
+                        Create Payment
+                      </UniformButton>
+                    </Link>
+                    <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+                      <UniformButton variant="secondary" size="md">
+                        View Dashboard
+                      </UniformButton>
+                    </Link>
+                  </HStack>
+                </VStack>
+              </UniformCard>
+
+              <UniformCard p={6}>
+                <VStack gap={4} align="stretch">
+                  <HStack gap={3} align="center">
+                    <Text fontSize="2xl">🤖</Text>
+                    <VStack align="start" gap={1}>
+                      <Heading size="md" color="#ffffff">AI Contract Builder</Heading>
+                      <Text fontSize="sm" color="#9ca3af">
+                        Generate smart contracts from natural language descriptions
+                      </Text>
+                    </VStack>
+                  </HStack>
+                  
+                  <Link to="/ai-builder" style={{ textDecoration: 'none' }}>
+                    <UniformButton variant="primary" size="md" w="full">
+                      Build Contract
+                    </UniformButton>
+                  </Link>
+                </VStack>
+              </UniformCard>
+
+              <UniformCard p={6}>
+                <VStack gap={4} align="stretch">
+                  <HStack gap={3} align="center">
+                    <Text fontSize="2xl">🌉</Text>
+                    <VStack align="start" gap={1}>
+                      <Heading size="md" color="#ffffff">Cross-Chain Bridge</Heading>
+                      <Text fontSize="sm" color="#9ca3af">
+                        Bridge Bitcoin and STX tokens across blockchain networks
+                      </Text>
+                    </VStack>
+                  </HStack>
+                  
+                  <Link to="/bridge" style={{ textDecoration: 'none' }}>
+                    <UniformButton variant="primary" size="md" w="full">
+                      Bridge Assets
+                    </UniformButton>
+                  </Link>
+                </VStack>
+              </UniformCard>
+            </VStack>
+          </VStack>
+
+          {/* Recent Activity */}
+          {stats.recentActivity.length > 0 && (
+            <UniformCard p={6}>
+              <VStack gap={4} align="stretch">
+                <Heading size="md" color="#ffffff">
+                  Recent Activity
+                </Heading>
+                
+                <VStack gap={3} align="stretch">
+                  {stats.recentActivity.map((activity, index) => (
+                    <HStack key={index} justify="space-between" align="center" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
+                      <VStack align="start" gap={1}>
+                        <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                          {activity.description || 'Payment'}
+                        </Text>
+                        <Text fontSize="xs" color="#9ca3af">
+                          {new Date(activity.createdAt).toLocaleDateString()}
+                        </Text>
+                      </VStack>
+                      
+                      <VStack align="end" gap={1}>
+                        <Text fontSize="sm" fontWeight="bold" color="#ffffff">
+                          {activity.amount} {activity.paymentType}
+                        </Text>
+                        <Badge 
+                          colorScheme={activity.status === 'completed' ? 'green' : activity.status === 'pending' ? 'yellow' : 'gray'}
+                          fontSize="xs"
+                        >
+                          {activity.status}
+                        </Badge>
+                      </VStack>
+                    </HStack>
+                  ))}
+                </VStack>
+              </VStack>
+            </UniformCard>
+          )}
+
+          {/* Quick Start */}
+          {!isAuthenticated && !btcConnected && (
+            <UniformCard p={6} textAlign="center">
               <VStack gap={4}>
-                <HStack gap={3}>
-                  <Text fontSize={{ base: "xl", md: "2xl" }}>🚰</Text>
-                  <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="orange.700">
-                    Need Testnet Tokens?
-                  </Text>
-                </HStack>
-                <Text fontSize={{ base: "sm", md: "md" }} color="orange.600" textAlign="center" px={{ base: 2, md: 0 }}>
-                  Get free testnet STX tokens to try the app. Click the button below to get tokens from the faucet.
+                <Heading size="md" color="#ffffff">
+                  Get Started
+                </Heading>
+                <Text color="#9ca3af">
+                  Connect your wallet to start creating payment links and managing transactions.
                 </Text>
-                <UniformButton 
-                  variant="accent" 
-                  size="lg"
-                  onClick={() => window.open('https://explorer.hiro.so/sandbox/faucet?chain=testnet', '_blank')}
-                >
-                  🚰 Get Testnet Tokens
+                <UniformButton variant="primary" onClick={connect} size="lg">
+                  Connect Wallet
                 </UniformButton>
               </VStack>
-            </Box>
+            </UniformCard>
+          )}
 
-            {/* Production Features */}
-            <Box bg="white" borderColor="green.200" borderWidth="2px" borderRadius="xl" p={8} shadow="lg">
-              <VStack gap={6}>
-                <Text fontSize="xl" fontWeight="bold" color="green.600">
-                  🚀 Production Ready Features
-                </Text>
-                <Text fontSize="md" color="gray.600" textAlign="center">
-                  All features are live and ready for real transactions. 
-                  Create payment links, generate smart contracts with AI, and bridge assets across blockchains.
-                </Text>
+          {/* Payment Generator */}
+          {(isAuthenticated || btcConnected) && (
+            <UniformCard p={6}>
+              <VStack gap={4}>
+                <Heading size="md" color="#ffffff">
+                  Create Payment Link
+                </Heading>
+                <PaymentLinkGenerator />
               </VStack>
-            </Box>
-
-        {/* Features Grid */}
-        <VStack gap={6} align="stretch">
-          <HStack gap={6} wrap="wrap" justify="center">
-            <Box bg="white" borderColor="blue.200" borderWidth="2px" borderRadius="xl" w={{ base: "100%", sm: "320px" }} cursor="pointer" _hover={{ borderColor: "blue.400", transform: "translateY(-4px)", shadow: "xl" }} transition="all 0.3s" p={{ base: 6, md: 8 }} textAlign="center" title="Generate payment links in seconds with AI assistance" shadow="md">
-              <Text fontSize={{ base: "4xl", md: "5xl" }} mb={4}>🔗</Text>
-              <Heading size="md" mb={3} color="blue.600">Payment Links</Heading>
-              <Text fontSize={{ base: "sm", md: "md" }} color="gray.600" fontWeight="500" mb={3}>
-                Create shareable links for Bitcoin payments. Send to customers via email, text, or social media.
-              </Text>
-              <Text fontSize="sm" color="gray.500">
-                Like PayPal, but for Bitcoin
-              </Text>
-            </Box>
-
-            <Box bg="white" borderColor="blue.200" borderWidth="2px" borderRadius="xl" w={{ base: "100%", sm: "320px" }} cursor="pointer" _hover={{ borderColor: "blue.400", transform: "translateY(-4px)", shadow: "xl" }} transition="all 0.3s" p={{ base: 6, md: 8 }} textAlign="center" title="Use natural language to generate smart contracts" shadow="md">
-              <Text fontSize={{ base: "4xl", md: "5xl" }} mb={4}>🤖</Text>
-              <Heading size="md" mb={3} color="blue.600">AI Contract Builder</Heading>
-              <Text fontSize={{ base: "sm", md: "md" }} color="gray.600" fontWeight="500" mb={3}>
-                Describe what you want in plain English. AI generates the smart contract code for you.
-              </Text>
-              <Text fontSize="sm" color="gray.500">
-                No coding required
-              </Text>
-            </Box>
-
-            <Box bg="white" borderColor="blue.200" borderWidth="2px" borderRadius="xl" w={{ base: "100%", sm: "320px" }} cursor="pointer" _hover={{ borderColor: "blue.400", transform: "translateY(-4px)", shadow: "xl" }} transition="all 0.3s" p={{ base: 6, md: 8 }} textAlign="center" title="Bridge Bitcoin to other blockchain networks" shadow="md">
-              <Text fontSize={{ base: "4xl", md: "5xl" }} mb={4}>🌉</Text>
-              <Heading size="md" mb={3} color="blue.600">Cross-Chain Bridge</Heading>
-              <Text fontSize={{ base: "sm", md: "md" }} color="gray.600" fontWeight="500" mb={3}>
-                Send Bitcoin to Ethereum, Polygon, and other networks. Use your Bitcoin in DeFi.
-              </Text>
-              <Text fontSize="sm" color="gray.500">
-                Bitcoin everywhere
-              </Text>
-            </Box>
-          </HStack>
+            </UniformCard>
+          )}
         </VStack>
-
-        {/* How it Works */}
-        <Box bg="white" borderColor="blue.200" borderWidth="2px" borderRadius="xl" p={{ base: 6, md: 8 }} shadow="lg">
-          <VStack gap={6}>
-            <Heading size="lg" color="blue.600" textAlign="center">How It Works</Heading>
-            <VStack gap={6} align="stretch">
-              <HStack gap={{ base: 4, md: 8 }} wrap="wrap" justify="center">
-                <VStack gap={3} w={{ base: "100%", sm: "200px" }} textAlign="center">
-                  <Text fontSize={{ base: "3xl", md: "4xl" }}>1️⃣</Text>
-                  <Text fontWeight="bold" color="blue.600" fontSize={{ base: "sm", md: "md" }}>Connect Wallet</Text>
-                  <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Link your Stacks wallet to get started</Text>
-                </VStack>
-                <VStack gap={3} w={{ base: "100%", sm: "200px" }} textAlign="center">
-                  <Text fontSize={{ base: "3xl", md: "4xl" }}>2️⃣</Text>
-                  <Text fontWeight="bold" color="blue.600" fontSize={{ base: "sm", md: "md" }}>Create Link</Text>
-                  <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Enter amount and description</Text>
-                </VStack>
-                <VStack gap={3} w={{ base: "100%", sm: "200px" }} textAlign="center">
-                  <Text fontSize={{ base: "3xl", md: "4xl" }}>3️⃣</Text>
-                  <Text fontWeight="bold" color="blue.600" fontSize={{ base: "sm", md: "md" }}>Share & Get Paid</Text>
-                  <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Send link to customers, receive Bitcoin</Text>
-                </VStack>
-              </HStack>
-            </VStack>
-          </VStack>
-        </Box>
-
-        {/* Payment Generator */}
-        <Box bg="white" borderColor="blue.200" borderWidth="2px" borderRadius="xl" p={{ base: 4, md: 8 }} shadow="lg">
-          <VStack gap={6}>
-            <VStack gap={3}>
-              <Heading size="lg" color="blue.600" textAlign="center">Create Your First Payment</Heading>
-              {!isAuthenticated ? (
-                <Text color="gray.600" textAlign="center" fontSize={{ base: "md", md: "lg" }} fontWeight="500">
-                  Connect your wallet and generate a payment link in seconds
-                </Text>
-              ) : (
-                <Text color="gray.600" textAlign="center" fontSize={{ base: "md", md: "lg" }} fontWeight="500">
-                  Generate a payment link in seconds
-                </Text>
-              )}
-            </VStack>
-            {isAuthenticated ? (
-              <PaymentLinkGenerator />
-            ) : (
-              <VStack gap={4} p={6} bg="gray.50" borderRadius="lg" borderWidth="2px" borderColor="gray.200">
-                <Text fontSize="lg" fontWeight="semibold" color="gray.700">
-                  🔗 Connect Your Wallet First
-                </Text>
-                <Text color="gray.600" textAlign="center">
-                  You need to connect your Stacks wallet to create payment links and access all features.
-                </Text>
-                <Button 
-                  colorScheme="blue" 
-                  size="lg" 
-                  onClick={() => {
-                    console.log('Connect wallet button clicked');
-                    connect();
-                  }}
-                  fontWeight="semibold"
-                >
-                  Connect Wallet
-                </Button>
-              </VStack>
-            )}
-          </VStack>
-        </Box>
-      </VStack>
-    </Container>
+      </Container>
     </Box>
   );
 }
-

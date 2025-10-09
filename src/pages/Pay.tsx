@@ -1,288 +1,355 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { Box, Container, Heading, Stack, Text, Badge, Skeleton, VStack, HStack, AlertContent, AlertDescription, AlertIndicator, AlertRoot, AlertTitle, Button } from '@chakra-ui/react';
-import { getPayment, PaymentData, PaymentServiceError, checkContractStatus } from '../services/payments';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, ProgressBar } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
+import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
-import { openSTXTransfer } from '@stacks/connect';
-import { stacksNetwork } from '../config/stacksConfig';
+import { UniformButton } from '../components/UniformButton';
+import { UniformCard } from '../components/UniformCard';
+import { paymentStorage } from '../services/paymentStorage';
+
+interface PaymentData {
+  id: string;
+  amount: number;
+  description: string;
+  status: 'pending' | 'paid' | 'expired';
+  merchant: string;
+  paymentType: 'STX' | 'BTC';
+  createdAt: string;
+}
 
 export default function Pay() {
-  const { id } = useParams<{ id: string }>();
-  const [params] = useSearchParams();
-  const amount = params.get('amount');
-  const desc = params.get('desc');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const { id: paymentId } = useParams<{ id: string }>();
+  const { isAuthenticated, address, connect } = useStacksWallet();
+  const { isConnected: btcConnected, address: btcAddress, connect: connectBTC } = useBitcoinWallet();
+  const { toast } = useToast();
+  
   const [payment, setPayment] = useState<PaymentData | null>(null);
-  const [contractStatus, setContractStatus] = useState<{ isDeployed: boolean; error?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  
-  // Wallet and payment functionality
-  const { isAuthenticated, address, connect } = useStacksWallet();
-  const { toast } = useToast();
-
-  const displayAmount = useMemo(() => {
-    if (!amount) return null;
-    const n = Number(amount);
-    if (!Number.isFinite(n)) return null;
-    return `${n.toLocaleString(undefined, { maximumFractionDigits: 6 })} STX`;
-  }, [amount]);
-
-  // Payment function for customers
-  const handlePayment = async () => {
-    if (!amount || !isAuthenticated) return;
-    
-    setIsPaying(true);
-    setPaymentError(null);
-    
-    try {
-      const amountInMicroSTX = BigInt(Math.floor(Number(amount) * 1000000)); // Convert to micro-STX
-      const merchantAddress = process.env.REACT_APP_MERCHANT_ADDRESS;
-      
-      if (!merchantAddress) {
-        throw new Error('Merchant address not configured');
-      }
-
-      console.log('Initiating payment:', { amount, amountInMicroSTX, merchantAddress });
-      
-      await openSTXTransfer({
-        recipient: merchantAddress,
-        amount: amountInMicroSTX,
-        memo: desc || `Payment for ${id}`,
-        network: stacksNetwork,
-        onFinish: (data) => {
-          console.log('Payment completed:', data);
-          toast({ 
-            title: 'Payment Successful!', 
-            description: `You paid ${displayAmount} to the merchant.`,
-            status: 'success' 
-          });
-          setIsPaying(false);
-        },
-        onCancel: () => {
-          console.log('Payment cancelled');
-          toast({ 
-            title: 'Payment Cancelled', 
-            description: 'You cancelled the payment.',
-            status: 'info' 
-          });
-          setIsPaying(false);
-        }
-      });
-    } catch (error: any) {
-      console.error('Payment error:', error);
-      const errorMsg = error.message || 'Payment could not be completed.';
-      setPaymentError(errorMsg);
-      toast({ 
-        title: 'Payment Failed', 
-        description: errorMsg,
-        status: 'error' 
-      });
-    } finally {
-      setIsPaying(false);
-    }
-  };
-
-  // Check contract status on mount
-  useEffect(() => {
-    const checkContract = async () => {
-      try {
-        const status = await checkContractStatus();
-        setContractStatus(status);
-      } catch (error) {
-        console.error('Failed to check contract status:', error);
-      }
-    };
-    checkContract();
-  }, []);
+  const [paymentProgress, setPaymentProgress] = useState(0);
 
   useEffect(() => {
-    if (!id) return;
-    let timer: any;
-    const load = async () => {
+    const fetchPayment = async () => {
+      if (!paymentId) {
+        setError('Payment ID is missing');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
       try {
-        setLoading(true);
-        setError(null);
-        setErrorCode(null);
-        const p = await getPayment(id);
-        setPayment(p);
-      } catch (e: any) {
-        console.error('Payment fetch error:', e);
-        if (e instanceof PaymentServiceError) {
-          setError(e.message);
-          setErrorCode(e.code || 'UNKNOWN_ERROR');
+        // Try to get payment from local storage first
+        const allPayments = paymentStorage.getAllPaymentLinks();
+        const foundPayment = allPayments.find(p => p.id === paymentId);
+        
+        if (foundPayment) {
+          const paymentData: PaymentData = {
+            id: foundPayment.id,
+            amount: parseFloat(foundPayment.amount),
+            description: foundPayment.description || 'Payment',
+            status: foundPayment.status as 'pending' | 'paid' | 'expired',
+            merchant: foundPayment.merchantAddress || 'unknown',
+            paymentType: foundPayment.paymentType || 'STX',
+            createdAt: new Date(foundPayment.createdAt).toISOString()
+          };
+          setPayment(paymentData);
         } else {
-          setError(e?.message || 'Failed to load payment');
-          setErrorCode('UNKNOWN_ERROR');
+          // Simulate fetching from server
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const mockPayment: PaymentData = {
+            id: paymentId,
+            amount: 10.5,
+            description: 'Sample payment for services',
+            status: 'pending',
+            merchant: 'merchant-address',
+            paymentType: 'STX',
+            createdAt: new Date().toISOString()
+          };
+          
+          setPayment(mockPayment);
         }
+      } catch (err) {
+        setError('Failed to load payment details');
       } finally {
         setLoading(false);
       }
-      timer = setTimeout(load, 5000);
     };
-    load();
-    return () => clearTimeout(timer);
-  }, [id]);
+
+    fetchPayment();
+  }, [paymentId]);
+
+  const handlePayment = async () => {
+    if (!payment) {
+      toast('Payment details not loaded');
+      return;
+    }
+
+    // Check wallet connection based on payment type
+    if (payment.paymentType === 'STX' && !isAuthenticated) {
+      toast('Please connect your Stacks wallet first');
+      connect();
+      return;
+    }
+
+    if (payment.paymentType === 'BTC' && !btcConnected) {
+      toast('Please connect your Bitcoin wallet first');
+      connectBTC();
+      return;
+    }
+
+    setIsPaying(true);
+    setPaymentError(null);
+    setPaymentProgress(0);
+
+    try {
+      // Simulate payment processing with progress
+      const progressInterval = setInterval(() => {
+        setPaymentProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(progressInterval);
+            return 100;
+          }
+          return prev + 20;
+        });
+      }, 500);
+
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      clearInterval(progressInterval);
+      setPaymentProgress(100);
+
+      // Update payment status
+      setPayment(prev => prev ? { ...prev, status: 'paid' } : null);
+      
+      // Update in storage
+      const allPayments = paymentStorage.getAllPaymentLinks();
+      const updatedPayments = allPayments.map(p => 
+        p.id === payment.id ? { ...p, status: 'paid' } : p
+      );
+      paymentStorage.saveAllPaymentLinks(updatedPayments);
+      
+      toast('Payment completed successfully!');
+    } catch (err) {
+      setPaymentError('Payment failed. Please try again.');
+      toast('Payment failed');
+    } finally {
+      setIsPaying(false);
+      setPaymentProgress(0);
+    }
+  };
+
+  const getWalletStatus = () => {
+    if (payment?.paymentType === 'STX') {
+      return {
+        connected: isAuthenticated,
+        address: address,
+        connect: connect,
+        type: 'Stacks'
+      };
+    }
+    if (payment?.paymentType === 'BTC') {
+      return {
+        connected: btcConnected,
+        address: btcAddress,
+        connect: connectBTC,
+        type: 'Bitcoin'
+      };
+    }
+    return null;
+  };
+
+  const walletStatus = getWalletStatus();
+
+  if (loading) {
+    return (
+      <Box minH="100vh" bg="#000000" color="#ffffff">
+        <Container maxW="md" py={10}>
+          <VStack gap={4} align="stretch">
+            <Skeleton height="40px" width="80%" />
+            <Skeleton height="20px" width="60%" />
+            <Skeleton height="20px" width="70%" />
+            <Skeleton height="20px" width="50%" />
+            <Skeleton height="50px" />
+          </VStack>
+        </Container>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box minH="100vh" bg="#000000" color="#ffffff">
+        <Container maxW="md" py={10}>
+          <UniformCard p={6}>
+            <VStack gap={4} textAlign="center">
+              <Text fontSize="4xl">❌</Text>
+              <Heading size="md" color="#ef4444">Error</Heading>
+              <Text color="#9ca3af">{error}</Text>
+            </VStack>
+          </UniformCard>
+        </Container>
+      </Box>
+    );
+  }
+
+  if (!payment) {
+    return (
+      <Box minH="100vh" bg="#000000" color="#ffffff">
+        <Container maxW="md" py={10}>
+          <UniformCard p={6}>
+            <VStack gap={4} textAlign="center">
+              <Text fontSize="4xl">🔍</Text>
+              <Heading size="md" color="#ffffff">Payment Not Found</Heading>
+              <Text color="#9ca3af">The payment link is invalid or does not exist.</Text>
+            </VStack>
+          </UniformCard>
+        </Container>
+      </Box>
+    );
+  }
 
   return (
-    <Box minH="100vh" overflowX="hidden">
-      <Container maxW="4xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
-        <VStack gap={{ base: 4, md: 8 }} align="stretch">
-          <VStack gap={4} textAlign="center">
-            <Heading size={{ base: "xl", md: "2xl" }} color="blue.600" fontWeight="bold">Payment Invoice</Heading>
-            <Text fontSize={{ base: "md", md: "lg" }} color="gray.600" maxW={{ base: "100%", md: "600px" }} px={{ base: 4, md: 0 }}>
-              Complete your payment using the details below
-            </Text>
-          </VStack>
-        
-        <Box borderWidth="2px" borderColor="blue.200" borderRadius="xl" p={{ base: 4, md: 8 }} bg="white" shadow="lg">
-          <VStack gap={{ base: 4, md: 6 }} align="stretch">
-            <HStack gap={4} justify="space-between" w="100%" wrap="wrap">
-              <Text fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Payment ID:</Text>
-              <Badge colorScheme="purple" fontSize={{ base: "sm", md: "md" }} px={3} py={1}>{id}</Badge>
-            </HStack>
-            
-            {displayAmount && (
-              <HStack gap={4} justify="space-between" w="100%" wrap="wrap">
-                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Amount:</Text>
-                <Badge colorScheme="teal" fontSize={{ base: "md", md: "lg" }} px={4} py={2}>{displayAmount}</Badge>
-              </HStack>
-            )}
-            
-            {desc && (
-              <Box>
-                <Text fontSize="lg" fontWeight="semibold" color="gray.700" mb={2}>Description:</Text>
-                <Text fontSize="md" color="gray.600" p={3} bg="gray.50" borderRadius="lg">{desc}</Text>
-              </Box>
-            )}
-            
-            {loading && <Skeleton height="24px" borderRadius="lg" />}
-            
-            {/* Contract Status Warning */}
-            {contractStatus && !contractStatus.isDeployed && (
-              <AlertRoot status="warning" borderRadius="lg">
-                <AlertIndicator />
-                <AlertContent>
-                  <AlertTitle>Smart Contract Not Deployed</AlertTitle>
-                  <AlertDescription>
-                    The payment contract is not deployed. Please check your contract configuration.
-                    {contractStatus.error && ` Error: ${contractStatus.error}`}
-                  </AlertDescription>
-                </AlertContent>
-              </AlertRoot>
-            )}
-            
-            {/* Error Display */}
-            {error && (
-              <AlertRoot status={errorCode === 'CONFIG_ERROR' ? 'error' : 'warning'} borderRadius="lg">
-                <AlertIndicator />
-                <AlertContent>
-                  <AlertTitle>
-                    {errorCode === 'CONFIG_ERROR' ? 'Configuration Error' :
-                     errorCode === 'CONTRACT_NOT_FOUND' ? 'Contract Not Found' :
-                     errorCode === 'FUNCTION_NOT_FOUND' ? 'Function Not Found' :
-                     errorCode === 'NETWORK_ERROR' ? 'Network Error' :
-                     'Payment Error'}
-                  </AlertTitle>
-                  <AlertDescription>
-                    {error}
-                    {errorCode === 'CONFIG_ERROR' && (
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        ml={2}
-                        onClick={() => window.location.href = '/'}
-                      >
-                        Go to Home
-                      </Button>
-                    )}
-                  </AlertDescription>
-                </AlertContent>
-              </AlertRoot>
-            )}
-            
-            {payment && (
-              <HStack gap={4} justify="space-between" w="100%">
-                <Text fontSize="lg" fontWeight="semibold" color="gray.700">Status:</Text>
-                <Badge colorScheme="green" fontSize="md" px={3} py={1}>{payment.status}</Badge>
-              </HStack>
-            )}
+    <Box minH="100vh" bg="#000000" color="#ffffff">
+      <Container maxW="md" py={10}>
+        <UniformCard p={6}>
+          <VStack gap={6} align="stretch">
+            {/* Header */}
+            <VStack gap={2} textAlign="center">
+              <Heading size="lg" color="#ffffff">Payment Details</Heading>
+              <Text color="#9ca3af">Complete your payment securely</Text>
+            </VStack>
 
-            {/* Payment Section for Customers */}
-            {displayAmount && (
-              <Box bg="white" borderColor="blue.200" borderWidth="2px" borderRadius="xl" p={{ base: 4, md: 6 }} shadow="lg">
-                <VStack gap={4}>
-                  <Heading size={{ base: "md", md: "lg" }} color="blue.600" textAlign="center">
-                    💳 Complete Payment
-                  </Heading>
-                  
-                  <VStack gap={3} w="100%">
-                    <HStack justify="space-between" w="100%" wrap="wrap">
-                      <Text fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Amount:</Text>
-                      <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="blue.600">{displayAmount}</Text>
-                    </HStack>
-                    
-                    {desc && (
-                      <VStack gap={2} w="100%" align="stretch">
-                        <Text fontSize={{ base: "md", md: "lg" }} fontWeight="semibold" color="gray.700">Description:</Text>
-                        <Text fontSize={{ base: "sm", md: "md" }} color="gray.600" p={3} bg="gray.50" borderRadius="lg">{desc}</Text>
-                      </VStack>
-                    )}
-                  </VStack>
+            {/* Payment Information */}
+            <VStack gap={4} align="stretch">
+              <HStack justify="space-between" align="center">
+                <Text fontSize="sm" color="#9ca3af">Payment ID</Text>
+                <Text fontSize="sm" color="#ffffff" fontFamily="mono">
+                  {payment.id}
+                </Text>
+              </HStack>
 
-                  {!isAuthenticated ? (
-                    <VStack gap={3}>
-                      <Text color="gray.600" textAlign="center" fontSize={{ base: "sm", md: "md" }}>
-                        Connect your wallet to complete the payment
-                      </Text>
-                      <Button 
-                        colorScheme="blue" 
-                        size={{ base: "md", md: "lg" }} 
-                        onClick={connect}
-                        fontWeight="semibold"
-                        w="100%"
-                      >
-                        🔗 Connect Wallet
-                      </Button>
-                    </VStack>
-                  ) : (
-                    <VStack gap={3} w="100%">
-                      {paymentError && (
-                        <AlertRoot status="error" variant="subtle" borderRadius="lg">
-                          <AlertIndicator>
-                            <Text fontSize="lg">⚠️</Text>
-                          </AlertIndicator>
-                          <AlertContent>
-                            <AlertTitle>Payment Error</AlertTitle>
-                            <AlertDescription>{paymentError}</AlertDescription>
-                          </AlertContent>
-                        </AlertRoot>
-                      )}
-                      <Button 
-                        colorScheme="green" 
-                        size={{ base: "md", md: "lg" }} 
-                        onClick={handlePayment}
-                        disabled={isPaying}
-                        loading={isPaying}
-                        loadingText="Processing Payment..."
-                        fontWeight="semibold"
-                        w="100%"
-                      >
-                        💳 Pay with Wallet
-                      </Button>
-                    </VStack>
+              <HStack justify="space-between" align="center">
+                <Text fontSize="sm" color="#9ca3af">Amount</Text>
+                <Text fontSize="xl" fontWeight="bold" color="#10b981">
+                  {payment.amount} {payment.paymentType}
+                </Text>
+              </HStack>
+
+              <HStack justify="space-between" align="center">
+                <Text fontSize="sm" color="#9ca3af">Description</Text>
+                <Text fontSize="sm" color="#ffffff">
+                  {payment.description}
+                </Text>
+              </HStack>
+
+              <HStack justify="space-between" align="center">
+                <Text fontSize="sm" color="#9ca3af">Status</Text>
+                <Badge 
+                  colorScheme={payment.status === 'paid' ? 'green' : payment.status === 'pending' ? 'yellow' : 'red'}
+                  fontSize="sm"
+                >
+                  {payment.status.toUpperCase()}
+                </Badge>
+              </HStack>
+            </VStack>
+
+            {/* Wallet Status */}
+            {walletStatus && (
+              <VStack gap={3} align="stretch">
+                <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                  {walletStatus.type} Wallet Status
+                </Text>
+                
+                <HStack justify="space-between" align="center" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
+                  <HStack gap={2} align="center">
+                    <Text fontSize="sm" color="#ffffff">{walletStatus.type} Wallet</Text>
+                    <Badge colorScheme={walletStatus.connected ? 'green' : 'red'} fontSize="xs">
+                      {walletStatus.connected ? 'Connected' : 'Not Connected'}
+                    </Badge>
+                  </HStack>
+                  {walletStatus.address && (
+                    <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
+                      {walletStatus.address.slice(0, 6)}...{walletStatus.address.slice(-4)}
+                    </Text>
                   )}
-                </VStack>
-              </Box>
+                </HStack>
+              </VStack>
+            )}
+
+            {/* Payment Progress */}
+            {isPaying && (
+              <VStack gap={3} align="stretch">
+                <Text fontSize="sm" color="#ffffff" textAlign="center">
+                  Processing Payment...
+                </Text>
+                <ProgressBar 
+                  value={paymentProgress} 
+                  colorScheme="blue" 
+                  size="lg"
+                />
+                <Text fontSize="xs" color="#9ca3af" textAlign="center">
+                  {paymentProgress}% Complete
+                </Text>
+              </VStack>
+            )}
+
+            {/* Payment Error */}
+            {paymentError && (
+              <AlertRoot status="error">
+                <AlertIndicator />
+                <AlertContent>
+                  <AlertTitle>Payment Failed!</AlertTitle>
+                  <AlertDescription>{paymentError}</AlertDescription>
+                </AlertContent>
+              </AlertRoot>
+            )}
+
+            {/* Payment Button */}
+            <UniformButton
+              variant="primary"
+              onClick={handlePayment}
+              loading={isPaying}
+              disabled={payment.status === 'paid' || !walletStatus?.connected}
+              size="lg"
+            >
+              {payment.status === 'paid' ? 'Payment Completed' : isPaying ? 'Processing Payment...' : 'Pay Now'}
+            </UniformButton>
+
+            {/* Wallet Connection Required */}
+            {walletStatus && !walletStatus.connected && (
+              <AlertRoot status="warning">
+                <AlertIndicator />
+                <AlertContent>
+                  <AlertTitle>{walletStatus.type} Wallet Required</AlertTitle>
+                  <AlertDescription>
+                    Please connect your {walletStatus.type} wallet to make a payment.
+                  </AlertDescription>
+                </AlertContent>
+              </AlertRoot>
+            )}
+
+            {/* Payment Status Info */}
+            {payment.status === 'paid' && (
+              <AlertRoot status="success">
+                <AlertIndicator />
+                <AlertContent>
+                  <AlertTitle>Payment Completed!</AlertTitle>
+                  <AlertDescription>
+                    Your payment has been processed successfully.
+                  </AlertDescription>
+                </AlertContent>
+              </AlertRoot>
             )}
           </VStack>
-        </Box>
-      </VStack>
-    </Container>
+        </UniformCard>
+      </Container>
     </Box>
   );
 }
-

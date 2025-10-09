@@ -1,399 +1,444 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Container, Flex, Heading, Text, Badge, VStack, HStack, Grid, IconButton, AlertRoot, AlertContent, AlertIndicator, AlertTitle, AlertDescription } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, Progress, Alert, AlertIcon, AlertTitle, AlertDescription } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
+import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useStxBalance } from '../hooks/useStxBalance';
-import { paymentStorage, PaymentLink, PaymentStats } from '../services/paymentStorage';
-import { useToast } from '../hooks/useToast';
+import { paymentStorage, PaymentLink } from '../services/paymentStorage';
+import { UniformCard } from '../components/UniformCard';
+import { UniformButton } from '../components/UniformButton';
 import { Link } from 'react-router-dom';
 
+interface DashboardStats {
+  totalPayments: number;
+  totalVolume: number;
+  activePayments: number;
+  completedPayments: number;
+  stxPayments: number;
+  btcPayments: number;
+  averagePayment: number;
+  recentPayments: PaymentLink[];
+  monthlyStats: {
+    current: number;
+    previous: number;
+    growth: number;
+  };
+}
+
 export default function Dashboard() {
-  const { address, isAuthenticated } = useStacksWallet();
-  const { balance, loading: balanceLoading } = useStxBalance(address);
-  const { toast } = useToast();
-  const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
-  const [stats, setStats] = useState<PaymentStats>({
-    totalLinks: 0,
-    totalPaid: 0,
-    totalPending: 0,
-    totalExpired: 0,
-    totalVolume: 0
+  const { isAuthenticated, address } = useStacksWallet();
+  const { isConnected: btcConnected, address: btcAddress, balance: btcBalance } = useBitcoinWallet();
+  const { balance: stxBalance, loading: balanceLoading } = useStxBalance(address);
+  
+  const [stats, setStats] = useState<DashboardStats>({
+    totalPayments: 0,
+    totalVolume: 0,
+    activePayments: 0,
+    completedPayments: 0,
+    stxPayments: 0,
+    btcPayments: 0,
+    averagePayment: 0,
+    recentPayments: [],
+    monthlyStats: {
+      current: 0,
+      previous: 0,
+      growth: 0
+    }
   });
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load real payment data
-  useEffect(() => {
-    if (!isAuthenticated || !address) {
-      setLoading(false);
-      return;
-    }
-
-    setError(null);
-    try {
-      // Check for expired links
-      paymentStorage.checkExpiredLinks();
-
-      // Load payment links and stats
-      const links = paymentStorage.getPaymentLinks(address);
-      const paymentStats = paymentStorage.getPaymentStats(address);
-      
-      setPaymentLinks(links);
-      setStats(paymentStats);
-    } catch (err: any) {
-      console.error('Error loading dashboard data:', err);
-      setError(err.message || 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, address]);
-
-  // Refresh data when component becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && isAuthenticated && address) {
-        const links = paymentStorage.getPaymentLinks(address);
-        const paymentStats = paymentStorage.getPaymentStats(address);
-        setPaymentLinks(links);
-        setStats(paymentStats);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isAuthenticated, address]);
-
-  // Add refresh function for manual refresh
-  const refreshData = async () => {
-    if (!isAuthenticated || !address) return;
-    
+  const loadStats = async () => {
     setRefreshing(true);
     setError(null);
     
     try {
-      paymentStorage.checkExpiredLinks();
-      const links = paymentStorage.getPaymentLinks(address);
-      const paymentStats = paymentStorage.getPaymentStats(address);
-      setPaymentLinks(links);
-      setStats(paymentStats);
-      toast({ title: 'Dashboard refreshed', description: 'Data updated successfully', status: 'success' });
-    } catch (err: any) {
-      console.error('Error refreshing dashboard:', err);
-      setError(err.message || 'Failed to refresh dashboard data');
-      toast({ title: 'Refresh failed', description: err.message || 'Failed to refresh data', status: 'error' });
+      const allPayments = paymentStorage.getAllPaymentLinks();
+      
+      // Calculate comprehensive statistics
+      const totalPayments = allPayments.length;
+      const totalVolume = allPayments.reduce((sum, payment) => sum + payment.amount, 0);
+      const activePayments = allPayments.filter(p => p.status === 'pending').length;
+      const completedPayments = allPayments.filter(p => p.status === 'completed' || p.status === 'paid').length;
+      const stxPayments = allPayments.filter(p => p.paymentType === 'STX').length;
+      const btcPayments = allPayments.filter(p => p.paymentType === 'BTC').length;
+      const averagePayment = totalPayments > 0 ? totalVolume / totalPayments : 0;
+      
+      // Get recent payments (last 10)
+      const recentPayments = allPayments
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10);
+      
+      // Calculate monthly growth
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const currentMonthPayments = allPayments.filter(p => {
+        const paymentDate = new Date(p.createdAt);
+        return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
+      });
+      
+      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      const previousMonthPayments = allPayments.filter(p => {
+        const paymentDate = new Date(p.createdAt);
+        return paymentDate.getMonth() === previousMonth && paymentDate.getFullYear() === previousYear;
+      });
+      
+      const currentVolume = currentMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+      const previousVolume = previousMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+      const growth = previousVolume > 0 ? ((currentVolume - previousVolume) / previousVolume) * 100 : 0;
+
+      setStats({
+        totalPayments,
+        totalVolume,
+        activePayments,
+        completedPayments,
+        stxPayments,
+        btcPayments,
+        averagePayment,
+        recentPayments,
+        monthlyStats: {
+          current: currentVolume,
+          previous: previousVolume,
+          growth
+        }
+      });
+    } catch (err) {
+      setError('Failed to load dashboard data');
     } finally {
       setRefreshing(false);
+      setLoading(false);
     }
   };
 
-  // Format time remaining
-  const getTimeRemaining = (expiresAt: number) => {
-    const now = Date.now();
-    const remaining = expiresAt - now;
-    
-    if (remaining <= 0) return 'Expired';
-    
-    const hours = Math.floor(remaining / (1000 * 60 * 60));
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+  useEffect(() => {
+    loadStats();
+  }, [isAuthenticated, address, btcConnected, btcAddress]);
+
+  const formatBalance = (balance: number | null) => {
+    if (balance === null) return '0.00';
+    return balance.toFixed(6);
   };
 
-  // Format date
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
-  // Get status color
-  const getStatusColor = (status: PaymentLink['status']) => {
-    switch (status) {
-      case 'paid': return 'green';
-      case 'pending': return 'blue';
-      case 'expired': return 'red';
-      case 'cancelled': return 'gray';
-      default: return 'gray';
+  const getWalletInfo = () => {
+    if (isAuthenticated && address) {
+      return {
+        type: 'Stacks',
+        address: address,
+        balance: stxBalance,
+        loading: balanceLoading
+      };
     }
+    if (btcConnected && btcAddress) {
+      return {
+        type: 'Bitcoin',
+        address: btcAddress,
+        balance: btcBalance,
+        loading: false
+      };
+    }
+    return null;
   };
 
-  // Delete payment link
-  const handleDelete = (id: string) => {
-    paymentStorage.deletePaymentLink(id);
-    const updatedLinks = paymentStorage.getPaymentLinks(address!);
-    const updatedStats = paymentStorage.getPaymentStats(address!);
-    setPaymentLinks(updatedLinks);
-    setStats(updatedStats);
-    toast({ title: 'Payment link deleted', status: 'success' });
-  };
-
-  if (!isAuthenticated || !address) {
-  return (
-      <Container maxW="6xl" py={10}>
-        <VStack gap={6} textAlign="center">
-          <Heading size="lg" color="red.600">Wallet Required</Heading>
-          <Text color="gray.600">Please connect your wallet to view your dashboard</Text>
-        </VStack>
-      </Container>
-    );
-  }
-
-  if (loading) {
-    return (
-      <Container maxW="6xl" py={10}>
-            <VStack gap={6}>
-          <Text>Loading your dashboard...</Text>
-        </VStack>
-      </Container>
-    );
-  }
+  const walletInfo = getWalletInfo();
 
   return (
-    <Box 
-      minH="100vh" 
-      overflowX="hidden"
-      bg="#0a0a0a"
-      backgroundImage="radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 107, 53, 0.1) 0%, transparent 50%)"
-    >
-      <Container maxW="6xl" py={{ base: 4, md: 10 }} px={{ base: 4, md: 6 }}>
-        <VStack gap={{ base: 4, md: 8 }} align="stretch">
-        {/* Header */}
-        <VStack gap={4} textAlign="center">
-          <HStack gap={4} align="center">
-            <Heading 
-              size={{ base: "xl", md: "2xl" }} 
-              bg="linear-gradient(135deg, #00d4ff 0%, #ffffff 100%)"
-              bgClip="text"
-              fontWeight="bold"
-            >
-              Dashboard
-            </Heading>
-            <Button 
-              size="sm" 
-              bg="linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)"
-              color="white"
-              border="none"
-              borderRadius="xl"
-              _hover={{
-                transform: 'scale(1.05)',
-                boxShadow: '0 8px 25px rgba(0, 212, 255, 0.4)'
-              }}
-              onClick={refreshData}
-            >
-              🔄 Refresh
-            </Button>
-          </HStack>
-          <Text fontSize={{ base: "sm", md: "lg" }} color="#a0a0a0" px={{ base: 4, md: 0 }}>
-            Manage your payment links and track your earnings
-          </Text>
-        </VStack>
-
-        {/* Stats Cards */}
-        <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={{ base: 4, md: 6 }}>
-          <Box 
-            bg="rgba(30, 30, 30, 0.95)" 
-            backdropFilter="blur(20px)"
-            p={{ base: 6, md: 8 }} 
-            borderRadius="2xl" 
-            borderWidth="1px" 
-            borderColor="rgba(0, 212, 255, 0.3)"
-            shadow="0 12px 40px rgba(0, 0, 0, 0.4)"
-            _hover={{
-              transform: 'translateY(-4px)',
-              boxShadow: '0 20px 60px rgba(0, 212, 255, 0.25)',
-              borderColor: 'rgba(0, 212, 255, 0.6)'
-            }}
-            transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
-            position="relative"
-            overflow="hidden"
-            _before={{
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '2px',
-              bg: 'linear-gradient(90deg, #00d4ff, #0099cc)',
-            }}
-          >
-            <VStack gap={2}>
-              <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold" color="#00d4ff">{stats.totalLinks}</Text>
-              <Text fontSize={{ base: "xs", md: "sm" }} color="#a0a0a0" textAlign="center">Total Links</Text>
-            </VStack>
-          </Box>
-          
-          <Box bg="white" p={{ base: 4, md: 6 }} borderRadius="xl" borderWidth="2px" borderColor="green.200" shadow="lg">
-            <VStack gap={2}>
-              <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold" color="green.600">{stats.totalPaid}</Text>
-              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" textAlign="center">Paid</Text>
-        </VStack>
-          </Box>
-          
-          <Box bg="white" p={{ base: 4, md: 6 }} borderRadius="xl" borderWidth="2px" borderColor="orange.200" shadow="lg">
-            <VStack gap={2}>
-              <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold" color="orange.600">{stats.totalPending}</Text>
-              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" textAlign="center">Pending</Text>
-            </VStack>
-          </Box>
-          
-          <Box bg="white" p={{ base: 4, md: 6 }} borderRadius="xl" borderWidth="2px" borderColor="purple.200" shadow="lg">
-            <VStack gap={2}>
-              <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold" color="purple.600">{stats.totalVolume.toFixed(2)}</Text>
-              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" textAlign="center">STX Earned</Text>
-            </VStack>
-          </Box>
-        </Grid>
-
-        {/* Wallet Info */}
-        <Box bg="white" p={6} borderRadius="xl" borderWidth="2px" borderColor="gray.200" shadow="lg">
-          <VStack gap={4}>
-            <Heading size="md" color="gray.700">Wallet Information</Heading>
-            <HStack gap={4} wrap="wrap" justify="center">
-              <VStack gap={1}>
-                <Text fontSize="sm" color="gray.500">Address</Text>
-                <Text fontSize="sm" fontFamily="mono" color="blue.600">
-                  {address.slice(0, 8)}...{address.slice(-4)}
-                </Text>
-              </VStack>
-              <VStack gap={1}>
-                <Text fontSize="sm" color="gray.500">Balance</Text>
-                <Text fontSize="sm" fontWeight="bold" color="green.600">
-                  {balanceLoading ? '...' : `${(Number(balance || '0') / 1_000_000).toFixed(2)} STX`}
-                </Text>
-              </VStack>
-            </HStack>
-          </VStack>
-        </Box>
-
-        {/* Payment Links */}
-        <Box bg="white" p={6} borderRadius="xl" borderWidth="2px" borderColor="gray.200" shadow="lg">
+    <Box minH="100vh" bg="#000000" color="#ffffff">
+      <Container maxW="6xl" py={8} px={4}>
+        <VStack gap={8} align="stretch">
+          {/* Header */}
           <VStack gap={4} align="stretch">
-            <Flex justify="space-between" align="center">
-              <Heading size="md" color="gray.700">Payment Links</Heading>
-              <Link to="/">
-                <Button colorScheme="blue" size="sm">
-                  Create New Link
-                </Button>
-              </Link>
-            </Flex>
-
-            {paymentLinks.length === 0 ? (
-              <AlertRoot status="info" borderRadius="lg">
-                <AlertIndicator />
-                <AlertContent>
-                  <AlertTitle>No payment links yet</AlertTitle>
-                  <AlertDescription>
-                    <Text fontSize="sm">Create your first payment link to start receiving payments</Text>
-                    <Link to="/">
-                      <Button colorScheme="blue" size="sm" mt={2}>
-                        Create Payment Link
-                      </Button>
-                    </Link>
-                  </AlertDescription>
-                </AlertContent>
-              </AlertRoot>
-            ) : (
-              <VStack gap={4} align="stretch">
-                {paymentLinks.map((link) => (
-                  <Box key={link.id} p={4} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.200">
-                    <VStack gap={3} align="stretch">
-                      <HStack justify="space-between" wrap="wrap">
-                        <VStack align="start" gap={1}>
-                          <Text fontSize="xs" color="gray.500">Payment ID</Text>
-                          <Text fontSize={{ base: "xs", md: "sm" }} fontFamily="mono" color="gray.600">
-                            {link.id.slice(0, 8)}...
-                          </Text>
-                        </VStack>
-                        <VStack align="end" gap={1}>
-                          <Text fontSize="xs" color="gray.500">Amount</Text>
-                          <Text fontWeight="bold" color="blue.600" fontSize={{ base: "xs", md: "sm" }}>
-                            {link.amount} STX
-                          </Text>
-                        </VStack>
-                      </HStack>
-                      
-                      <HStack justify="space-between" wrap="wrap">
-                        <VStack align="start" gap={1}>
-                          <Text fontSize="xs" color="gray.500">Status</Text>
-                          <Badge colorScheme={getStatusColor(link.status)} fontSize={{ base: "xs", md: "sm" }}>
-                            {link.status.toUpperCase()}
-                          </Badge>
-                        </VStack>
-                        <VStack align="end" gap={1}>
-                          <Text fontSize="xs" color="gray.500">Created</Text>
-                          <Text fontSize="xs" color="gray.500">
-                            {formatDate(link.createdAt)}
-                          </Text>
-                        </VStack>
-                      </HStack>
-                      
-                      {link.description && (
-                        <VStack align="start" gap={1}>
-                          <Text fontSize="xs" color="gray.500">Description</Text>
-                          <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">
-                            {link.description}
-                          </Text>
-                        </VStack>
-                      )}
-                      
-                      {link.expiresAt && (
-                        <HStack justify="space-between" wrap="wrap">
-                          <Text fontSize="xs" color="gray.500">Expires</Text>
-                          <Text fontSize="xs" color={Date.now() > link.expiresAt ? "red.500" : "gray.500"}>
-                            {getTimeRemaining(link.expiresAt)}
-                          </Text>
-                        </HStack>
-                      )}
-                      
-                      <HStack gap={2} justify="flex-end">
-                        <Link to={`/pay/${link.id}`}>
-                          <Button size={{ base: "xs", md: "sm" }} colorScheme="blue" variant="outline">
-                            View
-                          </Button>
-                        </Link>
-                        {link.status === 'pending' && (
-                          <IconButton
-                            size={{ base: "xs", md: "sm" }}
-                            colorScheme="red"
-                            variant="outline"
-                            aria-label="Delete"
-                            onClick={() => handleDelete(link.id)}
-                          >
-                            🗑️
-                          </IconButton>
-                        )}
-                      </HStack>
-                    </VStack>
-                  </Box>
-                ))}
-              </VStack>
+            <HStack justify="space-between" align="center">
+              <Heading size="xl" color="#ffffff">
+                Dashboard
+              </Heading>
+              <HStack gap={3}>
+                <UniformButton
+                  variant="secondary"
+                  onClick={loadStats}
+                  loading={refreshing}
+                  size="sm"
+                >
+                  Refresh
+                </UniformButton>
+                <Link to="/generate" style={{ textDecoration: 'none' }}>
+                  <UniformButton variant="primary" size="sm">
+                    Create Payment
+                  </UniformButton>
+                </Link>
+              </HStack>
+            </HStack>
+            
+            {/* Wallet Status */}
+            {walletInfo && (
+              <HStack justify="space-between" align="center" p={4} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
+                <HStack gap={3} align="center">
+                  <Badge colorScheme={walletInfo.type === 'Stacks' ? 'blue' : 'orange'} fontSize="sm">
+                    {walletInfo.type}
+                  </Badge>
+                  <Text fontSize="sm" color="#ffffff" fontFamily="mono">
+                    {walletInfo.address?.slice(0, 6)}...{walletInfo.address?.slice(-4)}
+                  </Text>
+                </HStack>
+                <VStack align="end" gap={1}>
+                  <Text fontSize="lg" fontWeight="bold" color="#10b981">
+                    {formatBalance(walletInfo.balance)} {walletInfo.type === 'Stacks' ? 'STX' : 'BTC'}
+                  </Text>
+                  {walletInfo.loading && (
+                    <Text fontSize="xs" color="#9ca3af">Loading balance...</Text>
+                  )}
+                </VStack>
+              </HStack>
             )}
           </VStack>
-        </Box>
 
-        {/* Quick Actions */}
-        <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={4}>
-          <Link to="/">
-            <Box bg="blue.50" p={6} borderRadius="xl" borderWidth="2px" borderColor="blue.200" shadow="lg" cursor="pointer" _hover={{ bg: "blue.100" }}>
-              <VStack gap={2}>
-                <Text fontSize="2xl">🔗</Text>
-                <Text fontWeight="bold" color="blue.600">Create Payment Link</Text>
-                <Text fontSize="sm" color="gray.600" textAlign="center">Generate a new payment link</Text>
+          {/* Error Display */}
+          {error && (
+            <Alert status="error" borderRadius="lg">
+              <AlertIcon />
+              <Box>
+                <AlertTitle>Error!</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Box>
+            </Alert>
+          )}
+
+          {/* Main Statistics */}
+          {!loading && (
+            <VStack gap={6} align="stretch">
+              <Heading size="lg" color="#ffffff">
+                Overview Statistics
+              </Heading>
+              
+              <VStack gap={4} align="stretch">
+                {/* Primary Stats */}
+                <HStack gap={4} align="stretch">
+                  <UniformCard p={6} flex="1">
+                    <VStack align="center" gap={3}>
+                      <Text fontSize="3xl" fontWeight="bold" color="#3b82f6">
+                        {stats.totalPayments}
+                      </Text>
+                      <Text fontSize="sm" color="#9ca3af" textAlign="center">
+                        Total Payments
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+
+                  <UniformCard p={6} flex="1">
+                    <VStack align="center" gap={3}>
+                      <Text fontSize="3xl" fontWeight="bold" color="#10b981">
+                        {stats.totalVolume.toFixed(2)}
+                      </Text>
+                      <Text fontSize="sm" color="#9ca3af" textAlign="center">
+                        Total Volume
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+
+                  <UniformCard p={6} flex="1">
+                    <VStack align="center" gap={3}>
+                      <Text fontSize="3xl" fontWeight="bold" color="#f59e0b">
+                        {stats.activePayments}
+                      </Text>
+                      <Text fontSize="sm" color="#9ca3af" textAlign="center">
+                        Active Payments
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+                </HStack>
+
+                {/* Secondary Stats */}
+                <HStack gap={4} align="stretch">
+                  <UniformCard p={4} flex="1">
+                    <VStack align="center" gap={2}>
+                      <Text fontSize="2xl" fontWeight="bold" color="#8b5cf6">
+                        {stats.completedPayments}
+                      </Text>
+                      <Text fontSize="xs" color="#9ca3af" textAlign="center">
+                        Completed
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+
+                  <UniformCard p={4} flex="1">
+                    <VStack align="center" gap={2}>
+                      <Text fontSize="2xl" fontWeight="bold" color="#06b6d4">
+                        {stats.stxPayments}
+                      </Text>
+                      <Text fontSize="xs" color="#9ca3af" textAlign="center">
+                        STX Payments
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+
+                  <UniformCard p={4} flex="1">
+                    <VStack align="center" gap={2}>
+                      <Text fontSize="2xl" fontWeight="bold" color="#f97316">
+                        {stats.btcPayments}
+                      </Text>
+                      <Text fontSize="xs" color="#9ca3af" textAlign="center">
+                        BTC Payments
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+
+                  <UniformCard p={4} flex="1">
+                    <VStack align="center" gap={2}>
+                      <Text fontSize="2xl" fontWeight="bold" color="#84cc16">
+                        {stats.averagePayment.toFixed(2)}
+                      </Text>
+                      <Text fontSize="xs" color="#9ca3af" textAlign="center">
+                        Avg Payment
+                      </Text>
+                    </VStack>
+                  </UniformCard>
+                </HStack>
               </VStack>
-            </Box>
-          </Link>
-          
-          <Link to="/ai-contract-builder">
-            <Box bg="purple.50" p={6} borderRadius="xl" borderWidth="2px" borderColor="purple.200" shadow="lg" cursor="pointer" _hover={{ bg: "purple.100" }}>
-              <VStack gap={2}>
-                <Text fontSize="2xl">🤖</Text>
-                <Text fontWeight="bold" color="purple.600">AI Contract Builder</Text>
-                <Text fontSize="sm" color="gray.600" textAlign="center">Generate smart contracts with AI</Text>
+            </VStack>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <VStack gap={4} align="stretch">
+              <Skeleton height="100px" borderRadius="lg" />
+              <HStack gap={4} align="stretch">
+                <Skeleton height="80px" flex="1" borderRadius="lg" />
+                <Skeleton height="80px" flex="1" borderRadius="lg" />
+                <Skeleton height="80px" flex="1" borderRadius="lg" />
+              </HStack>
+            </VStack>
+          )}
+
+          {/* Monthly Growth */}
+          {!loading && (
+            <UniformCard p={6}>
+              <VStack gap={4} align="stretch">
+                <Heading size="md" color="#ffffff">
+                  Monthly Performance
+                </Heading>
+                
+                <VStack gap={3} align="stretch">
+                  <HStack justify="space-between" align="center">
+                    <Text fontSize="sm" color="#9ca3af">Current Month</Text>
+                    <Text fontSize="sm" color="#ffffff" fontWeight="medium">
+                      {stats.monthlyStats.current.toFixed(2)} Volume
+                    </Text>
+                  </HStack>
+                  
+                  <HStack justify="space-between" align="center">
+                    <Text fontSize="sm" color="#9ca3af">Previous Month</Text>
+                    <Text fontSize="sm" color="#ffffff" fontWeight="medium">
+                      {stats.monthlyStats.previous.toFixed(2)} Volume
+                    </Text>
+                  </HStack>
+                  
+                  <HStack justify="space-between" align="center">
+                    <Text fontSize="sm" color="#9ca3af">Growth Rate</Text>
+                    <Badge 
+                      colorScheme={stats.monthlyStats.growth >= 0 ? 'green' : 'red'} 
+                      fontSize="sm"
+                    >
+                      {stats.monthlyStats.growth >= 0 ? '+' : ''}{stats.monthlyStats.growth.toFixed(1)}%
+                    </Badge>
+                  </HStack>
+                </VStack>
               </VStack>
-            </Box>
-          </Link>
-        </Grid>
-      </VStack>
-    </Container>
+            </UniformCard>
+          )}
+
+          {/* Recent Payments */}
+          {!loading && (
+            <UniformCard p={6}>
+              <VStack gap={4} align="stretch">
+                <HStack justify="space-between" align="center">
+                  <Heading size="md" color="#ffffff">
+                    Recent Payments
+                  </Heading>
+                  <Link to="/generate" style={{ textDecoration: 'none' }}>
+                    <UniformButton variant="ghost" size="sm">
+                      Create New
+                    </UniformButton>
+                  </Link>
+                </HStack>
+                
+                {stats.recentPayments.length === 0 ? (
+                  <VStack gap={4} py={8}>
+                    <Text fontSize="4xl">💳</Text>
+                    <VStack gap={2}>
+                      <Heading size="md" color="#ffffff">No Payments Yet</Heading>
+                      <Text color="#9ca3af" textAlign="center">
+                        Create your first payment link to get started
+                      </Text>
+                    </VStack>
+                    <Link to="/generate" style={{ textDecoration: 'none' }}>
+                      <UniformButton variant="primary">
+                        Create Payment Link
+                      </UniformButton>
+                    </Link>
+                  </VStack>
+                ) : (
+                  <VStack gap={3} align="stretch">
+                    {stats.recentPayments.map((payment, index) => (
+                      <HStack key={index} justify="space-between" align="center" p={4} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
+                        <VStack align="start" gap={1}>
+                          <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                            {payment.description || 'Payment'}
+                          </Text>
+                          <Text fontSize="xs" color="#9ca3af">
+                            {new Date(payment.createdAt).toLocaleDateString()}
+                          </Text>
+                        </VStack>
+                        
+                        <VStack align="end" gap={1}>
+                          <Text fontSize="sm" fontWeight="bold" color="#ffffff">
+                            {payment.amount} {payment.paymentType}
+                          </Text>
+                          <Badge 
+                            colorScheme={
+                              payment.status === 'completed' || payment.status === 'paid' ? 'green' : 
+                              payment.status === 'pending' ? 'yellow' : 'gray'
+                            }
+                            fontSize="xs"
+                          >
+                            {payment.status}
+                          </Badge>
+                        </VStack>
+                      </HStack>
+                    ))}
+                  </VStack>
+                )}
+              </VStack>
+            </UniformCard>
+          )}
+
+          {/* Quick Actions */}
+          <UniformCard p={6}>
+            <VStack gap={4} align="stretch">
+              <Heading size="md" color="#ffffff">
+                Quick Actions
+              </Heading>
+              
+              <HStack gap={3} justify="center" wrap="wrap">
+                <Link to="/generate" style={{ textDecoration: 'none' }}>
+                  <UniformButton variant="primary" size="md">
+                    💳 Create Payment
+                  </UniformButton>
+                </Link>
+                <Link to="/ai-builder" style={{ textDecoration: 'none' }}>
+                  <UniformButton variant="secondary" size="md">
+                    🤖 AI Builder
+                  </UniformButton>
+                </Link>
+                <Link to="/bridge" style={{ textDecoration: 'none' }}>
+                  <UniformButton variant="accent" size="md">
+                    🌉 Bridge Assets
+                  </UniformButton>
+                </Link>
+              </HStack>
+            </VStack>
+          </UniformCard>
+        </VStack>
+      </Container>
     </Box>
   );
 }
