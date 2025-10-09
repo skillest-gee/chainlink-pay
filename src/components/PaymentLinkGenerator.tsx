@@ -58,7 +58,7 @@ export default function PaymentLinkGenerator() {
       };
 
       paymentStorage.savePaymentLink(paymentLink);
-      toast('Payment link generated successfully!');
+      toast({ title: 'Success', status: 'success', description: 'Payment link generated successfully!' });
     } catch (err) {
       setError('Failed to generate payment link');
     } finally {
@@ -68,7 +68,7 @@ export default function PaymentLinkGenerator() {
 
   const handleRegisterOnChain = async () => {
     if (!isAuthenticated) {
-      toast('Please connect your wallet first');
+      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your wallet first' });
       return;
     }
 
@@ -78,7 +78,7 @@ export default function PaymentLinkGenerator() {
     try {
       // Simulate on-chain registration
       await new Promise(resolve => setTimeout(resolve, 2000));
-      toast('Payment registered on-chain successfully!');
+      toast({ title: 'Success', status: 'success', description: 'Payment registered on-chain successfully!' });
     } catch (err) {
       setError('Failed to register payment on-chain');
     } finally {
@@ -88,7 +88,7 @@ export default function PaymentLinkGenerator() {
 
   const handlePay = async () => {
     if (!isAuthenticated) {
-      toast('Please connect your wallet first');
+      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your wallet first' });
       return;
     }
 
@@ -98,7 +98,7 @@ export default function PaymentLinkGenerator() {
     try {
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
-      toast('Payment processed successfully!');
+      toast({ title: 'Success', status: 'success', description: 'Payment processed successfully!' });
     } catch (err) {
       setError('Payment failed');
     } finally {
@@ -111,7 +111,7 @@ export default function PaymentLinkGenerator() {
       const url = `${window.location.origin}/pay/${generatedId}`;
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      toast('Payment link copied to clipboard!');
+      toast({ title: 'Copied', status: 'info', description: 'Payment link copied to clipboard!' });
       setTimeout(() => setCopied(false), 2000);
     }
   };

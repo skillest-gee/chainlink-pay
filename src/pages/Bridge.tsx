@@ -118,10 +118,10 @@ export default function Bridge() {
       };
       
       setEstimate(mockEstimate);
-      toast('Fee estimation completed', 'success');
+      toast({ title: 'Success', status: 'success', description: 'Fee estimation completed' });
     } catch (err) {
       setError('Failed to estimate fees');
-      toast('Fee estimation failed', 'error');
+      toast({ title: 'Error', status: 'error', description: 'Fee estimation failed' });
     } finally {
       setIsEstimating(false);
     }
@@ -129,13 +129,13 @@ export default function Bridge() {
 
   const handleBridge = async () => {
     if (!isAuthenticated && fromAsset === 'STX') {
-      toast('Please connect your Stacks wallet first', 'error');
+      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your Stacks wallet first' });
       connect();
       return;
     }
 
     if (!btcConnected && fromAsset === 'BTC') {
-      toast('Please connect your Bitcoin wallet first', 'error');
+      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your Bitcoin wallet first' });
       connectBTC();
       return;
     }
@@ -189,12 +189,12 @@ export default function Bridge() {
         )
       );
 
-      toast('Bridge transaction completed successfully!', 'success');
+      toast({ title: 'Success', status: 'success', description: 'Bridge transaction completed successfully!' });
       setEstimate(null);
       setAmount('');
     } catch (err) {
       setError('Bridge transaction failed');
-      toast('Bridge transaction failed', 'error');
+      toast({ title: 'Error', status: 'error', description: 'Bridge transaction failed' });
     } finally {
       setIsBridging(false);
       setBridgeProgress(0);
@@ -228,10 +228,10 @@ export default function Bridge() {
       console.log('Wallet Test Results:', walletTest);
       console.log('Bridge Test Results:', bridgeTest);
       
-      toast('Wallet integration test completed. Check console for details.', 'success');
+      toast({ title: 'Success', status: 'success', description: 'Wallet integration test completed. Check console for details.' });
     } catch (error) {
       console.error('Wallet test failed:', error);
-      toast('Wallet test failed. Check console for details.', 'error');
+      toast({ title: 'Error', status: 'error', description: 'Wallet test failed. Check console for details.' });
     }
   };
 

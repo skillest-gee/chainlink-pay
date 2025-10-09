@@ -86,19 +86,19 @@ export default function Pay() {
 
   const handlePayment = async () => {
     if (!payment) {
-      toast('Payment details not loaded');
+      toast({ title: 'Error', status: 'error', description: 'Payment details not loaded' });
       return;
     }
 
     // Check wallet connection based on payment type
     if (payment.paymentType === 'STX' && !isAuthenticated) {
-      toast('Please connect your Stacks wallet first');
+      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your Stacks wallet first' });
       connect();
       return;
     }
 
     if (payment.paymentType === 'BTC' && !btcConnected) {
-      toast('Please connect your Bitcoin wallet first');
+      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your Bitcoin wallet first' });
       connectBTC();
       return;
     }
@@ -135,10 +135,10 @@ export default function Pay() {
       );
       paymentStorage.saveAllPaymentLinks(updatedPayments);
       
-      toast('Payment completed successfully!');
+      toast({ title: 'Success', status: 'success', description: 'Payment completed successfully!' });
     } catch (err) {
       setPaymentError('Payment failed. Please try again.');
-      toast('Payment failed');
+      toast({ title: 'Error', status: 'error', description: 'Payment failed' });
     } finally {
       setIsPaying(false);
       setPaymentProgress(0);

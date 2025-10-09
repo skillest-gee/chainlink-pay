@@ -66,11 +66,11 @@ export default function AIContractBuilder() {
       
       setAiResponse(response);
       setActiveTab('validate');
-      toast('Contract generated successfully!', 'success');
+      toast({ title: 'Success', status: 'success', description: 'Contract generated successfully!' });
     } catch (err: any) {
       console.error('AI Contract Builder: Generation error:', err);
       setError(err.message || 'Failed to generate contract');
-      toast('Contract generation failed', 'error');
+      toast({ title: 'Error', status: 'error', description: 'Contract generation failed' });
     } finally {
       setIsGenerating(false);
     }
@@ -91,13 +91,13 @@ export default function AIContractBuilder() {
       setActiveTab('validate');
       
       if (validationResult.valid) {
-        toast('Contract validation passed!', 'success');
+        toast({ title: 'Success', status: 'success', description: 'Contract validation passed!' });
       } else {
-        toast('Contract validation found issues', 'warning');
+        toast({ title: 'Warning', status: 'warning', description: 'Contract validation found issues' });
       }
     } catch (err: any) {
       setError(err.message || 'Validation failed');
-      toast('Validation failed', 'error');
+      toast({ title: 'Error', status: 'error', description: 'Validation failed' });
     } finally {
       setIsValidating(false);
     }
@@ -116,10 +116,10 @@ export default function AIContractBuilder() {
       const improvedResponse = await aiService.improveContract(aiResponse.contract, improvementFeedback);
       setAiResponse(improvedResponse);
       setActiveTab('validate');
-      toast('Contract improved successfully!', 'success');
+      toast({ title: 'Success', status: 'success', description: 'Contract improved successfully!' });
     } catch (err: any) {
       setError(err.message || 'Failed to improve contract');
-      toast('Contract improvement failed', 'error');
+      toast({ title: 'Error', status: 'error', description: 'Contract improvement failed' });
     } finally {
       setIsImproving(false);
     }
@@ -137,10 +137,10 @@ export default function AIContractBuilder() {
     try {
       // Simulate deployment process
       await new Promise(resolve => setTimeout(resolve, 3000));
-      toast('Contract deployment initiated!', 'success');
+      toast({ title: 'Success', status: 'success', description: 'Contract deployment initiated!' });
     } catch (err: any) {
       setError(err.message || 'Deployment failed');
-      toast('Deployment failed', 'error');
+      toast({ title: 'Error', status: 'error', description: 'Deployment failed' });
     } finally {
       setIsDeploying(false);
     }
@@ -150,10 +150,10 @@ export default function AIContractBuilder() {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast('Contract copied to clipboard!', 'success');
+      toast({ title: 'Success', status: 'success', description: 'Contract copied to clipboard!' });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      toast('Failed to copy contract', 'error');
+      toast({ title: 'Error', status: 'error', description: 'Failed to copy contract' });
     }
   };
 
@@ -168,14 +168,14 @@ export default function AIContractBuilder() {
     try {
       const result = await testAIService();
       if (result.success) {
-        toast('AI Service test successful!', 'success');
+        toast({ title: 'Success', status: 'success', description: 'AI Service test successful!' });
         console.log('AI Service working correctly');
       } else {
-        toast(`AI Service test failed: ${result.error}`, 'error');
+        toast({ title: 'Error', status: 'error', description: `AI Service test failed: ${result.error}` });
         console.error('AI Service test failed:', result.error);
       }
     } catch (error) {
-      toast('AI Service test failed', 'error');
+      toast({ title: 'Error', status: 'error', description: 'AI Service test failed' });
       console.error('AI Service test error:', error);
     }
   };
