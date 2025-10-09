@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Button, Textarea, Select, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Divider, Code, Collapse, useDisclosure } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Button, Textarea, Select, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Divider, Code, Collapsible, useDisclosure } from '@chakra-ui/react';
 import { useToast } from '../hooks/useToast';
 import { UniformButton } from '../components/UniformButton';
 import { UniformTextarea } from '../components/UniformInput';
@@ -382,17 +382,19 @@ export default function AIContractBuilder() {
                       >
                         {showSuggestions ? 'Hide' : 'Show'} AI Suggestions ({aiResponse.suggestions.length})
                       </Button>
-                      <Collapse in={showSuggestions}>
-                        <VStack gap={2} align="stretch">
-                          {aiResponse.suggestions.map((suggestion, index) => (
-                            <Box key={index} p={3} bg="rgba(59, 130, 246, 0.1)" borderRadius="md">
-                              <Text fontSize="sm" color="#ffffff">
-                                💡 {suggestion}
-                              </Text>
-                            </Box>
-                          ))}
-                        </VStack>
-                      </Collapse>
+                      <Collapsible.Root open={showSuggestions}>
+                        <Collapsible.Content>
+                          <VStack gap={2} align="stretch">
+                            {aiResponse.suggestions.map((suggestion, index) => (
+                              <Box key={index} p={3} bg="rgba(59, 130, 246, 0.1)" borderRadius="md">
+                                <Text fontSize="sm" color="#ffffff">
+                                  💡 {suggestion}
+                                </Text>
+                              </Box>
+                            ))}
+                          </VStack>
+                        </Collapsible.Content>
+                      </Collapsible.Root>
                     </Box>
                   )}
 
