@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Button, Textarea, Select, Badge, Alert, AlertIcon, AlertTitle, AlertDescription, Divider, Code, Collapse, useDisclosure } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Button, Textarea, Select, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Divider, Code, Collapse, useDisclosure } from '@chakra-ui/react';
 import { useToast } from '../hooks/useToast';
 import { UniformButton } from '../components/UniformButton';
 import { UniformTextarea } from '../components/UniformInput';
@@ -309,13 +309,13 @@ export default function AIContractBuilder() {
 
                 {/* Error Display */}
                 {error && (
-                  <Alert status="error" borderRadius="lg">
-                    <AlertIcon />
-                    <Box>
+                  <AlertRoot status="error">
+                    <AlertIndicator />
+                    <AlertContent>
                       <AlertTitle>Error!</AlertTitle>
                       <AlertDescription>{error}</AlertDescription>
-                    </Box>
-                  </Alert>
+                    </AlertContent>
+                  </AlertRoot>
                 )}
               </VStack>
             </UniformCard>

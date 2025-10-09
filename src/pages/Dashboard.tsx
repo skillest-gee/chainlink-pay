@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, Progress, Alert, AlertIcon, AlertTitle, AlertDescription } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, ProgressBar, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useStxBalance } from '../hooks/useStxBalance';
@@ -194,13 +194,13 @@ export default function Dashboard() {
 
           {/* Error Display */}
           {error && (
-            <Alert status="error" borderRadius="lg">
-              <AlertIcon />
-              <Box>
+            <AlertRoot status="error">
+              <AlertIndicator />
+              <AlertContent>
                 <AlertTitle>Error!</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
-              </Box>
-            </Alert>
+              </AlertContent>
+            </AlertRoot>
           )}
 
           {/* Main Statistics */}

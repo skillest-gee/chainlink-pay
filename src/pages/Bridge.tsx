@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Button, Input, Select, Badge, Alert, AlertIcon, AlertTitle, AlertDescription, Progress, Divider, Code } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Button, Input, Select, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, ProgressBar, Divider, Code } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
@@ -398,13 +398,13 @@ export default function Bridge() {
 
                 {/* Error Display */}
                 {error && (
-                  <Alert status="error" borderRadius="lg">
-                    <AlertIcon />
-                    <Box>
+                  <AlertRoot status="error">
+                    <AlertIndicator />
+                    <AlertContent>
                       <AlertTitle>Error!</AlertTitle>
                       <AlertDescription>{error}</AlertDescription>
-                    </Box>
-                  </Alert>
+                    </AlertContent>
+                  </AlertRoot>
                 )}
 
                 {/* Wallet Connection Status */}
@@ -444,27 +444,27 @@ export default function Bridge() {
 
                 {/* Wallet Requirements */}
                 {(!isAuthenticated && fromAsset === 'STX') && (
-                  <Alert status="warning" borderRadius="lg">
-                    <AlertIcon />
-                    <Box>
+                  <AlertRoot status="warning">
+                    <AlertIndicator />
+                    <AlertContent>
                       <AlertTitle>Stacks Wallet Required</AlertTitle>
                       <AlertDescription>
                         Please connect your Stacks wallet to bridge STX tokens.
                       </AlertDescription>
-                    </Box>
-                  </Alert>
+                    </AlertContent>
+                  </AlertRoot>
                 )}
 
                 {(!btcConnected && fromAsset === 'BTC') && (
-                  <Alert status="warning" borderRadius="lg">
-                    <AlertIcon />
-                    <Box>
+                  <AlertRoot status="warning">
+                    <AlertIndicator />
+                    <AlertContent>
                       <AlertTitle>Bitcoin Wallet Required</AlertTitle>
                       <AlertDescription>
                         Please connect your Bitcoin wallet to bridge BTC tokens.
                       </AlertDescription>
-                    </Box>
-                  </Alert>
+                    </AlertContent>
+                  </AlertRoot>
                 )}
               </VStack>
             </UniformCard>
