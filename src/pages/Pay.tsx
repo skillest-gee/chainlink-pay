@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, ProgressBar } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Progress } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
@@ -289,7 +289,7 @@ export default function Pay() {
                 <Text fontSize="sm" color="#ffffff" textAlign="center">
                   Processing Payment...
                 </Text>
-                <ProgressBar 
+                <Progress 
                   value={paymentProgress} 
                   colorScheme="blue" 
                   size="lg"

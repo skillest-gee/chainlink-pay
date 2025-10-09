@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Heading, Text, Container, VStack, HStack, Badge, ProgressBar, Skeleton } from '@chakra-ui/react';
+import { Box, Heading, Text, Container, VStack, HStack, Badge, Progress, Skeleton } from '@chakra-ui/react';
 import PaymentLinkGenerator from '../components/PaymentLinkGenerator';
 import { UniformButton } from '../components/UniformButton';
 import { UniformCard } from '../components/UniformCard';
@@ -146,7 +146,7 @@ export default function Home() {
                 {walletInfo.loading && (
                   <Box>
                     <Text fontSize="sm" color="#9ca3af" mb={2}>Loading balance...</Text>
-                    <ProgressBar value={undefined} colorScheme="blue" size="sm" />
+                    <Progress value={undefined} colorScheme="blue" size="sm" />
                   </Box>
                 )}
               </VStack>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Button, Input, Select, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, ProgressBar, Divider, Code } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Button, Input, Select, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Progress, Divider, Code } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
