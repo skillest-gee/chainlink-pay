@@ -49,7 +49,7 @@ export default function PaymentLinkGenerator() {
       
       const paymentLink: PaymentLink = {
         id,
-        amount: parseFloat(amount),
+        amount: amount,
         description,
         paymentType,
         status: 'pending',
