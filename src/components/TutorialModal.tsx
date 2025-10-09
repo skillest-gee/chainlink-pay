@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Text, VStack, HStack, IconButton, Heading, Badge, Button, Container } from '@chakra-ui/react';
+import { Box, Text, VStack, HStack, IconButton, Heading, Badge, Button } from '@chakra-ui/react';
 import { UniformButton } from './UniformButton';
 import { UniformCard } from './UniformCard';
 
@@ -84,13 +84,13 @@ export default function TutorialModal() {
   return (
     <Box
       position="fixed"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
+      top="0"
+      left="0"
+      right="0"
+      bottom="0"
       bg="rgba(0, 0, 0, 0.9)"
       backdropFilter="blur(10px)"
-      zIndex={9999}
+      zIndex="9999"
       display="flex"
       alignItems="center"
       justifyContent="center"
