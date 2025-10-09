@@ -185,7 +185,7 @@ function App() {
                     </Text>
                   </HStack>
                   <Text fontSize="xs" color="#10b981" fontWeight="medium">
-                    {formatBalance(walletStatus.balance)} {walletStatus.type === 'stacks' ? 'STX' : 'BTC'}
+                    {formatBalance(typeof walletStatus.balance === 'number' ? walletStatus.balance : 0)} {walletStatus.type === 'stacks' ? 'STX' : 'BTC'}
                   </Text>
                 </VStack>
               )}
