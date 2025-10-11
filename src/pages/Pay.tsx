@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Progress } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
@@ -131,7 +131,7 @@ export default function Pay() {
       // Update in storage
       const allPayments = paymentStorage.getAllPaymentLinks();
       const updatedPayments = allPayments.map(p => 
-        p.id === payment.id ? { ...p, status: 'paid' } : p
+        p.id === payment.id ? { ...p, status: 'paid' as const } : p
       );
       paymentStorage.saveAllPaymentLinks(updatedPayments);
       
@@ -289,11 +289,15 @@ export default function Pay() {
                 <Text fontSize="sm" color="#ffffff" textAlign="center">
                   Processing Payment...
                 </Text>
-                <Progress 
-                  value={paymentProgress} 
-                  colorScheme="blue" 
-                  size="lg"
-                />
+                <Box w="100%" h="8px" bg="rgba(255, 255, 255, 0.1)" borderRadius="4px" overflow="hidden">
+                  <Box 
+                    w={`${paymentProgress}%`} 
+                    h="100%" 
+                    bg="#3b82f6" 
+                    borderRadius="4px" 
+                    transition="width 0.3s ease"
+                  />
+                </Box>
                 <Text fontSize="xs" color="#9ca3af" textAlign="center">
                   {paymentProgress}% Complete
                 </Text>

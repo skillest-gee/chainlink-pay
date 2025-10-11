@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, Progress, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useStxBalance } from '../hooks/useStxBalance';
@@ -57,9 +57,9 @@ export default function Dashboard() {
       
       // Calculate comprehensive statistics
       const totalPayments = allPayments.length;
-      const totalVolume = allPayments.reduce((sum, payment) => sum + payment.amount, 0);
+      const totalVolume = allPayments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
       const activePayments = allPayments.filter(p => p.status === 'pending').length;
-      const completedPayments = allPayments.filter(p => p.status === 'completed' || p.status === 'paid').length;
+      const completedPayments = allPayments.filter(p => p.status === 'paid').length;
       const stxPayments = allPayments.filter(p => p.paymentType === 'STX').length;
       const btcPayments = allPayments.filter(p => p.paymentType === 'BTC').length;
       const averagePayment = totalPayments > 0 ? totalVolume / totalPayments : 0;
@@ -84,8 +84,8 @@ export default function Dashboard() {
         return paymentDate.getMonth() === previousMonth && paymentDate.getFullYear() === previousYear;
       });
       
-      const currentVolume = currentMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-      const previousVolume = previousMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+      const currentVolume = currentMonthPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      const previousVolume = previousMonthPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
       const growth = previousVolume > 0 ? ((currentVolume - previousVolume) / previousVolume) * 100 : 0;
 
       setStats({
@@ -182,7 +182,7 @@ export default function Dashboard() {
                 </HStack>
                 <VStack align="end" gap={1}>
                   <Text fontSize="lg" fontWeight="bold" color="#10b981">
-                    {formatBalance(walletInfo.balance)} {walletInfo.type === 'Stacks' ? 'STX' : 'BTC'}
+                    {formatBalance(typeof walletInfo.balance === 'number' ? walletInfo.balance : 0)} {walletInfo.type === 'Stacks' ? 'STX' : 'BTC'}
                   </Text>
                   {walletInfo.loading && (
                     <Text fontSize="xs" color="#9ca3af">Loading balance...</Text>
@@ -190,7 +190,7 @@ export default function Dashboard() {
                 </VStack>
               </HStack>
             )}
-          </VStack>
+    </VStack>
 
           {/* Error Display */}
           {error && (
@@ -231,7 +231,7 @@ export default function Dashboard() {
                       </Text>
                       <Text fontSize="sm" color="#9ca3af" textAlign="center">
                         Total Volume
-                      </Text>
+        </Text>
                     </VStack>
                   </UniformCard>
 
@@ -242,7 +242,7 @@ export default function Dashboard() {
                       </Text>
                       <Text fontSize="sm" color="#9ca3af" textAlign="center">
                         Active Payments
-                      </Text>
+        </Text>
                     </VStack>
                   </UniformCard>
                 </HStack>
@@ -256,7 +256,7 @@ export default function Dashboard() {
                       </Text>
                       <Text fontSize="xs" color="#9ca3af" textAlign="center">
                         Completed
-                      </Text>
+        </Text>
                     </VStack>
                   </UniformCard>
 
@@ -267,7 +267,7 @@ export default function Dashboard() {
                       </Text>
                       <Text fontSize="xs" color="#9ca3af" textAlign="center">
                         STX Payments
-                      </Text>
+        </Text>
                     </VStack>
                   </UniformCard>
 
@@ -286,33 +286,33 @@ export default function Dashboard() {
                     <VStack align="center" gap={2}>
                       <Text fontSize="2xl" fontWeight="bold" color="#84cc16">
                         {stats.averagePayment.toFixed(2)}
-                      </Text>
+              </Text>
                       <Text fontSize="xs" color="#9ca3af" textAlign="center">
                         Avg Payment
-                      </Text>
+                </Text>
                     </VStack>
                   </UniformCard>
                 </HStack>
               </VStack>
-            </VStack>
+      </VStack>
           )}
 
           {/* Loading State */}
           {loading && (
-            <VStack gap={4} align="stretch">
+      <VStack gap={4} align="stretch">
               <Skeleton height="100px" borderRadius="lg" />
               <HStack gap={4} align="stretch">
                 <Skeleton height="80px" flex="1" borderRadius="lg" />
                 <Skeleton height="80px" flex="1" borderRadius="lg" />
                 <Skeleton height="80px" flex="1" borderRadius="lg" />
-              </HStack>
-            </VStack>
+            </HStack>
+      </VStack>
           )}
 
           {/* Monthly Growth */}
           {!loading && (
             <UniformCard p={6}>
-              <VStack gap={4} align="stretch">
+      <VStack gap={4} align="stretch">
                 <Heading size="md" color="#ffffff">
                   Monthly Performance
                 </Heading>
@@ -323,13 +323,13 @@ export default function Dashboard() {
                     <Text fontSize="sm" color="#ffffff" fontWeight="medium">
                       {stats.monthlyStats.current.toFixed(2)} Volume
                     </Text>
-                  </HStack>
+            </HStack>
                   
                   <HStack justify="space-between" align="center">
                     <Text fontSize="sm" color="#9ca3af">Previous Month</Text>
                     <Text fontSize="sm" color="#ffffff" fontWeight="medium">
                       {stats.monthlyStats.previous.toFixed(2)} Volume
-                    </Text>
+          </Text>
                   </HStack>
                   
                   <HStack justify="space-between" align="center">
@@ -339,10 +339,10 @@ export default function Dashboard() {
                       fontSize="sm"
                     >
                       {stats.monthlyStats.growth >= 0 ? '+' : ''}{stats.monthlyStats.growth.toFixed(1)}%
-                    </Badge>
-                  </HStack>
-                </VStack>
-              </VStack>
+          </Badge>
+          </HStack>
+        </VStack>
+      </VStack>
             </UniformCard>
           )}
 
@@ -386,16 +386,16 @@ export default function Dashboard() {
                           </Text>
                           <Text fontSize="xs" color="#9ca3af">
                             {new Date(payment.createdAt).toLocaleDateString()}
-                          </Text>
-                        </VStack>
-                        
+            </Text>
+          </VStack>
+          
                         <VStack align="end" gap={1}>
                           <Text fontSize="sm" fontWeight="bold" color="#ffffff">
                             {payment.amount} {payment.paymentType}
-                          </Text>
+              </Text>
                           <Badge 
                             colorScheme={
-                              payment.status === 'completed' || payment.status === 'paid' ? 'green' : 
+                              payment.status === 'paid' ? 'green' : 
                               payment.status === 'pending' ? 'yellow' : 'gray'
                             }
                             fontSize="xs"
@@ -439,6 +439,6 @@ export default function Dashboard() {
           </UniformCard>
         </VStack>
       </Container>
-    </Box>
+          </Box>
   );
 }

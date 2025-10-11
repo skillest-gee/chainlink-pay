@@ -67,7 +67,7 @@ export function useBitcoinWallet() {
         return;
       }
 
-      let address: string;
+      let address: string | null = null;
       let balance: number = 0;
 
       switch (provider) {
@@ -115,13 +115,21 @@ export function useBitcoinWallet() {
           throw new Error('Unsupported Bitcoin wallet provider');
       }
 
-      setState({
-        isConnected: true,
-        address,
-        balance,
-        isConnecting: false,
-        error: null,
-      });
+      if (address) {
+        setState({
+          isConnected: true,
+          address,
+          balance,
+          isConnecting: false,
+          error: null,
+        });
+      } else {
+        setState(s => ({ 
+          ...s, 
+          error: 'Failed to get Bitcoin address', 
+          isConnecting: false 
+        }));
+      }
 
     } catch (e: any) {
       console.error('Bitcoin wallet connection failed:', e);

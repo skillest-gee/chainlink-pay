@@ -28,7 +28,7 @@ export function WalletConnectButton() {
           disabled
           title="Connecting to your Stacks wallet..."
         >
-          <Spinner size="xs" mr={2} />
+          <Spinner size="sm" mr={2} />
           Connecting...
         </UniformButton>
       );
@@ -48,7 +48,7 @@ export function WalletConnectButton() {
           {isMobile && (
             <UniformButton
               variant="ghost"
-              size="xs"
+              size="sm"
               onClick={() => setShowMobileGuide(true)}
             >
               📱 Mobile Help
@@ -89,7 +89,7 @@ export function WalletConnectButton() {
             </HStack>
             {connectedWallet.type === 'Stacks' && (
               <Text fontSize="xs" color="#10b981" fontWeight="medium">
-                {formatBalance(connectedWallet.balance)} STX
+                {formatBalance(typeof connectedWallet.balance === 'number' ? connectedWallet.balance : 0)} STX
               </Text>
             )}
           </VStack>

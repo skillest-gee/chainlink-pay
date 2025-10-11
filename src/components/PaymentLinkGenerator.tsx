@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, VStack, HStack, Text, Button, Input, Textarea, Select, Badge } from '@chakra-ui/react';
+import { Box, VStack, HStack, Text, Button, Input, Textarea, Badge } from '@chakra-ui/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
@@ -125,28 +125,34 @@ export default function PaymentLinkGenerator() {
         <Text fontSize="sm" fontWeight="medium" color="#ffffff">
           Payment Type
         </Text>
-        <Select
+        <select
           value={paymentType}
           onChange={(e) => setPaymentType(e.target.value as 'STX' | 'BTC')}
-          bg="rgba(255, 255, 255, 0.05)"
-          borderColor="rgba(255, 255, 255, 0.1)"
-          color="#ffffff"
-          _focus={{ borderColor: '#3b82f6' }}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            color: '#ffffff',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            fontSize: '14px',
+            width: '100%'
+          }}
         >
           <option value="STX" style={{ backgroundColor: '#000000', color: '#ffffff' }}>STX (Stacks)</option>
           <option value="BTC" style={{ backgroundColor: '#000000', color: '#ffffff' }}>BTC (Bitcoin)</option>
-        </Select>
+        </select>
       </VStack>
 
       {/* Amount Input */}
       <VStack gap={3} align="stretch">
         <Text fontSize="sm" fontWeight="medium" color="#ffffff">
           Amount
-        </Text>
+          </Text>
         <UniformInput
           type="number"
           placeholder="Enter amount"
-          value={amount}
+            value={amount}
           onChange={(e) => setAmount(e.target.value)}
           variant="default"
         />
@@ -155,11 +161,11 @@ export default function PaymentLinkGenerator() {
       {/* Description Input */}
       <VStack gap={3} align="stretch">
         <Text fontSize="sm" fontWeight="medium" color="#ffffff">
-          Description
-        </Text>
+            Description
+          </Text>
         <UniformTextarea
           placeholder="Enter payment description"
-          value={description}
+            value={description} 
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
         />
@@ -169,7 +175,7 @@ export default function PaymentLinkGenerator() {
       <UniformButton
         variant="primary"
         onClick={handleGenerate}
-        loading={isGenerating}
+                  loading={isGenerating}
         disabled={!isValidAmount(amount)}
       >
         {isGenerating ? 'Generating...' : 'Generate Payment Link'}
@@ -192,12 +198,12 @@ export default function PaymentLinkGenerator() {
               </Text>
               <Badge colorScheme="green">Generated</Badge>
             </HStack>
-
+            
             {/* QR Code */}
             <Box textAlign="center" p={4} bg="#ffffff" borderRadius="lg">
               <QRCodeSVG value={paymentUrl} size={200} />
             </Box>
-
+            
             {/* Payment URL */}
             <VStack gap={2} align="stretch">
               <Text fontSize="sm" fontWeight="medium" color="#9ca3af">
@@ -251,7 +257,7 @@ export default function PaymentLinkGenerator() {
             )}
           </VStack>
         </UniformCard>
-      )}
+        )}
     </VStack>
   );
 }

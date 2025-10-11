@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Button, Input, Select, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Progress, Divider, Code } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Button, Input, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Code } from '@chakra-ui/react';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
@@ -266,21 +266,26 @@ export default function Bridge() {
                       <Text fontSize="sm" fontWeight="medium" color="#ffffff">
                         From
               </Text>
-                      <Select
+                      <select
                         value={fromAsset}
                         onChange={(e) => setFromAsset(e.target.value)}
-                        bg="rgba(255, 255, 255, 0.05)"
-                        borderColor="rgba(255, 255, 255, 0.1)"
-                        color="#ffffff"
-                        _focus={{ borderColor: '#3b82f6' }}
-                size="lg" 
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                          color: '#ffffff',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          width: '100%'
+                        }}
                       >
                         {supportedAssets.map((asset) => (
                           <option key={asset.value} value={asset.value} style={{ backgroundColor: '#000000', color: '#ffffff' }}>
                             {asset.icon} {asset.label}
                           </option>
                         ))}
-                      </Select>
+                      </select>
                       <Text fontSize="xs" color="#9ca3af">
                         Balance: {formatBalance(getAssetBalance(fromAsset))} {fromAsset}
           </Text>
@@ -296,21 +301,26 @@ export default function Bridge() {
                       <Text fontSize="sm" fontWeight="medium" color="#ffffff">
                         To
                       </Text>
-                      <Select
+                      <select
                         value={toAsset}
                         onChange={(e) => setToAsset(e.target.value)}
-                        bg="rgba(255, 255, 255, 0.05)"
-                        borderColor="rgba(255, 255, 255, 0.1)"
-                        color="#ffffff"
-                        _focus={{ borderColor: '#3b82f6' }}
-                size="lg"
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                          color: '#ffffff',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          width: '100%'
+                        }}
                       >
                         {supportedAssets.filter(asset => asset.value !== fromAsset).map((asset) => (
                           <option key={asset.value} value={asset.value} style={{ backgroundColor: '#000000', color: '#ffffff' }}>
                             {asset.icon} {asset.label}
                           </option>
                         ))}
-                      </Select>
+                      </select>
                       <Text fontSize="xs" color="#9ca3af">
                         Balance: {formatBalance(getAssetBalance(toAsset))} {toAsset}
                       </Text>
@@ -335,7 +345,7 @@ export default function Bridge() {
                       Available: {formatBalance(getAssetBalance(fromAsset))} {fromAsset}
                     </Text>
               <Button 
-                      size="xs"
+                      size="sm"
                       variant="ghost"
                       color="#3b82f6"
                       onClick={() => setAmount(getAssetBalance(fromAsset).toString())}
@@ -526,13 +536,24 @@ export default function Bridge() {
                   </Heading>
                   
                   <VStack gap={3} align="stretch">
-                    <Progress 
-                      value={bridgeProgress} 
-                      colorScheme="blue" 
-                      size="lg" 
-                      borderRadius="md"
-                      bg="rgba(255, 255, 255, 0.1)"
-                    />
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '8px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        borderRadius: '4px',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${bridgeProgress}%`,
+                          height: '100%',
+                          backgroundColor: '#3b82f6',
+                          transition: 'width 0.3s ease'
+                        }}
+                      />
+                    </div>
                     <Text fontSize="sm" color="#9ca3af" textAlign="center">
                       {bridgeProgress}% Complete
                     </Text>

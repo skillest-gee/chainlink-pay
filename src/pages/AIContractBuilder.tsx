@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Button, Textarea, Select, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Divider, Code, Collapsible, useDisclosure } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, HStack, Button, Textarea, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Code, Collapsible, useDisclosure } from '@chakra-ui/react';
 import { useToast } from '../hooks/useToast';
 import { UniformButton } from '../components/UniformButton';
 import { UniformTextarea } from '../components/UniformInput';
@@ -9,8 +9,8 @@ import { testAIService } from '../utils/testAI';
 
 export default function AIContractBuilder() {
   const { toast } = useToast();
-  const { isOpen: showSuggestions, onToggle: toggleSuggestions } = useDisclosure();
-  const { isOpen: showValidation, onToggle: toggleValidation } = useDisclosure();
+  const { open: showSuggestions, onToggle: toggleSuggestions } = useDisclosure();
+  const { open: showValidation, onToggle: toggleValidation } = useDisclosure();
   
   // Form state
   const [request, setRequest] = useState('');
@@ -212,21 +212,26 @@ export default function AIContractBuilder() {
                   <Text fontSize="sm" fontWeight="medium" color="#ffffff">
                     Contract Template
                   </Text>
-                  <Select
+                          <select
                     value={selectedTemplate}
                     onChange={(e) => setSelectedTemplate(e.target.value)}
-                    bg="rgba(255, 255, 255, 0.05)"
-                    borderColor="rgba(255, 255, 255, 0.1)"
-                    color="#ffffff"
-                    _focus={{ borderColor: '#3b82f6' }}
-                    size="lg"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      fontSize: '14px',
+                      width: '100%'
+                    }}
                   >
                     {templates.map((template) => (
                       <option key={template.value} value={template.value} style={{ backgroundColor: '#000000', color: '#ffffff' }}>
                         {template.label} - {template.description}
                       </option>
                     ))}
-                  </Select>
+                          </select>
                 </VStack>
 
                 {/* Natural Language Description */}
@@ -273,7 +278,7 @@ export default function AIContractBuilder() {
                         <HStack key={index} justify="space-between" p={2} bg="rgba(255, 255, 255, 0.05)" borderRadius="md">
                           <Text fontSize="sm" color="#ffffff">{req}</Text>
                           <Button
-                            size="xs"
+                            size="sm"
                             variant="ghost"
                             color="#ef4444"
                             onClick={() => removeRequirement(index)}
