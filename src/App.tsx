@@ -192,22 +192,6 @@ function App() {
 
             {/* Wallet Status and Controls */}
             <HStack gap={3} align="center" flexShrink={0}>
-              {/* Wallet Status Display - Only show when connected */}
-              {walletStatus && (
-                <HStack gap={2} align="center" display={{ base: 'none', lg: 'flex' }}>
-                  <Badge 
-                    colorScheme={walletStatus.type === 'stacks' ? 'blue' : 'orange'} 
-                    fontSize="xs"
-                    variant="subtle"
-                  >
-                    {walletStatus.type === 'stacks' ? 'STX' : 'BTC'}
-                  </Badge>
-                  <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
-                    {walletStatus.address?.slice(0, 6)}...{walletStatus.address?.slice(-4)}
-                  </Text>
-                </HStack>
-              )}
-
               {/* Network Status */}
               <NetworkStatus />
               

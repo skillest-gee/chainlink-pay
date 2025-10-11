@@ -26,12 +26,12 @@ export class AIService {
   private baseUrl = 'https://openrouter.ai/api/v1';
 
   constructor() {
-    this.apiKey = process.env.REACT_APP_OPENROUTER_API_KEY || '';
+    this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || process.env.REACT_APP_OPENROUTER_API_KEY || '';
   }
 
   async generateContract(request: AIContractRequest): Promise<AIContractResponse> {
     if (!this.apiKey) {
-      throw new Error('OpenRouter API key not configured');
+      throw new Error('OpenRouter API key not configured. Please set REACT_APP_OPENAI_API_KEY environment variable.');
     }
 
     console.log('AI Service: Generating contract with API key:', this.apiKey.substring(0, 10) + '...');
@@ -79,6 +79,10 @@ export class AIService {
   }
 
   async validateContract(contract: string): Promise<ContractValidation> {
+    if (!this.apiKey) {
+      throw new Error('OpenRouter API key not configured. Please set REACT_APP_OPENAI_API_KEY environment variable.');
+    }
+
     const errors: string[] = [];
     const warnings: string[] = [];
     const suggestions: string[] = [];
@@ -130,7 +134,7 @@ export class AIService {
 
   async improveContract(contract: string, feedback: string): Promise<AIContractResponse> {
     if (!this.apiKey) {
-      throw new Error('OpenRouter API key not configured');
+      throw new Error('OpenRouter API key not configured. Please set REACT_APP_OPENAI_API_KEY environment variable.');
     }
 
     const prompt = `Please improve this Clarity smart contract based on the feedback provided:
@@ -181,6 +185,92 @@ Please provide an improved version with better security, error handling, and doc
       console.error('AI Service Error:', error);
       throw new Error('Failed to improve contract with AI. Please try again.');
     }
+  }
+
+  private getDemoResponse(request: AIContractRequest): AIContractResponse {
+    console.log('AI Service: Using demo mode - API key not configured');
+    
+    const demoContracts = {
+      payment: `;; Demo Payment Contract
+(define-data-var total-payments uint u0)
+(define-data-var total-volume uint u0)
+
+(define-public (create-payment (amount uint) (description (string-utf8 256)))
+  (begin
+    (var-set total-payments (+ (var-get total-payments) u1))
+    (var-set total-volume (+ (var-get total-volume) amount))
+    (ok true)
+  )
+)
+
+(define-read-only (get-stats)
+  {total-payments: (var-get total-payments), total-volume: (var-get total-volume)}
+)`,
+      escrow: `;; Demo Escrow Contract
+(define-data-var escrow-id uint u0)
+(define-map escrows uint {buyer: principal, seller: principal, amount: uint, status: (string-utf8 20)})
+
+(define-public (create-escrow (seller principal) (amount uint))
+  (begin
+    (var-set escrow-id (+ (var-get escrow-id) u1))
+    (map-set escrows (var-get escrow-id) {buyer: tx-sender, seller: seller, amount: amount, status: "pending"})
+    (ok (var-get escrow-id))
+  )
+)`,
+      custom: `;; Demo Custom Contract
+(define-data-var contract-data uint u0)
+
+(define-public (custom-function (input uint))
+  (begin
+    (var-set contract-data input)
+    (ok true)
+  )
+)`
+    };
+
+    const contract = demoContracts[request.template as keyof typeof demoContracts] || demoContracts.custom;
+    
+    return {
+      contract,
+      explanation: `This is a demo ${request.template} contract generated in demo mode. To use the full AI service, please configure your OpenRouter API key in the environment variables.`,
+      suggestions: [
+        'Add input validation',
+        'Implement error handling',
+        'Add read-only functions for data access',
+        'Consider gas optimization'
+      ],
+      warnings: ['Demo mode - API key not configured'],
+      errors: []
+    };
+  }
+
+  private getDemoValidation(contract: string): ContractValidation {
+    console.log('AI Service: Using demo validation - API key not configured');
+    
+    const errors: string[] = [];
+    const warnings: string[] = ['Demo mode - API key not configured'];
+    const suggestions: string[] = [
+      'Configure OpenRouter API key for full validation',
+      'Add input validation to functions',
+      'Implement proper error handling',
+      'Consider gas optimization'
+    ];
+
+    // Basic validation even in demo mode
+    if (!contract.trim()) {
+      errors.push('Contract code is empty');
+    }
+
+    if (!contract.includes('define-')) {
+      errors.push('Contract must contain at least one definition');
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+      suggestions
+    };
   }
 
   private buildPrompt(request: AIContractRequest): string {

@@ -14,9 +14,18 @@ export function WalletConnectButton() {
   
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-  const formatBalance = (balance: number | null) => {
+  const formatBalance = (balance: number | string | null) => {
     if (balance === null) return '0.00';
-    return balance.toFixed(6);
+    
+    // Convert microSTX to STX if it's a string
+    let stxBalance: number;
+    if (typeof balance === 'string') {
+      stxBalance = parseInt(balance) / 1000000; // Convert microSTX to STX
+    } else {
+      stxBalance = balance;
+    }
+    
+    return stxBalance.toFixed(6);
   };
 
   const content = () => {
@@ -72,39 +81,48 @@ export function WalletConnectButton() {
     };
 
     return (
-      <VStack gap={2} align="end">
-        <HStack gap={3} align="center">
-          {/* Wallet Info */}
-          <VStack align="end" gap={1}>
-            <HStack gap={2} align="center">
-              <Badge 
-                colorScheme={connectedWallet.type === 'Stacks' ? 'blue' : 'orange'} 
-                fontSize="xs"
-              >
-                {connectedWallet.type}
-              </Badge>
-              <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
-                {connectedWallet.address?.slice(0, 6)}...{connectedWallet.address?.slice(-4)}
-              </Text>
-            </HStack>
-            {connectedWallet.type === 'Stacks' && (
-              <Text fontSize="xs" color="#10b981" fontWeight="medium">
-                {formatBalance(typeof connectedWallet.balance === 'number' ? connectedWallet.balance : 0)} STX
-              </Text>
-            )}
-          </VStack>
-
-          {/* Disconnect Button */}
-          <UniformButton
-            variant="ghost"
-            size="sm"
-            onClick={disconnect}
-            title="Disconnect wallet"
+      <HStack gap={3} align="center">
+        {/* Wallet Info */}
+        <HStack gap={2} align="center">
+          <Badge 
+            colorScheme={connectedWallet.type === 'Stacks' ? 'blue' : 'orange'} 
+            fontSize="xs"
+            variant="subtle"
           >
-            Disconnect
-          </UniformButton>
+            {connectedWallet.type === 'Stacks' ? 'STX' : 'BTC'}
+          </Badge>
+          <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
+            {connectedWallet.address?.slice(0, 6)}...{connectedWallet.address?.slice(-4)}
+          </Text>
+          {connectedWallet.type === 'Stacks' && (
+            <Text fontSize="xs" color="#10b981" fontWeight="medium">
+              {formatBalance(connectedWallet.balance)} STX
+            </Text>
+          )}
         </HStack>
-      </VStack>
+
+        {/* Get Tokens Button for Testnet */}
+        {connectedWallet.type === 'Stacks' && process.env.REACT_APP_STACKS_NETWORK === 'testnet' && (
+          <UniformButton
+            variant="secondary"
+            size="sm"
+            onClick={() => window.open('https://explorer.stacks.co/sandbox/faucet?chain=testnet', '_blank')}
+            title="Get testnet STX tokens"
+          >
+            Get Tokens
+          </UniformButton>
+        )}
+
+        {/* Disconnect Button */}
+        <UniformButton
+          variant="ghost"
+          size="sm"
+          onClick={disconnect}
+          title="Disconnect wallet"
+        >
+          Disconnect
+        </UniformButton>
+      </HStack>
     );
   };
 
