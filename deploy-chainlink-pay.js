@@ -16,12 +16,12 @@ const readline = require('readline');
 
 // Configuration - Use your existing env variables
 const NETWORK = process.env.REACT_APP_STACKS_NETWORK || 'testnet';
-const CONTRACT_NAME = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
+const CONTRACT_NAME = process.env.REACT_APP_CONTRACT_NAME || 'enhance-payments';
 const CONTRACT_FILE = 'contracts/chainlink-pay.clar';
 const EXISTING_CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS;
 
-// Your Xverse wallet address
-const XVerse_ADDRESS = 'ST5MNAJQ2VTGAQ7RP9EVBCQWYT0YHSKS4DM60133';
+// Your wallet address from environment
+const WALLET_ADDRESS = process.env.REACT_APP_MERCHANT_ADDRESS || 'ST5MNAJQ2VTGAQ7RP9EVBCQWYT0YHSKS4DM60133';
 
 // Enhanced Configuration
 const DEPLOYMENT_CONFIG = {

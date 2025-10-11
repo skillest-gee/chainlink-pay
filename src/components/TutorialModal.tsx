@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
-import { Box, Text, VStack, HStack, IconButton, Heading, Badge, Button } from '@chakra-ui/react';
+import React, { useState, useEffect } from 'react';
+import { Box, Text, VStack, HStack, IconButton, Heading, Badge, Button, Portal } from '@chakra-ui/react';
 import { UniformButton } from './UniformButton';
 import { UniformCard } from './UniformCard';
 
 export default function TutorialModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('TutorialModal state changed:', { isOpen, currentStep });
+  }, [isOpen, currentStep]);
   
   const tutorialSteps = [
     {
@@ -77,7 +82,10 @@ export default function TutorialModal() {
       <UniformButton
         variant="ghost"
         size="sm"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          console.log('Tutorial button clicked, opening modal...');
+          setIsOpen(true);
+        }}
         title="Learn how to use ChainLinkPay"
       >
         📚 Tutorial
@@ -88,26 +96,35 @@ export default function TutorialModal() {
   const currentTutorial = tutorialSteps[currentStep];
 
   return (
-    <Box
-      position="fixed"
-      top="0"
-      left="0"
-      right="0"
-      bottom="0"
-      bg="rgba(0, 0, 0, 0.8)"
-      backdropFilter="blur(8px)"
-      zIndex="9999"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      p={4}
-      overflow="auto"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          skipTutorial();
-        }
-      }}
-    >
+    <Portal>
+      <Box
+        position="fixed"
+        top="0"
+        left="0"
+        right="0"
+        bottom="0"
+        bg="rgba(0, 0, 0, 0.9)"
+        backdropFilter="blur(12px)"
+        zIndex="99999"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        p={4}
+        overflow="auto"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            skipTutorial();
+          }
+        }}
+        style={{
+          position: 'fixed',
+          zIndex: 99999,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}
+      >
       <UniformCard
         maxW={{ base: "95%", md: "600px", lg: "700px" }}
         w="full"
@@ -259,5 +276,6 @@ export default function TutorialModal() {
         </VStack>
       </UniformCard>
     </Box>
+    </Portal>
   );
 }

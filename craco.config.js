@@ -33,6 +33,12 @@ module.exports = {
           process: 'process/browser',
         })
       );
+
+      // Ignore source map warnings
+      webpackConfig.ignoreWarnings = [
+        /Failed to parse source map/,
+        /ENOENT: no such file or directory/,
+      ];
       
       return webpackConfig;
     },
