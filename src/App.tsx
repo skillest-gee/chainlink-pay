@@ -151,7 +151,7 @@ function App() {
             </HStack>
 
             {/* Navigation - Professional Core Links Only */}
-            <HStack gap={1} display={{ base: 'none', md: 'flex' }} justify="center" flex="1" maxW="400px">
+            <HStack gap={1} display={{ base: 'none', md: 'flex' }} justify="center" flex="1" maxW="500px">
               <Link to="/generate" style={{ textDecoration: 'none' }}>
                 <UniformButton
                   variant="ghost"
@@ -159,6 +159,15 @@ function App() {
                   title="Create payment links"
                 >
                   Payments
+                </UniformButton>
+              </Link>
+              <Link to="/ai-builder" style={{ textDecoration: 'none' }}>
+                <UniformButton
+                  variant="ghost"
+                  size="sm"
+                  title="AI smart contract builder"
+                >
+                  AI Builder
                 </UniformButton>
               </Link>
               <Link to="/dashboard" style={{ textDecoration: 'none' }}>
