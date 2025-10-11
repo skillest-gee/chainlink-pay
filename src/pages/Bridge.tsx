@@ -1,43 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Container, Heading, Text, VStack, HStack, Button, Input, Badge, AlertRoot, AlertIndicator, AlertContent, AlertTitle, AlertDescription, Code } from '@chakra-ui/react';
+import React, { useState } from 'react';
+import { Box, VStack, HStack, Text, Button, Input, Badge, Heading } from '@chakra-ui/react';
+import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
-import { useToast } from '../hooks/useToast';
+import { UniformCard } from '../components/UniformCard';
 import { UniformButton } from '../components/UniformButton';
 import { UniformInput } from '../components/UniformInput';
-import { UniformCard } from '../components/UniformCard';
-import { testWalletConnection, testBridgeFunctionality } from '../utils/walletTest';
+
+interface BridgeEstimate {
+  fromAmount: number;
+  toAmount: number;
+  fee: number;
+  estimatedTime: string;
+}
 
 interface BridgeTransaction {
   id: string;
   fromAsset: string;
   toAsset: string;
   amount: number;
+  recipientAddress: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   txHash?: string;
   timestamp: number;
 }
 
-interface BridgeEstimate {
-  amount: number;
-  fee: number;
-  estimatedTime: string;
-  route: string;
-  slippage: number;
-}
-
-export default function Bridge() {
-  const { isAuthenticated, address, connect } = useStacksWallet();
-  const { isConnected: btcConnected, address: btcAddress, connect: connectBTC, balance: btcBalance } = useBitcoinWallet();
+const Bridge: React.FC = () => {
+  const { isAuthenticated, address } = useStacksWallet();
+  const { isConnected: btcConnected, address: btcAddress } = useBitcoinWallet();
   const { toast } = useToast();
-  
-  // Form state
+
+  // Bridge state
   const [fromAsset, setFromAsset] = useState('STX');
   const [toAsset, setToAsset] = useState('BTC');
   const [amount, setAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
-  
-  // Bridge state
   const [isEstimating, setIsEstimating] = useState(false);
   const [isBridging, setIsBridging] = useState(false);
   const [estimate, setEstimate] = useState<BridgeEstimate | null>(null);
@@ -45,60 +42,11 @@ export default function Bridge() {
   const [error, setError] = useState<string | null>(null);
   const [bridgeProgress, setBridgeProgress] = useState(0);
 
-  // Available assets for bridging
-  const supportedAssets = [
-    { value: 'STX', label: 'Stacks (STX)', icon: '🟦', balance: '0' },
-    { value: 'BTC', label: 'Bitcoin (BTC)', icon: '🟠', balance: btcBalance ? btcBalance.toString() : '0' },
-    { value: 'USDC', label: 'USD Coin (USDC)', icon: '💵', balance: '0' },
-    { value: 'USDT', label: 'Tether (USDT)', icon: '💵', balance: '0' }
-  ];
-
-  // Bridge routes and networks
-  const bridgeRoutes = [
-    { from: 'STX', to: 'BTC', network: 'Stacks → Bitcoin', fee: '0.001', time: '5-10 min' },
-    { from: 'BTC', to: 'STX', network: 'Bitcoin → Stacks', fee: '0.0001', time: '10-15 min' },
-    { from: 'STX', to: 'USDC', network: 'Stacks → Ethereum', fee: '0.002', time: '3-5 min' },
-    { from: 'USDC', to: 'STX', network: 'Ethereum → Stacks', fee: '0.001', time: '5-8 min' }
-  ];
-
-  useEffect(() => {
-    // Auto-fill recipient address with connected wallet
-    if (isAuthenticated && address) {
-      setRecipientAddress(address);
-    }
-    if (btcConnected && btcAddress) {
-      setRecipientAddress(btcAddress);
-    }
-  }, [isAuthenticated, address, btcConnected, btcAddress]);
-
-  // Test wallet integration on component mount
-  useEffect(() => {
-    const runTests = async () => {
-      console.log('=== BRIDGE PAGE WALLET INTEGRATION TEST ===');
-      
-      // Test wallet connections
-      const walletTest = await testWalletConnection();
-      console.log('Wallet connection test:', walletTest);
-      
-      // Test bridge functionality
-      const bridgeTest = testBridgeFunctionality();
-      console.log('Bridge functionality test:', bridgeTest);
-      
-      // Log current wallet states
-      console.log('Current wallet states:');
-      console.log('- Stacks wallet connected:', isAuthenticated);
-      console.log('- Stacks address:', address);
-      console.log('- Bitcoin wallet connected:', btcConnected);
-      console.log('- Bitcoin address:', btcAddress);
-      console.log('- Bitcoin balance:', btcBalance);
-    };
-    
-    runTests();
-  }, [isAuthenticated, address, btcConnected, btcAddress, btcBalance]);
+  const isWalletConnected = isAuthenticated || btcConnected;
 
   const handleEstimate = async () => {
-    if (!amount || Number(amount) <= 0) {
-      setError('Please enter a valid amount');
+    if (!amount || !recipientAddress) {
+      toast({ title: 'Error', status: 'error', description: 'Please fill in all fields' });
       return;
     }
 
@@ -106,64 +54,57 @@ export default function Bridge() {
     setError(null);
 
     try {
-      // Simulate fee estimation
+      // Simulate estimation
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const mockEstimate: BridgeEstimate = {
-        amount: Number(amount),
-        fee: Number(amount) * 0.001, // 0.1% fee
-        estimatedTime: '5-10 minutes',
-        route: `${fromAsset} → ${toAsset}`,
-        slippage: 0.5
-      };
+      const fromAmount = parseFloat(amount);
+      const fee = fromAmount * 0.01; // 1% fee
+      const toAmount = fromAmount - fee;
       
-      setEstimate(mockEstimate);
-      toast({ title: 'Success', status: 'success', description: 'Fee estimation completed' });
+      setEstimate({
+        fromAmount,
+        toAmount,
+        fee,
+        estimatedTime: '5-10 minutes'
+      });
     } catch (err) {
-      setError('Failed to estimate fees');
-      toast({ title: 'Error', status: 'error', description: 'Fee estimation failed' });
+      setError('Failed to get estimate');
+      toast({ title: 'Error', status: 'error', description: 'Failed to get bridge estimate' });
     } finally {
       setIsEstimating(false);
     }
   };
 
   const handleBridge = async () => {
-    if (!isAuthenticated && fromAsset === 'STX') {
-      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your Stacks wallet first' });
-      connect();
+    if (!amount || !recipientAddress || !estimate) {
+      toast({ title: 'Error', status: 'error', description: 'Please get an estimate first' });
       return;
     }
 
-    if (!btcConnected && fromAsset === 'BTC') {
-      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your Bitcoin wallet first' });
-      connectBTC();
+    if (!isWalletConnected) {
+      toast({ title: 'Error', status: 'error', description: 'Please connect your wallet first' });
       return;
     }
 
-    if (!recipientAddress) {
-      setError('Please enter recipient address');
-      return;
-    }
-    
     setIsBridging(true);
     setError(null);
     setBridgeProgress(0);
 
     try {
-      // Simulate bridge transaction with progress
       const transactionId = `bridge-${Date.now()}`;
       const newTransaction: BridgeTransaction = {
         id: transactionId,
         fromAsset,
         toAsset,
-        amount: Number(amount),
+        amount: parseFloat(amount),
+        recipientAddress,
         status: 'processing',
         timestamp: Date.now()
       };
 
       setTransactions(prev => [newTransaction, ...prev]);
       
-      // Simulate progress
+      // Simulate bridge transaction with progress
       const progressInterval = setInterval(() => {
         setBridgeProgress(prev => {
           if (prev >= 100) {
@@ -181,15 +122,17 @@ export default function Bridge() {
       setBridgeProgress(100);
 
       // Update transaction status
-      setTransactions(prev => 
-        prev.map(tx => 
-          tx.id === transactionId 
-            ? { ...tx, status: 'completed', txHash: `0x${Math.random().toString(16).substr(2, 64)}` }
-            : tx
-        )
-      );
+      setTransactions(prev => prev.map(tx => 
+        tx.id === transactionId 
+          ? { ...tx, status: 'completed', txHash: `bridge-tx-${Date.now()}` }
+          : tx
+      ));
 
-      toast({ title: 'Success', status: 'success', description: 'Bridge transaction completed successfully!' });
+      toast({ 
+        title: 'Bridge Successful', 
+        status: 'success', 
+        description: `${fromAsset} bridged to ${toAsset} successfully!` 
+      });
       setEstimate(null);
       setAmount('');
     } catch (err) {
@@ -197,453 +140,235 @@ export default function Bridge() {
       toast({ title: 'Error', status: 'error', description: 'Bridge transaction failed' });
     } finally {
       setIsBridging(false);
-      setBridgeProgress(0);
     }
   };
 
-  const getAssetBalance = (asset: string) => {
-    switch (asset) {
-      case 'BTC':
-        return btcBalance || 0;
-      case 'STX':
-        return 0; // Would get from Stacks wallet
-      default:
-        return 0;
-    }
-  };
+  return (
+    <VStack gap={6} align="stretch" p={6}>
+      <VStack gap={2} align="center" textAlign="center">
+        <Heading size="lg" color="#ffffff">
+          Cross-Chain Bridge
+        </Heading>
+        <Text color="#9ca3af" maxW="md">
+          Bridge assets between Stacks and Bitcoin networks
+        </Text>
+      </VStack>
 
-  const getRouteInfo = (from: string, to: string) => {
-    return bridgeRoutes.find(route => route.from === from && route.to === to);
-  };
-
-  const formatBalance = (balance: number) => {
-    return balance.toFixed(6);
-  };
-
-  const handleTestWallets = async () => {
-    try {
-      const walletTest = await testWalletConnection();
-      const bridgeTest = testBridgeFunctionality();
-      
-      console.log('Wallet Test Results:', walletTest);
-      console.log('Bridge Test Results:', bridgeTest);
-      
-      toast({ title: 'Success', status: 'success', description: 'Wallet integration test completed. Check console for details.' });
-    } catch (error) {
-      console.error('Wallet test failed:', error);
-      toast({ title: 'Error', status: 'error', description: 'Wallet test failed. Check console for details.' });
-    }
-  };
-
-    return (
-    <Box minH="100vh" bg="#000000" color="#ffffff">
-      <Container maxW="6xl" py={8} px={4}>
-        <VStack gap={8} align="stretch">
-          {/* Header */}
-          <VStack gap={4} textAlign="center">
-            <Heading size="xl" color="#ffffff">
-              Cross-Chain Bridge
+      {/* Wallet Connection Check */}
+      {!isWalletConnected && (
+        <UniformCard p={6}>
+          <VStack gap={4} align="center" textAlign="center">
+            <Text fontSize="2xl">🔗</Text>
+            <Heading size="md" color="#ffffff">
+              Connect Your Wallet
             </Heading>
-            <Text color="#9ca3af" maxW="3xl" fontSize="lg">
-              Bridge Bitcoin, Stacks, and other assets across blockchain networks. Secure, fast, and cost-effective cross-chain transactions.
+            <Text color="#9ca3af">
+              Connect your Stacks or Bitcoin wallet to use the bridge.
             </Text>
+            <UniformButton variant="primary" size="md" onClick={() => window.location.href = '/'}>
+              Connect Wallet
+            </UniformButton>
           </VStack>
-          
-          {/* Main Bridge Interface */}
-          <VStack gap={6} align="stretch">
-            {/* Bridge Form */}
-            <UniformCard p={6}>
-              <VStack gap={6} align="stretch">
-                <Heading size="md" color="#ffffff">
-                  Bridge Assets
-                </Heading>
+        </UniformCard>
+      )}
 
-                {/* Asset Selection */}
-                <VStack gap={4} align="stretch">
-                  <HStack gap={4} align="stretch">
-                    {/* From Asset */}
-                    <VStack gap={3} align="stretch" flex="1">
-                      <Text fontSize="sm" fontWeight="medium" color="#ffffff">
-                        From
+      {/* Main Bridge Interface */}
+      {isWalletConnected && (
+        <>
+          <UniformCard p={6}>
+            <VStack gap={4} align="stretch">
+              <Text fontSize="lg" fontWeight="semibold" color="#ffffff">
+                Bridge Assets
               </Text>
-                      <select
-                        value={fromAsset}
-                        onChange={(e) => setFromAsset(e.target.value)}
-                        style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          borderColor: 'rgba(255, 255, 255, 0.1)',
-                          color: '#ffffff',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          borderRadius: '8px',
-                          padding: '8px 12px',
-                          fontSize: '14px',
-                          width: '100%'
-                        }}
-                      >
-                        {supportedAssets.map((asset) => (
-                          <option key={asset.value} value={asset.value} style={{ backgroundColor: '#000000', color: '#ffffff' }}>
-                            {asset.icon} {asset.label}
-                          </option>
-                        ))}
-                      </select>
-                      <Text fontSize="xs" color="#9ca3af">
-                        Balance: {formatBalance(getAssetBalance(fromAsset))} {fromAsset}
-          </Text>
-        </VStack>
-        
-                    {/* Arrow */}
-                    <Box display="flex" alignItems="center" justifyContent="center" mt={8}>
-                      <Text fontSize="2xl" color="#3b82f6">→</Text>
-                    </Box>
 
-                    {/* To Asset */}
-                    <VStack gap={3} align="stretch" flex="1">
-                      <Text fontSize="sm" fontWeight="medium" color="#ffffff">
-                        To
-                      </Text>
-                      <select
-                        value={toAsset}
-                        onChange={(e) => setToAsset(e.target.value)}
-                        style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          borderColor: 'rgba(255, 255, 255, 0.1)',
-                          color: '#ffffff',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          borderRadius: '8px',
-                          padding: '8px 12px',
-                          fontSize: '14px',
-                          width: '100%'
-                        }}
-                      >
-                        {supportedAssets.filter(asset => asset.value !== fromAsset).map((asset) => (
-                          <option key={asset.value} value={asset.value} style={{ backgroundColor: '#000000', color: '#ffffff' }}>
-                            {asset.icon} {asset.label}
-                          </option>
-                        ))}
-                      </select>
-                      <Text fontSize="xs" color="#9ca3af">
-                        Balance: {formatBalance(getAssetBalance(toAsset))} {toAsset}
-                      </Text>
-                    </VStack>
-                  </HStack>
-                </VStack>
-
-                {/* Amount Input */}
-                <VStack gap={3} align="stretch">
-                  <Text fontSize="sm" fontWeight="medium" color="#ffffff">
-                    Amount
-                  </Text>
-                  <UniformInput
-                    type="number"
-                    placeholder="Enter amount to bridge"
-                value={amount} 
-                    onChange={(e) => setAmount(e.target.value)}
-                size="lg"
-                  />
-                  <HStack justify="space-between" align="center">
-                    <Text fontSize="xs" color="#9ca3af">
-                      Available: {formatBalance(getAssetBalance(fromAsset))} {fromAsset}
-                    </Text>
-              <Button 
+              {/* Asset Selection */}
+              <VStack gap={4} align="stretch">
+                <VStack gap={2} align="stretch">
+                  <Text fontSize="sm" color="#9ca3af">From Asset</Text>
+                  <HStack gap={2}>
+                    <UniformButton
+                      variant={fromAsset === 'STX' ? 'primary' : 'secondary'}
                       size="sm"
-                      variant="ghost"
-                      color="#3b82f6"
-                      onClick={() => setAmount(getAssetBalance(fromAsset).toString())}
+                      onClick={() => setFromAsset('STX')}
                     >
-                      Max
-              </Button>
-            </HStack>
-                </VStack>
-
-                {/* Recipient Address */}
-                <VStack gap={3} align="stretch">
-                  <Text fontSize="sm" fontWeight="medium" color="#ffffff">
-                    Recipient Address
-                  </Text>
-                  <UniformInput
-                    placeholder="Enter recipient address"
-                    value={recipientAddress}
-                    onChange={(e) => setRecipientAddress(e.target.value)}
-                    size="lg"
-                  />
-                  <Text fontSize="xs" color="#9ca3af">
-                    {toAsset} address where you want to receive the bridged assets
-                  </Text>
-                </VStack>
-
-                {/* Action Buttons */}
-                <VStack gap={3} align="stretch">
-                  <HStack gap={3} justify="center" wrap="wrap">
-                    <UniformButton
-                      variant="secondary"
-                      onClick={handleEstimate}
-                      loading={isEstimating}
-                      disabled={!amount || Number(amount) <= 0}
-                      size="lg"
-                    >
-                      {isEstimating ? 'Estimating...' : 'Estimate Fees'}
+                      STX (Stacks)
                     </UniformButton>
-
                     <UniformButton
-                      variant="primary"
-                      onClick={handleBridge}
-                      loading={isBridging}
-                      disabled={!estimate || !recipientAddress || (!isAuthenticated && fromAsset === 'STX') || (!btcConnected && fromAsset === 'BTC')}
-                      size="lg"
-                    >
-                      {isBridging ? 'Bridging...' : 'Bridge Assets'}
-                    </UniformButton>
-                  </HStack>
-                  
-                  <HStack gap={2} justify="center" wrap="wrap">
-                    <UniformButton
-                      variant="ghost"
-                      onClick={handleTestWallets}
+                      variant={fromAsset === 'BTC' ? 'primary' : 'secondary'}
                       size="sm"
+                      onClick={() => setFromAsset('BTC')}
                     >
-                      Test Wallet Integration
+                      BTC (Bitcoin)
                     </UniformButton>
                   </HStack>
                 </VStack>
 
-                {/* Error Display */}
-                {error && (
-                  <AlertRoot status="error">
-                    <AlertIndicator />
-                    <AlertContent>
-                      <AlertTitle>Error!</AlertTitle>
-                      <AlertDescription>{error}</AlertDescription>
-                    </AlertContent>
-                  </AlertRoot>
-                )}
-
-                {/* Wallet Connection Status */}
-                <VStack gap={3} align="stretch">
-                  <Text fontSize="sm" fontWeight="medium" color="#ffffff">
-                    Wallet Status
-                  </Text>
-                  
-                  <HStack justify="space-between" align="center" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
-                    <HStack gap={2} align="center">
-                      <Text fontSize="sm" color="#ffffff">Stacks Wallet</Text>
-                      <Badge colorScheme={isAuthenticated ? 'green' : 'red'} fontSize="xs">
-                        {isAuthenticated ? 'Connected' : 'Not Connected'}
-                      </Badge>
-                    </HStack>
-                    {address && (
-                      <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
-                        {address.slice(0, 6)}...{address.slice(-4)}
-                      </Text>
-                    )}
-                  </HStack>
-
-                  <HStack justify="space-between" align="center" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
-                    <HStack gap={2} align="center">
-                      <Text fontSize="sm" color="#ffffff">Bitcoin Wallet</Text>
-                      <Badge colorScheme={btcConnected ? 'green' : 'red'} fontSize="xs">
-                        {btcConnected ? 'Connected' : 'Not Connected'}
-                      </Badge>
-                    </HStack>
-                    {btcAddress && (
-                      <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
-                        {btcAddress.slice(0, 6)}...{btcAddress.slice(-4)}
-                      </Text>
-                    )}
+                <VStack gap={2} align="stretch">
+                  <Text fontSize="sm" color="#9ca3af">To Asset</Text>
+                  <HStack gap={2}>
+                    <UniformButton
+                      variant={toAsset === 'BTC' ? 'primary' : 'secondary'}
+                      size="sm"
+                      onClick={() => setToAsset('BTC')}
+                    >
+                      BTC (Bitcoin)
+                    </UniformButton>
+                    <UniformButton
+                      variant={toAsset === 'STX' ? 'primary' : 'secondary'}
+                      size="sm"
+                      onClick={() => setToAsset('STX')}
+                    >
+                      STX (Stacks)
+                    </UniformButton>
                   </HStack>
                 </VStack>
-
-                {/* Wallet Requirements */}
-                {(!isAuthenticated && fromAsset === 'STX') && (
-                  <AlertRoot status="warning">
-                    <AlertIndicator />
-                    <AlertContent>
-                      <AlertTitle>Stacks Wallet Required</AlertTitle>
-                      <AlertDescription>
-                        Please connect your Stacks wallet to bridge STX tokens.
-                      </AlertDescription>
-                    </AlertContent>
-                  </AlertRoot>
-                )}
-
-                {(!btcConnected && fromAsset === 'BTC') && (
-                  <AlertRoot status="warning">
-                    <AlertIndicator />
-                    <AlertContent>
-                      <AlertTitle>Bitcoin Wallet Required</AlertTitle>
-                      <AlertDescription>
-                        Please connect your Bitcoin wallet to bridge BTC tokens.
-                      </AlertDescription>
-                    </AlertContent>
-                  </AlertRoot>
-                )}
               </VStack>
-            </UniformCard>
 
-            {/* Fee Estimation */}
-            {estimate && (
-              <UniformCard p={6}>
-                <VStack gap={4} align="stretch">
-                  <Heading size="md" color="#ffffff">
-                    Bridge Estimation
-                  </Heading>
-                  
-                  <VStack gap={3} align="stretch">
-                    <HStack justify="space-between" align="center">
-                      <Text fontSize="sm" color="#9ca3af">Amount</Text>
-                      <Text fontSize="sm" color="#ffffff" fontWeight="medium">
-                        {estimate.amount} {fromAsset}
-                      </Text>
+              {/* Amount Input */}
+              <VStack gap={2} align="stretch">
+                <Text fontSize="sm" color="#9ca3af">Amount</Text>
+                <UniformInput
+                  type="number"
+                  placeholder="Enter amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </VStack>
+
+              {/* Recipient Address */}
+              <VStack gap={2} align="stretch">
+                <Text fontSize="sm" color="#9ca3af">Recipient Address</Text>
+                <UniformInput
+                  placeholder="Enter recipient address"
+                  value={recipientAddress}
+                  onChange={(e) => setRecipientAddress(e.target.value)}
+                />
+              </VStack>
+
+              {/* Estimate Button */}
+              <UniformButton
+                variant="secondary"
+                onClick={handleEstimate}
+                loading={isEstimating}
+                disabled={!amount || !recipientAddress}
+              >
+                {isEstimating ? 'Getting Estimate...' : 'Get Estimate'}
+              </UniformButton>
+
+              {/* Estimate Display */}
+              {estimate && (
+                <Box p={4} bg="rgba(0, 0, 0, 0.4)" borderRadius="md" border="1px solid" borderColor="rgba(255, 255, 255, 0.1)">
+                  <VStack gap={2} align="stretch">
+                    <HStack justify="space-between">
+                      <Text color="#9ca3af">You send:</Text>
+                      <Text color="#ffffff">{estimate.fromAmount} {fromAsset}</Text>
                     </HStack>
-                    
-                    <HStack justify="space-between" align="center">
-                      <Text fontSize="sm" color="#9ca3af">Bridge Fee</Text>
-                      <Text fontSize="sm" color="#ffffff" fontWeight="medium">
-                        {estimate.fee.toFixed(6)} {fromAsset}
-                      </Text>
+                    <HStack justify="space-between">
+                      <Text color="#9ca3af">Fee:</Text>
+                      <Text color="#ff6b6b">{estimate.fee} {fromAsset}</Text>
                     </HStack>
-                    
-                    <HStack justify="space-between" align="center">
-                      <Text fontSize="sm" color="#9ca3af">You'll Receive</Text>
-                      <Text fontSize="sm" color="#10b981" fontWeight="medium">
-                        {(estimate.amount - estimate.fee).toFixed(6)} {toAsset}
-                      </Text>
+                    <HStack justify="space-between">
+                      <Text color="#9ca3af">You receive:</Text>
+                      <Text color="#10b981">{estimate.toAmount} {toAsset}</Text>
                     </HStack>
-                    
-                    <HStack justify="space-between" align="center">
-                      <Text fontSize="sm" color="#9ca3af">Estimated Time</Text>
-                      <Text fontSize="sm" color="#ffffff" fontWeight="medium">
-                        {estimate.estimatedTime}
-                      </Text>
-                    </HStack>
-                    
-                    <HStack justify="space-between" align="center">
-                      <Text fontSize="sm" color="#9ca3af">Route</Text>
-                      <Text fontSize="sm" color="#3b82f6" fontWeight="medium">
-                        {estimate.route}
-                      </Text>
+                    <HStack justify="space-between">
+                      <Text color="#9ca3af">Estimated time:</Text>
+                      <Text color="#ffffff">{estimate.estimatedTime}</Text>
                     </HStack>
                   </VStack>
-                </VStack>
-              </UniformCard>
-            )}
+                </Box>
+              )}
 
-            {/* Bridge Progress */}
-            {isBridging && (
-              <UniformCard p={6}>
-                <VStack gap={4} align="stretch">
-                  <Heading size="md" color="#ffffff">
-                    Bridge Progress
-                  </Heading>
-                  
-                  <VStack gap={3} align="stretch">
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '8px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '4px',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${bridgeProgress}%`,
-                          height: '100%',
-                          backgroundColor: '#3b82f6',
-                          transition: 'width 0.3s ease'
-                        }}
-                      />
-                    </div>
-                    <Text fontSize="sm" color="#9ca3af" textAlign="center">
-                      {bridgeProgress}% Complete
-                    </Text>
-                  </VStack>
-                </VStack>
-              </UniformCard>
-            )}
+              {/* Bridge Button */}
+              <UniformButton
+                variant="primary"
+                onClick={handleBridge}
+                loading={isBridging}
+                disabled={!estimate || isBridging}
+              >
+                {isBridging ? 'Bridging...' : 'Bridge Assets'}
+              </UniformButton>
 
-            {/* Recent Transactions */}
-            {transactions.length > 0 && (
-              <UniformCard p={6}>
-                <VStack gap={4} align="stretch">
-                  <Heading size="md" color="#ffffff">
-                    Recent Bridge Transactions
-                  </Heading>
-                  
-                  <VStack gap={3} align="stretch">
-                    {transactions.slice(0, 5).map((tx) => (
-                      <Box key={tx.id} p={4} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
-                        <HStack justify="space-between" align="center">
-                          <VStack align="start" gap={1}>
-                            <Text fontSize="sm" fontWeight="medium" color="#ffffff">
-                              {tx.amount} {tx.fromAsset} → {tx.toAsset}
-                  </Text>
-                            <Text fontSize="xs" color="#9ca3af">
-                              {new Date(tx.timestamp).toLocaleString()}
-                  </Text>
-                            {tx.txHash && (
-                              <Code fontSize="xs" color="#3b82f6">
-                                {tx.txHash.slice(0, 10)}...{tx.txHash.slice(-8)}
-                              </Code>
-                            )}
-                          </VStack>
-                          
-                          <Badge 
-                            colorScheme={
-                              tx.status === 'completed' ? 'green' : 
-                              tx.status === 'processing' ? 'blue' : 
-                              tx.status === 'failed' ? 'red' : 'yellow'
-                            }
-                            fontSize="sm"
-                          >
-                            {tx.status.toUpperCase()}
-                          </Badge>
-                        </HStack>
-                      </Box>
-                    ))}
-                  </VStack>
-                </VStack>
-              </UniformCard>
-            )}
+              {/* Progress Bar */}
+              {isBridging && (
+                <Box w="full" h="2" bg="rgba(255, 255, 255, 0.1)" borderRadius="full" overflow="hidden">
+                  <Box
+                    h="full"
+                    bg="#10b981"
+                    borderRadius="full"
+                    transition="width 0.3s ease"
+                    width={`${bridgeProgress}%`}
+                  />
+                </Box>
+              )}
 
-            {/* Bridge Information */}
+              {/* Error Display */}
+              {error && (
+                <Box p={3} bg="rgba(255, 107, 107, 0.1)" borderRadius="md" border="1px solid" borderColor="rgba(255, 107, 107, 0.3)">
+                  <Text color="#ff6b6b" fontSize="sm">{error}</Text>
+                </Box>
+              )}
+            </VStack>
+          </UniformCard>
+
+          {/* Transaction History */}
+          {transactions.length > 0 && (
             <UniformCard p={6}>
               <VStack gap={4} align="stretch">
-                <Heading size="md" color="#ffffff">
-                  Bridge Information
-                </Heading>
+                <Text fontSize="lg" fontWeight="semibold" color="#ffffff">
+                  Bridge History
+                </Text>
                 
                 <VStack gap={3} align="stretch">
-                  <HStack justify="space-between" align="center">
-                    <Text fontSize="sm" color="#9ca3af">Supported Networks</Text>
-                    <Text fontSize="sm" color="#ffffff">Stacks, Bitcoin, Ethereum</Text>
-                  </HStack>
-                  
-                  <HStack justify="space-between" align="center">
-                    <Text fontSize="sm" color="#9ca3af">Bridge Type</Text>
-                    <Text fontSize="sm" color="#ffffff">Cross-Chain</Text>
-                  </HStack>
-                  
-                  <HStack justify="space-between" align="center">
-                    <Text fontSize="sm" color="#9ca3af">Security</Text>
-                    <Text fontSize="sm" color="#ffffff">Multi-Sig, Time-locked</Text>
-                  </HStack>
-                  
-                  <HStack justify="space-between" align="center">
-                    <Text fontSize="sm" color="#9ca3af">Average Time</Text>
-                    <Text fontSize="sm" color="#ffffff">5-15 minutes</Text>
-                  </HStack>
-                  
-                  <HStack justify="space-between" align="center">
-                    <Text fontSize="sm" color="#9ca3af">Bridge Fee</Text>
-                    <Text fontSize="sm" color="#ffffff">0.1% - 0.5%</Text>
-                  </HStack>
+                  {transactions.map((tx) => (
+                    <Box
+                      key={tx.id}
+                      p={4}
+                      bg="rgba(0, 0, 0, 0.4)"
+                      borderRadius="md"
+                      border="1px solid"
+                      borderColor="rgba(255, 255, 255, 0.1)"
+                    >
+                      <HStack justify="space-between" align="start">
+                        <VStack gap={1} align="start">
+                          <HStack gap={2}>
+                            <Text color="#ffffff" fontWeight="medium">
+                              {tx.amount} {tx.fromAsset} → {tx.toAsset}
+                            </Text>
+                            <Badge
+                              colorScheme={
+                                tx.status === 'completed' ? 'green' :
+                                tx.status === 'failed' ? 'red' :
+                                tx.status === 'processing' ? 'blue' : 'gray'
+                              }
+                              variant="subtle"
+                            >
+                              {tx.status}
+                            </Badge>
+                          </HStack>
+                          <Text color="#9ca3af" fontSize="sm">
+                            To: {tx.recipientAddress.slice(0, 8)}...{tx.recipientAddress.slice(-8)}
+                          </Text>
+                          {tx.txHash && (
+                            <Text color="#9ca3af" fontSize="sm">
+                              TX: {tx.txHash.slice(0, 8)}...{tx.txHash.slice(-8)}
+                            </Text>
+                          )}
+                        </VStack>
+                        <Text color="#9ca3af" fontSize="sm">
+                          {new Date(tx.timestamp).toLocaleString()}
+                        </Text>
+                      </HStack>
+                    </Box>
+                  ))}
                 </VStack>
               </VStack>
             </UniformCard>
-          </VStack>
-      </VStack>
-    </Container>
-    </Box>
+          )}
+        </>
+      )}
+    </VStack>
   );
-}
+};
+
+export default Bridge;

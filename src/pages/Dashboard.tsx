@@ -53,33 +53,62 @@ export default function Dashboard() {
     setError(null);
     
     try {
+      // Only load data if wallet is connected
+      if (!isAuthenticated && !btcConnected) {
+        setStats({
+          totalPayments: 0,
+          totalVolume: 0,
+          activePayments: 0,
+          completedPayments: 0,
+          stxPayments: 0,
+          btcPayments: 0,
+          averagePayment: 0,
+          recentPayments: [],
+          monthlyStats: {
+            current: 0,
+            previous: 0,
+            growth: 0
+          }
+        });
+        setRefreshing(false);
+        setLoading(false);
+        return;
+      }
+
       const allPayments = paymentStorage.getAllPaymentLinks();
       
-      // Calculate comprehensive statistics
-      const totalPayments = allPayments.length;
-      const totalVolume = allPayments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
-      const activePayments = allPayments.filter(p => p.status === 'pending').length;
-      const completedPayments = allPayments.filter(p => p.status === 'paid').length;
-      const stxPayments = allPayments.filter(p => p.paymentType === 'STX').length;
-      const btcPayments = allPayments.filter(p => p.paymentType === 'BTC').length;
+      // Filter payments for the connected wallet only
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      const userPayments = allPayments.filter(payment => 
+        payment.merchantAddress === currentAddress || 
+        payment.payerAddress === currentAddress
+      );
+      
+      // Calculate comprehensive statistics for this wallet only
+      const totalPayments = userPayments.length;
+      const totalVolume = userPayments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+      const activePayments = userPayments.filter(p => p.status === 'pending').length;
+      const completedPayments = userPayments.filter(p => p.status === 'paid').length;
+      const stxPayments = userPayments.filter(p => p.paymentType === 'STX').length;
+      const btcPayments = userPayments.filter(p => p.paymentType === 'BTC').length;
       const averagePayment = totalPayments > 0 ? totalVolume / totalPayments : 0;
       
-      // Get recent payments (last 10)
-      const recentPayments = allPayments
+      // Get recent payments (last 10) for this wallet
+      const recentPayments = userPayments
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 10);
       
-      // Calculate monthly growth
+      // Calculate monthly growth for this wallet
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
-      const currentMonthPayments = allPayments.filter(p => {
+      const currentMonthPayments = userPayments.filter(p => {
         const paymentDate = new Date(p.createdAt);
         return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
       });
       
       const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
       const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-      const previousMonthPayments = allPayments.filter(p => {
+      const previousMonthPayments = userPayments.filter(p => {
         const paymentDate = new Date(p.createdAt);
         return paymentDate.getMonth() === previousMonth && paymentDate.getFullYear() === previousYear;
       });
@@ -190,7 +219,29 @@ export default function Dashboard() {
                 </VStack>
               </HStack>
             )}
-    </VStack>
+          </VStack>
+
+          {/* Wallet Connection Check */}
+          {!isAuthenticated && !btcConnected && (
+            <UniformCard p={8}>
+              <VStack gap={4} align="center" textAlign="center">
+                <Text fontSize="2xl">🔗</Text>
+                <Heading size="lg" color="#ffffff">
+                  Connect Your Wallet
+                </Heading>
+                <Text color="#9ca3af" maxW="md">
+                  Connect your Stacks or Bitcoin wallet to view your dashboard, create payment links, and manage transactions.
+                </Text>
+                <HStack gap={3}>
+                  <Link to="/" style={{ textDecoration: 'none' }}>
+                    <UniformButton variant="primary" size="md">
+                      Connect Wallet
+                    </UniformButton>
+                  </Link>
+                </HStack>
+              </VStack>
+            </UniformCard>
+          )}
 
           {/* Error Display */}
           {error && (
@@ -203,8 +254,8 @@ export default function Dashboard() {
             </AlertRoot>
           )}
 
-          {/* Main Statistics */}
-          {!loading && (
+          {/* Main Statistics - Only show when wallet is connected */}
+          {!loading && (isAuthenticated || btcConnected) && (
             <VStack gap={6} align="stretch">
               <Heading size="lg" color="#ffffff">
                 Overview Statistics

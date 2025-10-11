@@ -31,6 +31,12 @@ export default function Pay() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentProgress, setPaymentProgress] = useState(0);
 
+  // Check if current user is the merchant (creator of the payment link)
+  const isMerchant = payment && (
+    (isAuthenticated && address === payment.merchant) ||
+    (btcConnected && btcAddress === payment.merchant)
+  );
+
   useEffect(() => {
     const fetchPayment = async () => {
       if (!paymentId) {
@@ -315,16 +321,38 @@ export default function Pay() {
               </AlertRoot>
             )}
 
-            {/* Payment Button */}
-            <UniformButton
-              variant="primary"
-              onClick={handlePayment}
-              loading={isPaying}
-              disabled={payment.status === 'paid' || !walletStatus?.connected}
-              size="lg"
-            >
-              {payment.status === 'paid' ? 'Payment Completed' : isPaying ? 'Processing Payment...' : 'Pay Now'}
-            </UniformButton>
+            {/* Payment Button - Only show for customers, not merchants */}
+            {!isMerchant ? (
+              <UniformButton
+                variant="primary"
+                onClick={handlePayment}
+                loading={isPaying}
+                disabled={payment.status === 'paid' || !walletStatus?.connected}
+                size="lg"
+              >
+                {payment.status === 'paid' ? 'Payment Completed' : isPaying ? 'Processing Payment...' : 'Pay Now'}
+              </UniformButton>
+            ) : (
+              <VStack gap={3} align="stretch">
+                <AlertRoot status="info">
+                  <AlertIndicator />
+                  <AlertContent>
+                    <AlertTitle>You created this payment link</AlertTitle>
+                    <AlertDescription>
+                      Share this link with your customers to receive payments. You cannot pay yourself.
+                    </AlertDescription>
+                  </AlertContent>
+                </AlertRoot>
+                
+                <UniformButton
+                  variant="secondary"
+                  onClick={() => navigator.clipboard.writeText(window.location.href)}
+                  size="lg"
+                >
+                  📋 Copy Payment Link
+                </UniformButton>
+              </VStack>
+            )}
 
             {/* Wallet Connection Required */}
             {walletStatus && !walletStatus.connected && (

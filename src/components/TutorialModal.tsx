@@ -101,6 +101,7 @@ export default function TutorialModal() {
       alignItems="center"
       justifyContent="center"
       p={4}
+      overflow="auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           skipTutorial();
@@ -108,13 +109,16 @@ export default function TutorialModal() {
       }}
     >
       <UniformCard
-        maxW={{ base: "95%", md: "500px" }}
+        maxW={{ base: "95%", md: "600px", lg: "700px" }}
         w="full"
+        maxH="90vh"
         p={0}
         overflow="hidden"
         onClick={(e) => e.stopPropagation()}
+        display="flex"
+        flexDirection="column"
       >
-        <VStack gap={0} align="stretch">
+        <VStack gap={0} align="stretch" h="full" flex="1">
           {/* Header */}
           <Box p={6} borderBottom="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)">
             <HStack justify="space-between" align="center">
@@ -143,7 +147,7 @@ export default function TutorialModal() {
           </Box>
 
           {/* Content */}
-          <Box p={6} bg="rgba(0, 0, 0, 0.6)">
+          <Box p={6} bg="rgba(0, 0, 0, 0.6)" flex="1" overflow="auto">
             <VStack gap={6} align="stretch">
               <Text fontSize="md" color="#ffffff" lineHeight="1.6" textAlign="center">
                 {currentTutorial.content}
@@ -199,7 +203,7 @@ export default function TutorialModal() {
           </Box>
 
           {/* Footer */}
-          <Box p={6} borderTop="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)">
+          <Box p={6} borderTop="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)" flexShrink={0}>
             <VStack gap={4} align="stretch">
               {/* Progress Dots */}
               <HStack justify="center" gap={2}>

@@ -27,6 +27,7 @@ export class AIService {
 
   constructor() {
     this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || process.env.REACT_APP_OPENROUTER_API_KEY || '';
+    console.log('AI Service initialized with API key:', this.apiKey ? 'Present' : 'Missing');
   }
 
   async generateContract(request: AIContractRequest): Promise<AIContractResponse> {

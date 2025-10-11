@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, VStack, HStack, Text, Button, Input, Textarea, Badge } from '@chakra-ui/react';
+import { Box, VStack, HStack, Text, Button, Input, Textarea, Badge, Heading } from '@chakra-ui/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
@@ -21,7 +21,7 @@ function isValidAmount(value: string) {
 
 export default function PaymentLinkGenerator() {
   const { toast } = useToast();
-  const { isAuthenticated } = useStacksWallet();
+  const { isAuthenticated, address } = useStacksWallet();
   const { isConnected: btcConnected, address: btcAddress, connect: connectBTC } = useBitcoinWallet();
   
   const [amount, setAmount] = useState('');
@@ -33,6 +33,24 @@ export default function PaymentLinkGenerator() {
   const [copied, setCopied] = useState(false);
   const [paymentType, setPaymentType] = useState<'STX' | 'BTC'>('STX');
   const [error, setError] = useState<string | null>(null);
+
+  // Load existing payment links for this wallet on component mount
+  React.useEffect(() => {
+    const currentAddress = isAuthenticated ? address : btcAddress;
+    if (currentAddress) {
+      const allPayments = paymentStorage.getAllPaymentLinks();
+      const userPayments = allPayments.filter(p => p.merchantAddress === currentAddress);
+      
+      // If user has recent payments, show the most recent one
+      if (userPayments.length > 0) {
+        const latestPayment = userPayments.sort((a, b) => b.createdAt - a.createdAt)[0];
+        setGeneratedId(latestPayment.id);
+        setAmount(latestPayment.amount);
+        setDescription(latestPayment.description);
+        setPaymentType(latestPayment.paymentType || 'STX');
+      }
+    }
+  }, [isAuthenticated, address, btcConnected, btcAddress]);
 
   const handleGenerate = async () => {
     if (!isValidAmount(amount)) {
@@ -68,7 +86,12 @@ export default function PaymentLinkGenerator() {
 
   const handleRegisterOnChain = async () => {
     if (!isAuthenticated) {
-      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your wallet first' });
+      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your Stacks wallet first' });
+      return;
+    }
+
+    if (!amount || !description) {
+      toast({ title: 'Missing Information', status: 'error', description: 'Please fill in amount and description' });
       return;
     }
 
@@ -76,11 +99,57 @@ export default function PaymentLinkGenerator() {
     setError(null);
 
     try {
-      // Simulate on-chain registration
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast({ title: 'Success', status: 'success', description: 'Payment registered on-chain successfully!' });
-    } catch (err) {
-      setError('Failed to register payment on-chain');
+      // Import Stacks Connect for wallet integration
+      const { openContractCall } = await import('@stacks/connect');
+      
+      // Use existing network configuration
+      const network = process.env.REACT_APP_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+      const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
+      const contractName = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
+      
+      if (!contractAddress || contractAddress === 'ST000000000000000000002AMW42H') {
+        throw new Error('Contract not deployed. Please deploy the contract first.');
+      }
+
+      // Create payment registration transaction using Stacks Connect
+      await openContractCall({
+        contractAddress,
+        contractName,
+        functionName: 'create-payment',
+        functionArgs: [
+          // amount (uint)
+          { type: 'uint', value: BigInt(parseFloat(amount) * 1000000) }, // Convert to microSTX
+          // description (string-utf8)
+          { type: 'string-utf8', value: description },
+          // merchant (principal)
+          { type: 'principal', value: address! }
+        ] as any,
+        network,
+        onFinish: (data) => {
+          console.log('Contract call finished:', data);
+          toast({ 
+            title: 'Success', 
+            status: 'success', 
+            description: `Payment registered on-chain! TX: ${data.txId.slice(0, 8)}...` 
+          });
+          
+          // Generate local payment link as well
+          handleGenerate();
+        },
+        onCancel: () => {
+          console.log('Contract call cancelled');
+          toast({ title: 'Cancelled', status: 'info', description: 'Transaction cancelled by user' });
+        }
+      });
+
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Failed to register payment on-chain');
+      toast({ 
+        title: 'Registration Failed', 
+        status: 'error', 
+        description: err.message || 'Failed to register payment on-chain' 
+      });
     } finally {
       setIsRegistering(false);
     }
@@ -118,9 +187,35 @@ export default function PaymentLinkGenerator() {
 
   const paymentUrl = generatedId ? `${window.location.origin}/pay/${generatedId}` : '';
 
+  // Check if wallet is connected
+  const isWalletConnected = isAuthenticated || btcConnected;
+
   return (
     <VStack gap={6} align="stretch">
-      {/* Payment Type Selection */}
+      {/* Wallet Connection Check */}
+      {!isWalletConnected && (
+        <UniformCard p={6}>
+          <VStack gap={4} align="center" textAlign="center">
+            <Text fontSize="2xl">🔗</Text>
+            <Heading size="md" color="#ffffff">
+              Connect Your Wallet
+            </Heading>
+            <Text color="#9ca3af">
+              Connect your Stacks or Bitcoin wallet to create payment links and register them on-chain.
+            </Text>
+            <HStack gap={3}>
+              <UniformButton variant="primary" size="md" onClick={() => window.location.href = '/'}>
+                Connect Wallet
+              </UniformButton>
+            </HStack>
+          </VStack>
+        </UniformCard>
+      )}
+
+      {/* Main Content - Only show when wallet is connected */}
+      {isWalletConnected && (
+        <>
+        {/* Payment Type Selection */}
       <VStack gap={3} align="stretch">
         <Text fontSize="sm" fontWeight="medium" color="#ffffff">
           Payment Type
@@ -258,6 +353,8 @@ export default function PaymentLinkGenerator() {
           </VStack>
         </UniformCard>
         )}
+        </>
+      )}
     </VStack>
   );
 }
