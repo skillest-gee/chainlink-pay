@@ -18,6 +18,8 @@ import { useToast } from './hooks/useToast';
 import { useStacksWallet } from './hooks/useStacksWallet';
 import { useBitcoinWallet } from './hooks/useBitcoinWallet';
 import { useStxBalance } from './hooks/useStxBalance';
+import { logEnvironmentStatus } from './utils/environmentValidator';
+import { appValidator } from './utils/appValidator';
 
 function App() {
   const { toasts, removeToast } = useToast();
@@ -60,6 +62,34 @@ function App() {
     };
   }, []);
 
+  // Initialize application validation
+  useEffect(() => {
+    const initializeApp = async () => {
+      console.log('🚀 Initializing ChainLinkPay Application...');
+      
+      // Log environment status
+      logEnvironmentStatus();
+      
+      // Run comprehensive validation in development
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          const validationReport = await appValidator.runFullValidation();
+          console.log('✅ Application validation completed:', validationReport.overall);
+          
+          if (validationReport.overall === 'critical') {
+            console.error('🚨 Critical issues found - application may not function properly');
+          } else if (validationReport.overall === 'degraded') {
+            console.warn('⚠️ Some issues found - application running in degraded mode');
+          }
+        } catch (error) {
+          console.error('❌ Application validation failed:', error);
+        }
+      }
+    };
+
+    initializeApp();
+  }, []);
+
   const formatBalance = (balance: number | null) => {
     if (balance === null) return '0.00';
     return balance.toFixed(6);
@@ -89,11 +119,12 @@ function App() {
         top="0"
         zIndex="1000"
         backdropFilter="blur(10px)"
+        w="100%"
       >
-        <Container maxW="7xl" py={4}>
-          <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={4}>
+        <Container maxW="7xl" py={4} px={4}>
+          <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={4} w="100%">
             {/* Logo and Brand */}
-            <HStack gap={3} align="center">
+            <HStack gap={3} align="center" flexShrink={0}>
               <Box 
                 w="45px"
                 h="45px"
@@ -119,75 +150,53 @@ function App() {
               </VStack>
             </HStack>
 
-            {/* Navigation */}
-            <HStack gap={2} display="flex" wrap="wrap" justify="center">
-              <Link to="/" style={{ textDecoration: 'none' }}>
-                <UniformButton
-                  variant="ghost"
-                  size="md"
-                  title="Home - Overview and quick actions"
-                >
-                  🏠 Home
-                </UniformButton>
-              </Link>
+            {/* Navigation - Professional Core Links Only */}
+            <HStack gap={1} display={{ base: 'none', md: 'flex' }} justify="center" flex="1" maxW="400px">
               <Link to="/generate" style={{ textDecoration: 'none' }}>
                 <UniformButton
                   variant="ghost"
-                  size="md"
-                  title="Create and manage payment links"
+                  size="sm"
+                  title="Create payment links"
                 >
-                  💳 Payments
+                  Payments
                 </UniformButton>
               </Link>
               <Link to="/dashboard" style={{ textDecoration: 'none' }}>
                 <UniformButton
                   variant="ghost"
-                  size="md"
-                  title="View analytics and transaction history"
+                  size="sm"
+                  title="View analytics"
                 >
-                  📊 Dashboard
-                </UniformButton>
-              </Link>
-              <Link to="/ai-builder" style={{ textDecoration: 'none' }}>
-                <UniformButton
-                  variant="ghost"
-                  size="md"
-                  title="Generate smart contracts with AI"
-                >
-                  🤖 AI Builder
+                  Dashboard
                 </UniformButton>
               </Link>
               <Link to="/bridge" style={{ textDecoration: 'none' }}>
                 <UniformButton
                   variant="ghost"
-                  size="md"
-                  title="Cross-chain asset bridging"
+                  size="sm"
+                  title="Cross-chain bridge"
                 >
-                  🌉 Bridge
+                  Bridge
                 </UniformButton>
               </Link>
             </HStack>
 
             {/* Wallet Status and Controls */}
-            <HStack gap={3} align="center">
-              {/* Wallet Status Display */}
+            <HStack gap={3} align="center" flexShrink={0}>
+              {/* Wallet Status Display - Only show when connected */}
               {walletStatus && (
-                <VStack align="end" gap={1}>
-                  <HStack gap={2} align="center">
-                    <Badge 
-                      colorScheme={walletStatus.type === 'stacks' ? 'blue' : 'orange'} 
-                      fontSize="xs"
-                    >
-                      {walletStatus.type === 'stacks' ? 'STX' : 'BTC'}
-                    </Badge>
-                    <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
-                      {walletStatus.address?.slice(0, 6)}...{walletStatus.address?.slice(-4)}
-                    </Text>
-                  </HStack>
-                  <Text fontSize="xs" color="#10b981" fontWeight="medium">
-                    {formatBalance(typeof walletStatus.balance === 'number' ? walletStatus.balance : 0)} {walletStatus.type === 'stacks' ? 'STX' : 'BTC'}
+                <HStack gap={2} align="center" display={{ base: 'none', lg: 'flex' }}>
+                  <Badge 
+                    colorScheme={walletStatus.type === 'stacks' ? 'blue' : 'orange'} 
+                    fontSize="xs"
+                    variant="subtle"
+                  >
+                    {walletStatus.type === 'stacks' ? 'STX' : 'BTC'}
+                  </Badge>
+                  <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
+                    {walletStatus.address?.slice(0, 6)}...{walletStatus.address?.slice(-4)}
                   </Text>
-                </VStack>
+                </HStack>
               )}
 
               {/* Network Status */}

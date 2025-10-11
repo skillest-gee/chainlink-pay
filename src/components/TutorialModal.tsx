@@ -88,19 +88,25 @@ export default function TutorialModal() {
       left="0"
       right="0"
       bottom="0"
-      bg="rgba(0, 0, 0, 0.9)"
-      backdropFilter="blur(10px)"
+      bg="rgba(0, 0, 0, 0.8)"
+      backdropFilter="blur(8px)"
       zIndex="9999"
       display="flex"
       alignItems="center"
       justifyContent="center"
       p={4}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          skipTutorial();
+        }
+      }}
     >
       <UniformCard
-        maxW={{ base: "95%", md: "600px" }}
+        maxW={{ base: "95%", md: "500px" }}
         w="full"
         p={0}
         overflow="hidden"
+        onClick={(e) => e.stopPropagation()}
       >
         <VStack gap={0} align="stretch">
           {/* Header */}

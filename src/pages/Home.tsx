@@ -29,23 +29,34 @@ export default function Home() {
   });
   const [loading, setLoading] = useState(true);
 
-  // Load user statistics
+  // Load user statistics only when wallet is connected
   useEffect(() => {
     const loadStats = async () => {
       setLoading(true);
       try {
-        const allPayments = paymentStorage.getAllPaymentLinks();
-        const totalPayments = allPayments.length;
-        const totalVolume = allPayments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
-        const activePayments = allPayments.filter(p => p.status === 'pending').length;
-        const recentActivity = allPayments.slice(0, 5);
+        // Only load stats if user has a connected wallet
+        if (isAuthenticated || btcConnected) {
+          const allPayments = paymentStorage.getAllPaymentLinks();
+          const totalPayments = allPayments.length;
+          const totalVolume = allPayments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+          const activePayments = allPayments.filter(p => p.status === 'pending').length;
+          const recentActivity = allPayments.slice(0, 5);
 
-        setStats({
-          totalPayments,
-          totalVolume,
-          activePayments,
-          recentActivity
-        });
+          setStats({
+            totalPayments,
+            totalVolume,
+            activePayments,
+            recentActivity
+          });
+        } else {
+          // Reset stats when no wallet is connected
+          setStats({
+            totalPayments: 0,
+            totalVolume: 0,
+            activePayments: 0,
+            recentActivity: []
+          });
+        }
       } catch (error) {
         console.error('Failed to load stats:', error);
       } finally {
@@ -155,8 +166,8 @@ export default function Home() {
             </UniformCard>
           )}
 
-          {/* Quick Stats */}
-          {!loading && (
+          {/* Quick Stats - Only show when wallet is connected */}
+          {!loading && (isAuthenticated || btcConnected) && (
             <VStack gap={4} align="stretch">
               <Heading size="lg" color="#ffffff" textAlign="center">
                 Your Statistics
@@ -289,8 +300,8 @@ export default function Home() {
             </VStack>
           </VStack>
 
-          {/* Recent Activity */}
-          {stats.recentActivity.length > 0 && (
+          {/* Recent Activity - Only show when wallet is connected */}
+          {stats.recentActivity.length > 0 && (isAuthenticated || btcConnected) && (
             <UniformCard p={6}>
               <VStack gap={4} align="stretch">
                 <Heading size="md" color="#ffffff">

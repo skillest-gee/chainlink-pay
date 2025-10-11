@@ -1,151 +1,137 @@
-import React from 'react';
-import { Box, Button, Heading, Text, VStack, HStack, Badge, AlertContent, AlertDescription, AlertIndicator, AlertRoot, AlertTitle } from '@chakra-ui/react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Box, Container, VStack, Heading, Text, Button, Code } from '@chakra-ui/react';
 
-type State = { 
-  hasError: boolean; 
-  error?: any; 
-  errorInfo?: any;
-  errorId?: string;
-};
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
 
-type Props = {
-  children: React.ReactNode;
-  fallback?: React.ComponentType<{ error: any; resetError: () => void }>;
-};
+interface State {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+}
 
-export default class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false };
-  
-  static getDerivedStateFromError(error: any) {
-    return { 
-      hasError: true, 
-      error,
-      errorId: `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    };
+export default class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
-  
-  componentDidCatch(error: any, errorInfo: any) {
-    // Log error details
-    console.error('ErrorBoundary caught an error:', error);
-    console.error('Error info:', errorInfo);
-    
-    // Log to console with more details
-    console.group('🚨 Application Error');
-    console.error('Error:', error);
-    console.error('Error Info:', errorInfo);
-    console.error('Component Stack:', errorInfo.componentStack);
-    console.error('Error ID:', this.state.errorId);
-    console.groupEnd();
-    
-    // Update state with error info
-    this.setState({ errorInfo });
-    
-    // In a real app, you might want to send this to an error reporting service
-    // Example: Sentry.captureException(error, { extra: errorInfo });
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error, errorInfo: null };
   }
-  
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.setState({ error, errorInfo });
+    
+    // Log error to external service in production
+    if (process.env.NODE_ENV === 'production') {
+      // You can integrate with error reporting services here
+      console.error('Production error:', { error: error.message, stack: error.stack, errorInfo });
+    }
+  }
+
   handleReload = () => {
     window.location.reload();
   };
-  
+
   handleReset = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null, errorId: undefined });
+    this.setState({ hasError: false, error: null, errorInfo: null });
   };
-  
+
   render() {
     if (this.state.hasError) {
-      // If a custom fallback is provided, use it
       if (this.props.fallback) {
-        const FallbackComponent = this.props.fallback;
-        return (
-          <FallbackComponent 
-            error={this.state.error} 
-            resetError={this.handleReset}
-          />
-        );
+        return this.props.fallback;
       }
-      
-      // Default error UI
+
       return (
-        <Box p={8} minH="50vh" bg="gray.50">
-          <VStack gap={6} align="stretch" maxW="600px" mx="auto">
-            <VStack gap={4} textAlign="center">
-              <Heading size="xl" color="red.600">🚨 Application Error</Heading>
-              <Text fontSize="lg" color="gray.600">
-                Something went wrong in the application. We've been notified and are working to fix it.
-              </Text>
-            </VStack>
-            
-            <AlertRoot status="error" borderRadius="lg">
-              <AlertIndicator />
-              <AlertContent>
-                <AlertTitle>Error Details</AlertTitle>
-                <AlertDescription>
-                  <VStack gap={2} align="start">
-                    <Text fontSize="sm">
-                      <strong>Error ID:</strong> {this.state.errorId}
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>Message:</strong> {this.state.error?.message || 'Unknown error'}
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>Time:</strong> {new Date().toLocaleString()}
-                    </Text>
-                  </VStack>
-                </AlertDescription>
-              </AlertContent>
-            </AlertRoot>
-            
-            <Box p={4} bg="white" borderRadius="lg" borderWidth="1px" borderColor="gray.200">
-              <VStack gap={3} align="stretch">
-                <Text fontWeight="semibold" color="gray.700">Troubleshooting Steps:</Text>
-                <VStack gap={2} align="start" fontSize="sm" color="gray.600">
-                  <Text>1. Try refreshing the page</Text>
-                  <Text>2. Check your internet connection</Text>
-                  <Text>3. Make sure your wallet is connected</Text>
-                  <Text>4. Try switching networks (testnet/mainnet)</Text>
-                  <Text>5. Clear browser cache and try again</Text>
+        <Box minH="100vh" bg="#000000" color="#ffffff" py={8}>
+          <Container maxW="4xl">
+            <VStack gap={6} align="stretch">
+              <VStack gap={4} textAlign="center">
+                <Heading size="xl" color="#ef4444">
+                  🚨 Application Error
+                </Heading>
+                <Text color="#9ca3af" fontSize="lg">
+                  Something went wrong. Don't worry, we're here to help!
+                </Text>
+              </VStack>
+
+              <Box p={6} bg="rgba(239, 68, 68, 0.1)" border="1px solid" borderColor="rgba(239, 68, 68, 0.3)" borderRadius="lg">
+                <VStack gap={4} align="stretch">
+                  <Heading size="md" color="#ef4444">
+                    Error Details
+                  </Heading>
+                  
+                  {this.state.error && (
+                    <Box>
+                      <Text fontSize="sm" fontWeight="medium" color="#ffffff" mb={2}>
+                        Error Message:
+                      </Text>
+                      <Code p={3} bg="#1a1a1a" color="#ef4444" fontSize="sm" display="block" whiteSpace="pre-wrap">
+                        {this.state.error.message}
+                      </Code>
+                    </Box>
+                  )}
+
+                  {this.state.errorInfo && (
+                    <Box>
+                      <Text fontSize="sm" fontWeight="medium" color="#ffffff" mb={2}>
+                        Component Stack:
+                      </Text>
+                      <Code p={3} bg="#1a1a1a" color="#9ca3af" fontSize="xs" display="block" whiteSpace="pre-wrap" maxH="200px" overflowY="auto">
+                        {this.state.errorInfo.componentStack}
+                      </Code>
+                    </Box>
+                  )}
+                </VStack>
+              </Box>
+
+              <VStack gap={4}>
+                <Text color="#9ca3af" textAlign="center">
+                  Try these solutions:
+                </Text>
+                
+                <VStack gap={2} align="stretch">
+                  <Button
+                    onClick={this.handleReset}
+                    colorScheme="blue"
+                    size="lg"
+                    variant="solid"
+                  >
+                    🔄 Try Again
+                  </Button>
+                  
+                  <Button
+                    onClick={this.handleReload}
+                    colorScheme="gray"
+                    size="lg"
+                    variant="outline"
+                  >
+                    🔃 Reload Page
+                  </Button>
                 </VStack>
               </VStack>
-            </Box>
-            
-            <HStack gap={4} justify="center">
-              <Button 
-                colorScheme="blue" 
-                onClick={this.handleReset}
-                size="lg"
-                px={8}
-              >
-                Try Again
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={this.handleReload}
-                size="lg"
-                px={8}
-              >
-                Reload Page
-              </Button>
-            </HStack>
-            
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <Box p={4} bg="red.50" borderRadius="lg" borderWidth="1px" borderColor="red.200">
-                <VStack gap={2} align="start">
-                  <Text fontWeight="semibold" color="red.700" fontSize="sm">
-                    Development Error Details:
+
+              <Box p={4} bg="rgba(59, 130, 246, 0.1)" border="1px solid" borderColor="rgba(59, 130, 246, 0.3)" borderRadius="lg">
+                <VStack gap={2} align="center">
+                  <Text fontSize="sm" color="#3b82f6" fontWeight="medium">
+                    💡 Need Help?
                   </Text>
-                  <Text fontSize="xs" color="red.600" fontFamily="mono" whiteSpace="pre-wrap">
-                    {this.state.error.stack}
+                  <Text fontSize="xs" color="#9ca3af" textAlign="center">
+                    If this error persists, please check the browser console for more details or contact support.
                   </Text>
                 </VStack>
               </Box>
-            )}
-          </VStack>
+            </VStack>
+          </Container>
         </Box>
       );
     }
-    
+
     return this.props.children;
   }
 }
-
