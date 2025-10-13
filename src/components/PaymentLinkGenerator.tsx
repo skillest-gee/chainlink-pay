@@ -24,15 +24,34 @@ export default function PaymentLinkGenerator() {
   const { isAuthenticated, address } = useStacksWallet();
   const { isConnected: btcConnected, address: btcAddress, connect: connectBTC } = useBitcoinWallet();
   
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState(() => {
+    return localStorage.getItem('payment-amount') || '';
+  });
+  const [description, setDescription] = useState(() => {
+    return localStorage.getItem('payment-description') || '';
+  });
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [paymentType, setPaymentType] = useState<'STX' | 'BTC'>('STX');
+  const [paymentType, setPaymentType] = useState<'STX' | 'BTC'>(() => {
+    return (localStorage.getItem('payment-type') as 'STX' | 'BTC') || 'STX';
+  });
   const [error, setError] = useState<string | null>(null);
+
+  // Save form state to localStorage when it changes
+  React.useEffect(() => {
+    localStorage.setItem('payment-amount', amount);
+  }, [amount]);
+
+  React.useEffect(() => {
+    localStorage.setItem('payment-description', description);
+  }, [description]);
+
+  React.useEffect(() => {
+    localStorage.setItem('payment-type', paymentType);
+  }, [paymentType]);
 
   // Load existing payment links for this wallet on component mount
   React.useEffect(() => {
@@ -106,10 +125,11 @@ export default function PaymentLinkGenerator() {
       // Use existing network configuration
       const { stacksNetwork } = await import('../config/stacksConfig');
       const network = stacksNetwork;
-      const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
-      const contractName = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
+      const { CONTRACT_ADDRESS, CONTRACT_NAME } = await import('../config/stacksConfig');
+      const contractAddress = CONTRACT_ADDRESS;
+      const contractName = CONTRACT_NAME;
       
-      if (!contractAddress || contractAddress === 'ST000000000000000000002AMW42H') {
+      if (!contractAddress) {
         throw new Error('Contract not deployed. Please deploy the contract first.');
       }
 

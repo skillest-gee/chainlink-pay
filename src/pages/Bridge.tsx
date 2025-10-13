@@ -30,21 +30,72 @@ const Bridge: React.FC = () => {
   const { isConnected: btcConnected, address: btcAddress } = useBitcoinWallet();
   const { toast } = useToast();
 
-  // Bridge state
-  const [fromAsset, setFromAsset] = useState('STX');
-  const [toAsset, setToAsset] = useState('BTC');
-  const [fromChain, setFromChain] = useState('Stacks');
-  const [toChain, setToChain] = useState('Bitcoin');
-  const [amount, setAmount] = useState('');
-  const [recipientAddress, setRecipientAddress] = useState('');
+  // Bridge state with persistence
+  const [fromAsset, setFromAsset] = useState(() => {
+    return localStorage.getItem('bridge-from-asset') || 'STX';
+  });
+  const [toAsset, setToAsset] = useState(() => {
+    return localStorage.getItem('bridge-to-asset') || 'BTC';
+  });
+  const [fromChain, setFromChain] = useState(() => {
+    return localStorage.getItem('bridge-from-chain') || 'Stacks';
+  });
+  const [toChain, setToChain] = useState(() => {
+    return localStorage.getItem('bridge-to-chain') || 'Bitcoin';
+  });
+  const [amount, setAmount] = useState(() => {
+    return localStorage.getItem('bridge-amount') || '';
+  });
+  const [recipientAddress, setRecipientAddress] = useState(() => {
+    return localStorage.getItem('bridge-recipient') || '';
+  });
   const [isEstimating, setIsEstimating] = useState(false);
   const [isBridging, setIsBridging] = useState(false);
-  const [estimate, setEstimate] = useState<BridgeEstimate | null>(null);
-  const [transactions, setTransactions] = useState<BridgeTransaction[]>([]);
+  const [estimate, setEstimate] = useState<BridgeEstimate | null>(() => {
+    const saved = localStorage.getItem('bridge-estimate');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [transactions, setTransactions] = useState<BridgeTransaction[]>(() => {
+    const saved = localStorage.getItem('bridge-transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [error, setError] = useState<string | null>(null);
   const [bridgeProgress, setBridgeProgress] = useState(0);
 
   const isWalletConnected = isAuthenticated || btcConnected;
+  
+  // Save bridge state to localStorage when it changes
+  React.useEffect(() => {
+    localStorage.setItem('bridge-from-asset', fromAsset);
+  }, [fromAsset]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bridge-to-asset', toAsset);
+  }, [toAsset]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bridge-from-chain', fromChain);
+  }, [fromChain]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bridge-to-chain', toChain);
+  }, [toChain]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bridge-amount', amount);
+  }, [amount]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bridge-recipient', recipientAddress);
+  }, [recipientAddress]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bridge-estimate', JSON.stringify(estimate));
+  }, [estimate]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bridge-transactions', JSON.stringify(transactions));
+  }, [transactions]);
   
   // Determine available assets based on connected wallet
   const getAvailableAssets = () => {
@@ -282,10 +333,11 @@ const Bridge: React.FC = () => {
         const { uintCV, stringAsciiCV } = await import('@stacks/transactions');
         const { stacksNetwork } = await import('../config/stacksConfig');
         
-        const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
-        const contractName = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
+        const { CONTRACT_ADDRESS, CONTRACT_NAME } = await import('../config/stacksConfig');
+        const contractAddress = CONTRACT_ADDRESS;
+        const contractName = CONTRACT_NAME;
         
-        if (!contractAddress || contractAddress === 'ST000000000000000000002AMW42H') {
+        if (!contractAddress) {
           throw new Error('Contract not deployed. Please deploy the contract first.');
         }
 

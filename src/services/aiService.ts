@@ -48,22 +48,28 @@ export class AIService {
     const prompt = this.buildPrompt(request);
     
     try {
+      console.log('Making Gemini API request to:', `${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey.substring(0, 10)}...`);
+      
+      const requestBody = {
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 4000
+        }
+      };
+      
+      console.log('Request body:', requestBody);
+      
       const response = await fetch(`${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 4000
-          }
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -89,13 +95,25 @@ export class AIService {
     } catch (error: any) {
       console.error('AI Service Error:', error);
       
-      // If it's an API key error, provide fallback
+      // Handle different types of errors
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        console.log('Network error detected, using fallback contract');
+        return this.getFallbackContract(request);
+      }
+      
       if (error.message?.includes('Invalid API key') || error.message?.includes('401')) {
         console.log('API key error detected, using fallback contract');
         return this.getFallbackContract(request);
       }
       
-      throw new Error(`Failed to generate contract with AI: ${error.message || 'Unknown error'}. Please try again.`);
+      if (error.message?.includes('Failed to fetch')) {
+        console.log('Fetch error detected, using fallback contract');
+        return this.getFallbackContract(request);
+      }
+      
+      // For any other error, provide fallback instead of throwing
+      console.log('Unknown error detected, using fallback contract');
+      return this.getFallbackContract(request);
     }
   }
 

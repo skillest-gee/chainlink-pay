@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Container, Flex, Heading, HStack, VStack, Text, Badge } from '@chakra-ui/react';
+import { Box, Container, Flex, Heading, HStack, VStack, Text, Badge, IconButton, useDisclosure, Stack } from '@chakra-ui/react';
 import WalletConnectButton from './components/WalletConnectButton';
 import { UniformButton } from './components/UniformButton';
 import Home from './pages/Home';
@@ -26,6 +26,7 @@ function App() {
   const { isAuthenticated, address, connect, disconnect } = useStacksWallet();
   const { isConnected: btcConnected, address: btcAddress, balance: btcBalance } = useBitcoinWallet();
   const { balance: stxBalance, loading: balanceLoading } = useStxBalance(address);
+  const { open: isMobileMenuOpen, onOpen: onMobileMenuOpen, onClose: onMobileMenuClose } = useDisclosure();
   
   const [appState, setAppState] = useState({
     isInitialized: false,
@@ -122,7 +123,7 @@ function App() {
         w="100%"
       >
         <Container maxW="7xl" py={4} px={4}>
-          <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={4} w="100%">
+          <Flex align="center" justify="space-between" gap={4} w="100%">
             {/* Logo and Brand */}
             <HStack gap={3} align="center" flexShrink={0}>
               <Box 
@@ -190,20 +191,91 @@ function App() {
               </Link>
             </HStack>
 
-            {/* Wallet Status and Controls */}
-            <HStack gap={3} align="center" flexShrink={0}>
-              {/* Network Status */}
-              <NetworkStatus />
+            {/* Right Side - Wallet Connection and Mobile Menu */}
+            <HStack gap={2} align="center" flexShrink={0}>
+              {/* Desktop Wallet Connection */}
+              <HStack gap={3} display={{ base: 'none', md: 'flex' }}>
+                <NetworkStatus />
+                <WalletConnectButton />
+                <TutorialModal />
+              </HStack>
               
-              {/* Wallet Connect Button */}
-              <WalletConnectButton />
-              
-              {/* Tutorial Modal */}
-              <TutorialModal />
+              {/* Mobile Menu Button */}
+              <IconButton
+                display={{ base: 'flex', md: 'none' }}
+                aria-label="Open menu"
+                children={<Text fontSize="lg">☰</Text>}
+                variant="ghost"
+                color="#ffffff"
+                _hover={{ bg: 'rgba(255, 255, 255, 0.1)' }}
+                onClick={onMobileMenuOpen}
+              />
             </HStack>
           </Flex>
         </Container>
       </Box>
+
+      {/* Mobile Navigation - Simple Collapsible Menu */}
+      {isMobileMenuOpen && (
+        <Box 
+          position="fixed" 
+          top="0" 
+          left="0" 
+          right="0" 
+          bottom="0" 
+          bg="rgba(0, 0, 0, 0.95)" 
+          zIndex="9999"
+          p={4}
+        >
+          <Flex justify="space-between" align="center" mb={6}>
+            <Heading size="md" color="#ffffff">Menu</Heading>
+            <IconButton
+              aria-label="Close menu"
+              children={<Text fontSize="lg">✕</Text>}
+              variant="ghost"
+              color="#ffffff"
+              onClick={onMobileMenuClose}
+            />
+          </Flex>
+          
+          <Stack gap={4}>
+            {/* Navigation Links */}
+            <VStack gap={2} align="stretch">
+              <Link to="/generate" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
+                <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start">
+                  💳 Payments
+                </UniformButton>
+              </Link>
+              <Link to="/ai-builder" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
+                <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start">
+                  🤖 AI Builder
+                </UniformButton>
+              </Link>
+              <Link to="/dashboard" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
+                <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start">
+                  📊 Dashboard
+                </UniformButton>
+              </Link>
+              <Link to="/bridge" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
+                <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start">
+                  🌉 Bridge
+                </UniformButton>
+              </Link>
+            </VStack>
+
+            {/* Separator */}
+            <Box h="1px" bg="rgba(255, 255, 255, 0.1)" />
+
+            {/* Wallet and Network Status */}
+            <VStack gap={3} align="stretch">
+              <Text fontSize="sm" color="#9ca3af" fontWeight="medium">Wallet & Network</Text>
+              <NetworkStatus />
+              <WalletConnectButton />
+              <TutorialModal />
+            </VStack>
+          </Stack>
+        </Box>
+      )}
 
       {/* Main Content */}
       <Container maxW="6xl" py={8} flex="1">

@@ -12,27 +12,73 @@ export default function AIContractBuilder() {
   const { open: showSuggestions, onToggle: toggleSuggestions } = useDisclosure();
   const { open: showValidation, onToggle: toggleValidation } = useDisclosure();
   
-  // Form state
-  const [request, setRequest] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState('payment');
-  const [requirements, setRequirements] = useState<string[]>([]);
+  // Form state with persistence
+  const [request, setRequest] = useState(() => {
+    return localStorage.getItem('ai-builder-request') || '';
+  });
+  const [selectedTemplate, setSelectedTemplate] = useState(() => {
+    return localStorage.getItem('ai-builder-template') || 'payment';
+  });
+  const [requirements, setRequirements] = useState<string[]>(() => {
+    const saved = localStorage.getItem('ai-builder-requirements');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [newRequirement, setNewRequirement] = useState('');
   
-  // AI state
+  // AI state with persistence
   const [isGenerating, setIsGenerating] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   
-  // Results state
-  const [aiResponse, setAiResponse] = useState<AIContractResponse | null>(null);
-  const [validation, setValidation] = useState<ContractValidation | null>(null);
+  // Results state with persistence
+  const [aiResponse, setAiResponse] = useState<AIContractResponse | null>(() => {
+    const saved = localStorage.getItem('ai-builder-response');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [validation, setValidation] = useState<ContractValidation | null>(() => {
+    const saved = localStorage.getItem('ai-builder-validation');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [error, setError] = useState<string | null>(null);
-  const [improvementFeedback, setImprovementFeedback] = useState('');
+  const [improvementFeedback, setImprovementFeedback] = useState(() => {
+    return localStorage.getItem('ai-builder-feedback') || '';
+  });
   
-  // UI state
-  const [activeTab, setActiveTab] = useState<'generate' | 'validate' | 'improve' | 'deploy'>('generate');
+  // UI state with persistence
+  const [activeTab, setActiveTab] = useState<'generate' | 'validate' | 'improve' | 'deploy'>(() => {
+    return (localStorage.getItem('ai-builder-tab') as any) || 'generate';
+  });
   const [copied, setCopied] = useState(false);
+
+  // Save state to localStorage when it changes
+  React.useEffect(() => {
+    localStorage.setItem('ai-builder-request', request);
+  }, [request]);
+
+  React.useEffect(() => {
+    localStorage.setItem('ai-builder-template', selectedTemplate);
+  }, [selectedTemplate]);
+
+  React.useEffect(() => {
+    localStorage.setItem('ai-builder-requirements', JSON.stringify(requirements));
+  }, [requirements]);
+
+  React.useEffect(() => {
+    localStorage.setItem('ai-builder-response', JSON.stringify(aiResponse));
+  }, [aiResponse]);
+
+  React.useEffect(() => {
+    localStorage.setItem('ai-builder-validation', JSON.stringify(validation));
+  }, [validation]);
+
+  React.useEffect(() => {
+    localStorage.setItem('ai-builder-feedback', improvementFeedback);
+  }, [improvementFeedback]);
+
+  React.useEffect(() => {
+    localStorage.setItem('ai-builder-tab', activeTab);
+  }, [activeTab]);
 
   const templates = [
     { value: 'payment', label: 'Payment Contract', description: 'Basic payment processing with escrow' },

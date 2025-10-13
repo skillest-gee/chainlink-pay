@@ -138,10 +138,11 @@ export default function Pay() {
         const { stacksNetwork } = await import('../config/stacksConfig');
         const network = stacksNetwork;
         
-        const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
-        const contractName = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
+        const { CONTRACT_ADDRESS, CONTRACT_NAME } = await import('../config/stacksConfig');
+        const contractAddress = CONTRACT_ADDRESS;
+        const contractName = CONTRACT_NAME;
         
-        if (!contractAddress || contractAddress === 'ST000000000000000000002AMW42H') {
+        if (!contractAddress) {
           throw new Error('Contract not deployed. Please deploy the contract first.');
         }
 

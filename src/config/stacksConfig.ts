@@ -33,8 +33,8 @@ export const appDetails = {
 };
 
 export const STACKS_NETWORK_KEY = process.env.REACT_APP_STACKS_NETWORK || 'testnet';
-export const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS || '';
-export const CONTRACT_NAME = process.env.REACT_APP_CONTRACT_NAME || 'enhanced-payment';
+export const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS || 'ST5MNAJQ2VTGAQ7RP9EVBCQWYT0YHSKS4DM60133';
+export const CONTRACT_NAME = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
 export const MERCHANT_ADDRESS = process.env.REACT_APP_MERCHANT_ADDRESS || '';
 
 // Validate contract configuration
