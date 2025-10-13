@@ -211,6 +211,13 @@ export function useStacksWallet() {
         appDetails,
         // Enhanced mobile support
         redirectTo: isMobile ? window.location.origin : undefined,
+        // Mobile wallet configuration
+        ...(isMobile && {
+          // Force mobile wallet selection
+          walletConnect: true,
+          // Enable mobile deep linking
+          enableMobile: true,
+        }),
         onFinish: () => {
           console.log('=== WALLET CONNECTION ONFINISH CALLED ===');
           console.log('Wallet connection onFinish called');

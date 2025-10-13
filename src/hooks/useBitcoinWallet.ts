@@ -21,33 +21,56 @@ export function useBitcoinWallet() {
   const checkBitcoinWallet = useCallback(() => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
+    console.log('Checking for Bitcoin wallets...', { isMobile });
+    
     // Check for common Bitcoin wallet providers
     if (typeof (window as any).unisat !== 'undefined') {
+      console.log('Unisat wallet detected');
       return 'unisat';
     }
     if (typeof (window as any).okxwallet !== 'undefined') {
+      console.log('OKX wallet detected');
       return 'okxwallet';
     }
     if (typeof (window as any).bitget !== 'undefined') {
+      console.log('Bitget wallet detected');
       return 'bitget';
     }
     if (typeof (window as any).bitcoin !== 'undefined') {
+      console.log('Bitcoin wallet detected');
       return 'bitcoin';
     }
     if (typeof (window as any).btc !== 'undefined') {
+      console.log('BTC wallet detected');
       return 'btc';
     }
     
-    // Check for mobile-specific Bitcoin wallets
+    // Check for mobile-specific Bitcoin wallets with better detection
     if (isMobile) {
-      if (typeof (window as any).xverse !== 'undefined') {
+      // Check for Xverse wallet (supports both Bitcoin and Stacks)
+      if (typeof (window as any).XverseProvider !== 'undefined' || 
+          typeof (window as any).xverse !== 'undefined' ||
+          typeof (window as any).XverseWallet !== 'undefined') {
+        console.log('Xverse wallet detected on mobile');
         return 'xverse';
       }
-      if (typeof (window as any).leather !== 'undefined') {
+      
+      // Check for Leather wallet (formerly Hiro wallet)
+      if (typeof (window as any).LeatherProvider !== 'undefined' || 
+          typeof (window as any).leather !== 'undefined' ||
+          typeof (window as any).LeatherWallet !== 'undefined') {
+        console.log('Leather wallet detected on mobile');
         return 'leather';
+      }
+      
+      // Check for Stacks Connect mobile wallets
+      if (typeof (window as any).StacksProvider !== 'undefined') {
+        console.log('Stacks provider detected on mobile');
+        return 'stacks';
       }
     }
 
+    console.log('No Bitcoin wallet detected');
     return null;
   }, []);
 
@@ -96,18 +119,58 @@ export function useBitcoinWallet() {
           }
           break;
         case 'xverse':
-          if ((window as any).xverse) {
+          // Xverse wallet connection (mobile-friendly)
+          if ((window as any).XverseProvider) {
+            const provider = new (window as any).XverseProvider();
+            const accounts = await provider.requestAccounts();
+            address = accounts[0];
+            const balanceResult = await provider.getBalance();
+            balance = balanceResult.confirmed;
+          } else if ((window as any).xverse) {
             const accounts = await (window as any).xverse.requestAccounts();
             address = accounts[0];
             const balanceResult = await (window as any).xverse.getBalance();
             balance = balanceResult.confirmed;
+          } else {
+            // For mobile, try to open Xverse app
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (isMobile) {
+              // Try to open Xverse app
+              window.location.href = 'xverse://connect';
+              throw new Error('Please open Xverse wallet app and try again');
+            }
           }
           break;
         case 'leather':
-          if ((window as any).leather) {
+          // Leather wallet connection (mobile-friendly)
+          if ((window as any).LeatherProvider) {
+            const provider = new (window as any).LeatherProvider();
+            const accounts = await provider.requestAccounts();
+            address = accounts[0];
+            const balanceResult = await provider.getBalance();
+            balance = balanceResult.confirmed;
+          } else if ((window as any).leather) {
             const accounts = await (window as any).leather.requestAccounts();
             address = accounts[0];
             const balanceResult = await (window as any).leather.getBalance();
+            balance = balanceResult.confirmed;
+          } else {
+            // For mobile, try to open Leather app
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (isMobile) {
+              // Try to open Leather app
+              window.location.href = 'leather://connect';
+              throw new Error('Please open Leather wallet app and try again');
+            }
+          }
+          break;
+        case 'stacks':
+          // Stacks Connect for mobile
+          if ((window as any).StacksProvider) {
+            const provider = new (window as any).StacksProvider();
+            const accounts = await provider.requestAccounts();
+            address = accounts[0];
+            const balanceResult = await provider.getBalance();
             balance = balanceResult.confirmed;
           }
           break;

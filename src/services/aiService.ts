@@ -38,7 +38,9 @@ export class AIService {
     });
 
     if (!this.apiKey) {
-      throw new Error('OpenRouter API key not configured. Please set REACT_APP_OPENAI_API_KEY or REACT_APP_OPENROUTER_API_KEY environment variable.');
+      // Provide a fallback contract template
+      console.log('No API key found, using fallback contract template');
+      return this.getFallbackContract(request);
     }
 
     console.log('AI Service: Generating contract with API key:', this.apiKey.substring(0, 10) + '...');
@@ -72,16 +74,35 @@ export class AIService {
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('AI API Error:', response.status, errorText);
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error('Invalid API key. Please check your OpenRouter API key configuration.');
+        } else if (response.status === 429) {
+          throw new Error('API rate limit exceeded. Please try again later.');
+        } else if (response.status === 500) {
+          throw new Error('OpenRouter API server error. Please try again later.');
+        }
+        
+        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
       const content = data.choices[0]?.message?.content || '';
       
       return this.parseAIResponse(content, request);
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI Service Error:', error);
-      throw new Error('Failed to generate contract with AI. Please try again.');
+      
+      // If it's an API key error, provide fallback
+      if (error.message?.includes('Invalid API key') || error.message?.includes('401')) {
+        console.log('API key error detected, using fallback contract');
+        return this.getFallbackContract(request);
+      }
+      
+      throw new Error(`Failed to generate contract with AI: ${error.message || 'Unknown error'}. Please try again.`);
     }
   }
 
@@ -181,7 +202,19 @@ Please provide an improved version with better security, error handling, and doc
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('AI API Error:', response.status, errorText);
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error('Invalid API key. Please check your OpenRouter API key configuration.');
+        } else if (response.status === 429) {
+          throw new Error('API rate limit exceeded. Please try again later.');
+        } else if (response.status === 500) {
+          throw new Error('OpenRouter API server error. Please try again later.');
+        }
+        
+        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -277,6 +310,113 @@ Please provide an improved version with better security, error handling, and doc
       errors,
       warnings,
       suggestions
+    };
+  }
+
+  private getFallbackContract(request: AIContractRequest): AIContractResponse {
+    const contractName = request.description || 'payment-contract';
+    const contractCode = `;; ${contractName} - Generated Contract Template
+;; This is a template contract. For AI-generated contracts, please configure your OpenRouter API key.
+
+(define-constant CONTRACT-OWNER tx-sender)
+
+;; Define payment status constants
+(define-constant STATUS-PENDING (string-utf8 7))
+(define-constant STATUS-PAID (string-utf8 4))
+(define-constant STATUS-CANCELLED (string-utf8 9))
+
+;; Define error constants
+(define-constant ERR-PAYMENT-NOT-FOUND (err u100))
+(define-constant ERR-UNAUTHORIZED (err u101))
+(define-constant ERR-INVALID-AMOUNT (err u102))
+
+;; Payment data structure
+(define-data-var payments
+  (map (buff 32) (tuple 
+    (amount uint)
+    (merchant principal)
+    (status (string-utf8 20))
+    (created-at uint)
+  ))
+  (map (buff 32) (tuple 
+    (amount u0)
+    (merchant tx-sender)
+    (status STATUS-PENDING)
+    (created-at u0)
+  ))
+)
+
+;; Create a new payment
+(define-public (create-payment (id (buff 32)) (merchant principal) (amount uint))
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-UNAUTHORIZED)
+    (asserts! (> amount u0) ERR-INVALID-AMOUNT)
+    (ok (map-set payments id (tuple 
+      (amount amount)
+      (merchant merchant)
+      (status STATUS-PENDING)
+      (created-at block-height)
+    )))
+  )
+)
+
+;; Mark payment as paid
+(define-public (mark-paid (id (buff 32)))
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-UNAUTHORIZED)
+    (match (map-get? payments id)
+      payment (ok (map-set payments id (merge payment (tuple (status STATUS-PAID)))))
+      (err ERR-PAYMENT-NOT-FOUND)
+    )
+  )
+)
+
+;; Get payment details
+(define-read-only (get-payment (id (buff 32)))
+  (match (map-get? payments id)
+    payment (ok payment)
+    (err ERR-PAYMENT-NOT-FOUND)
+  )
+)
+
+;; Get contract stats
+(define-read-only (get-stats)
+  (ok (tuple 
+    (total-payments u0)
+    (total-amount u0)
+    (owner CONTRACT-OWNER)
+  ))
+)`;
+
+    return {
+      contract: contractCode,
+      explanation: `This is a template payment contract with basic functionality:
+
+**Features:**
+- Create payments with unique IDs
+- Mark payments as paid
+- Query payment details
+- Basic authorization and error handling
+
+**Functions:**
+- \`create-payment\`: Creates a new payment record
+- \`mark-paid\`: Marks a payment as completed
+- \`get-payment\`: Retrieves payment information
+- \`get-stats\`: Returns contract statistics
+
+**Note:** This is a template. For AI-generated custom contracts, please configure your OpenRouter API key in the environment variables.`,
+      suggestions: [
+        'Add escrow functionality',
+        'Implement payment splitting',
+        'Add subscription support',
+        'Include analytics and reporting',
+        'Add multi-token support'
+      ],
+      warnings: [
+        'Only contract owner can create and mark payments',
+        'Payment amounts must be greater than zero',
+        'Proper error handling for invalid operations'
+      ]
     };
   }
 
