@@ -60,22 +60,42 @@ export default function Pay() {
         const foundPayment = allPayments.find(p => p.id === paymentId);
         
         if (foundPayment) {
+          console.log('Found payment in localStorage:', foundPayment);
           setPayment(foundPayment);
         } else {
-          // Simulate fetching from server
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Try to get payment data from URL parameters (for shared links)
+          const urlParams = new URLSearchParams(window.location.search);
+          const amount = urlParams.get('amount');
+          const description = urlParams.get('description');
+          const merchantAddress = urlParams.get('merchant');
+          const paymentType = urlParams.get('type') || 'STX';
           
-          const mockPayment: PaymentLink = {
-            id: paymentId,
-            amount: '10.5',
-            description: 'Sample payment for services',
-            status: 'pending',
-            merchantAddress: 'merchant-address',
-            paymentType: 'STX',
-            createdAt: Date.now()
-          };
-          
-          setPayment(mockPayment);
+          if (amount && description && merchantAddress) {
+            console.log('Found payment data in URL parameters:', { amount, description, merchantAddress, paymentType });
+            const urlPayment: PaymentLink = {
+              id: paymentId,
+              amount: amount,
+              description: description,
+              status: 'pending',
+              merchantAddress: merchantAddress,
+              paymentType: paymentType as 'STX' | 'BTC',
+              createdAt: Date.now()
+            };
+            setPayment(urlPayment);
+          } else {
+            // Fallback to mock payment if no data found
+            console.log('No payment data found, using mock payment');
+            const mockPayment: PaymentLink = {
+              id: paymentId,
+              amount: '10.5',
+              description: 'Sample payment for services',
+              status: 'pending',
+              merchantAddress: 'merchant-address',
+              paymentType: 'STX',
+              createdAt: Date.now()
+            };
+            setPayment(mockPayment);
+          }
         }
       } catch (err) {
         setError('Failed to load payment details');

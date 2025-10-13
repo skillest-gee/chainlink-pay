@@ -231,8 +231,15 @@ export default function PaymentLinkGenerator() {
   };
 
   const copyToClipboard = async () => {
-    if (generatedId) {
-      const url = `${window.location.origin}/pay/${generatedId}`;
+    if (generatedId && amount && description) {
+      // Create URL with payment data as parameters
+      const params = new URLSearchParams({
+        amount: amount,
+        description: description,
+        merchant: isAuthenticated ? address! : (btcConnected ? btcAddress! : 'unknown'),
+        type: paymentType || 'STX'
+      });
+      const url = `${window.location.origin}/pay/${generatedId}?${params.toString()}`;
       await navigator.clipboard.writeText(url);
       setCopied(true);
       toast({ title: 'Copied', status: 'info', description: 'Payment link copied to clipboard!' });
@@ -240,7 +247,15 @@ export default function PaymentLinkGenerator() {
     }
   };
 
-  const paymentUrl = generatedId ? `${window.location.origin}/pay/${generatedId}` : '';
+  const paymentUrl = generatedId && amount && description ? (() => {
+    const params = new URLSearchParams({
+      amount: amount,
+      description: description,
+      merchant: isAuthenticated ? address! : (btcConnected ? btcAddress! : 'unknown'),
+      type: paymentType || 'STX'
+    });
+    return `${window.location.origin}/pay/${generatedId}?${params.toString()}`;
+  })() : '';
 
   // Check if wallet is connected
   const isWalletConnected = isAuthenticated || btcConnected;
