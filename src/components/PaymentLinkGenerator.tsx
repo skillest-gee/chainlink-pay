@@ -99,8 +99,9 @@ export default function PaymentLinkGenerator() {
     setError(null);
 
     try {
-      // Import Stacks Connect for wallet integration
+      // Import Stacks Connect and Clarity Value helpers
       const { openContractCall } = await import('@stacks/connect');
+      const { bufferCV, standardPrincipalCV, uintCV } = await import('@stacks/transactions');
       
       // Use existing network configuration
       const { stacksNetwork } = await import('../config/stacksConfig');
@@ -122,19 +123,39 @@ export default function PaymentLinkGenerator() {
         idBuffer[i] = paymentIdBytes[i];
       }
       
+      // Validate the amount is within safe range
+      const amountInMicroSTX = Math.floor(parseFloat(amount) * 1000000);
+      if (amountInMicroSTX <= 0 || amountInMicroSTX > Number.MAX_SAFE_INTEGER) {
+        throw new Error('Invalid amount. Please enter a valid amount.');
+      }
+      
+      // Validate the address is a proper principal
+      if (!address || !/^[SP][0-9A-Z]{39}$/.test(address)) {
+        throw new Error('Invalid wallet address.');
+      }
+      
+      console.log('Contract call data:', {
+        contractAddress,
+        contractName,
+        functionName: 'create-payment',
+        paymentId,
+        merchantAddress: address,
+        amount: amountInMicroSTX
+      });
+      
       // Create payment registration transaction using Stacks Connect
       await openContractCall({
         contractAddress,
         contractName,
         functionName: 'create-payment',
         functionArgs: [
-          // id (buff 32) - must be exactly 32 bytes
-          { type: 'buff', value: idBuffer },
-          // merchant (principal)
-          { type: 'principal', value: address! },
-          // amount (uint)
-          { type: 'uint', value: BigInt(parseFloat(amount) * 1000000) } // Convert to microSTX
-        ] as any,
+          // id (buff 32) - use bufferCV helper
+          bufferCV(idBuffer),
+          // merchant (principal) - use standardPrincipalCV helper
+          standardPrincipalCV(address),
+          // amount (uint) - use uintCV helper
+          uintCV(amountInMicroSTX)
+        ],
         network,
         onFinish: (data) => {
           console.log('Contract call finished:', data);

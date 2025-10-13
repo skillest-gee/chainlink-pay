@@ -108,6 +108,7 @@ export default function Pay() {
       if (payment.paymentType === 'STX' && isAuthenticated) {
         // Real STX payment using Stacks Connect
         const { openContractCall } = await import('@stacks/connect');
+        const { bufferCV } = await import('@stacks/transactions');
         const { stacksNetwork } = await import('../config/stacksConfig');
         const network = stacksNetwork;
         
@@ -128,14 +129,23 @@ export default function Pay() {
           idBuffer[i] = paymentIdBytes[i];
         }
         
+        console.log('Payment transaction data:', {
+          contractAddress,
+          contractName,
+          functionName: 'mark-paid',
+          paymentId,
+          idBuffer: Array.from(idBuffer)
+        });
+        
         // Mark payment as paid on-chain
         await openContractCall({
           contractAddress,
           contractName,
           functionName: 'mark-paid',
           functionArgs: [
-            { type: 'buff', value: idBuffer }
-          ] as any,
+            // id (buff 32) - use bufferCV helper
+            bufferCV(idBuffer)
+          ],
           network,
           onFinish: (data) => {
             console.log('Payment transaction finished:', data);

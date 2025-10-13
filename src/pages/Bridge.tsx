@@ -45,6 +45,49 @@ const Bridge: React.FC = () => {
   const [bridgeProgress, setBridgeProgress] = useState(0);
 
   const isWalletConnected = isAuthenticated || btcConnected;
+  
+  // Determine available assets based on connected wallet
+  const getAvailableAssets = () => {
+    if (isAuthenticated) {
+      return ['STX'];
+    } else if (btcConnected) {
+      return ['BTC'];
+    }
+    return [];
+  };
+  
+  const getAvailableToAssets = (fromAsset: string) => {
+    const allAssets = ['BTC', 'STX', 'ETH', 'BNB', 'USDC', 'USDT'];
+    return allAssets.filter(asset => asset !== fromAsset);
+  };
+  
+  // Auto-set from asset based on connected wallet
+  React.useEffect(() => {
+    if (isAuthenticated && fromAsset !== 'STX') {
+      setFromAsset('STX');
+      setFromChain('Stacks');
+    } else if (btcConnected && fromAsset !== 'BTC') {
+      setFromAsset('BTC');
+      setFromChain('Bitcoin');
+    }
+  }, [isAuthenticated, btcConnected, fromAsset]);
+  
+  // Auto-set to chain based on to asset
+  React.useEffect(() => {
+    const assetToChain: { [key: string]: string } = {
+      'BTC': 'Bitcoin',
+      'STX': 'Stacks',
+      'ETH': 'Ethereum',
+      'BNB': 'BNB Chain',
+      'USDC': 'Ethereum',
+      'USDT': 'Ethereum'
+    };
+    
+    const suggestedChain = assetToChain[toAsset];
+    if (suggestedChain && toChain !== suggestedChain) {
+      setToChain(suggestedChain);
+    }
+  }, [toAsset, toChain]);
 
   const handleEstimate = async () => {
     if (!amount || !recipientAddress) {
@@ -236,6 +279,7 @@ const Bridge: React.FC = () => {
       if (fromChain === 'Stacks' && isAuthenticated) {
         // Stacks to other chains bridge using smart contract
         const { openContractCall } = await import('@stacks/connect');
+        const { uintCV, stringAsciiCV } = await import('@stacks/transactions');
         const { stacksNetwork } = await import('../config/stacksConfig');
         
         const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
@@ -245,15 +289,36 @@ const Bridge: React.FC = () => {
           throw new Error('Contract not deployed. Please deploy the contract first.');
         }
 
+        // Validate the amount is within safe range
+        const amountInMicroSTX = Math.floor(parseFloat(amount) * 1000000);
+        if (amountInMicroSTX <= 0 || amountInMicroSTX > Number.MAX_SAFE_INTEGER) {
+          throw new Error('Invalid amount. Please enter a valid amount.');
+        }
+        
+        // Validate the recipient address
+        if (!recipientAddress || recipientAddress.trim() === '') {
+          throw new Error('Please enter a valid recipient address.');
+        }
+        
+        console.log('Bridge transaction data:', {
+          contractAddress,
+          contractName,
+          functionName: 'bridge-to-bitcoin',
+          amount: amountInMicroSTX,
+          recipientAddress
+        });
+        
         // Bridge STX to other chains using the contract
         await openContractCall({
           contractAddress,
           contractName,
           functionName: 'bridge-to-bitcoin',
           functionArgs: [
-            { type: 'uint', value: BigInt(parseFloat(amount) * 1000000) }, // Convert to microSTX
-            { type: 'string-ascii', value: recipientAddress }
-          ] as any,
+            // amount (uint) - use uintCV helper
+            uintCV(amountInMicroSTX),
+            // recipient (string-ascii) - use stringAsciiCV helper
+            stringAsciiCV(recipientAddress)
+          ],
           network: stacksNetwork,
           onFinish: (data) => {
             console.log('Bridge transaction finished:', data);
@@ -442,21 +507,20 @@ const Bridge: React.FC = () => {
       {!isWalletConnected && (
         <UniformCard p={6}>
           <VStack gap={4} align="center" textAlign="center">
-            <Text fontSize="2xl">🔗</Text>
-            <Heading size="md" color="#ffffff">
+            <Text fontSize="lg" color="#ffffff" fontWeight="bold">
               Connect Your Wallet
-            </Heading>
-            <Text color="#9ca3af">
-              Connect your Stacks or Bitcoin wallet to use the bridge.
             </Text>
-            <UniformButton variant="primary" size="md" onClick={() => window.location.href = '/'}>
-              Connect Wallet
-            </UniformButton>
+            <Text color="#9ca3af">
+              Please connect your Stacks or Bitcoin wallet to start bridging assets.
+            </Text>
+            <Text fontSize="sm" color="#ef4444">
+              You can only bridge FROM the assets in your connected wallet.
+            </Text>
           </VStack>
         </UniformCard>
       )}
 
-      {/* Main Bridge Interface */}
+      {/* Main Bridge Interface - Only show when wallet is connected */}
       {isWalletConnected && (
         <>
           <UniformCard p={6}>
@@ -488,18 +552,24 @@ const Bridge: React.FC = () => {
                 </VStack>
 
                 <VStack gap={2} align="stretch">
-                  <Text fontSize="sm" color="#9ca3af">From Asset</Text>
+                  <Text fontSize="sm" color="#9ca3af">From Asset (Based on Connected Wallet)</Text>
                   <HStack gap={2} wrap="wrap">
-                    {chains[fromChain as keyof typeof chains]?.assets.map((asset) => (
+                    {getAvailableAssets().map((asset) => (
                       <UniformButton
                         key={asset}
                         variant={fromAsset === asset ? 'primary' : 'secondary'}
                         size="sm"
                         onClick={() => setFromAsset(asset)}
+                        isDisabled={!isWalletConnected}
                       >
                         {asset}
                       </UniformButton>
                     ))}
+                    {!isWalletConnected && (
+                      <Text fontSize="xs" color="#ef4444">
+                        Connect wallet to see available assets
+                      </Text>
+                    )}
                   </HStack>
                 </VStack>
 
@@ -524,9 +594,9 @@ const Bridge: React.FC = () => {
                 </VStack>
 
                 <VStack gap={2} align="stretch">
-                  <Text fontSize="sm" color="#9ca3af">To Asset</Text>
+                  <Text fontSize="sm" color="#9ca3af">To Asset (Cross-Chain Destination)</Text>
                   <HStack gap={2} wrap="wrap">
-                    {chains[toChain as keyof typeof chains]?.assets.map((asset) => (
+                    {getAvailableToAssets(fromAsset).map((asset) => (
                       <UniformButton
                         key={asset}
                         variant={toAsset === asset ? 'primary' : 'secondary'}
