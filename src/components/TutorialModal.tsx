@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text, VStack, HStack, IconButton, Heading, Badge, Button, Portal } from '@chakra-ui/react';
 import { UniformButton } from './UniformButton';
 import { UniformCard } from './UniformCard';
@@ -6,11 +6,19 @@ import { UniformCard } from './UniformCard';
 export default function TutorialModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // Debug logging
   useEffect(() => {
     console.log('TutorialModal state changed:', { isOpen, currentStep });
   }, [isOpen, currentStep]);
+
+  // Focus management for accessibility
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [isOpen]);
   
   const tutorialSteps = [
     {
@@ -98,6 +106,7 @@ export default function TutorialModal() {
   return (
     <Portal>
       <Box
+        ref={modalRef}
         position="fixed"
         top="0"
         left="0"
@@ -105,11 +114,11 @@ export default function TutorialModal() {
         bottom="0"
         bg="rgba(0, 0, 0, 0.9)"
         backdropFilter="blur(12px)"
-        zIndex="99999"
+        zIndex="999999"
         display="flex"
         alignItems="center"
         justifyContent="center"
-        p={4}
+        p={{ base: 2, md: 4 }}
         overflow="auto"
         onClick={(e) => {
           if (e.target === e.currentTarget) {
@@ -118,31 +127,37 @@ export default function TutorialModal() {
         }}
         style={{
           position: 'fixed',
-          zIndex: 99999,
+          zIndex: 999999,
           top: 0,
           left: 0,
           right: 0,
           bottom: 0
         }}
+        tabIndex={-1}
       >
       <UniformCard
         maxW={{ base: "95%", md: "600px", lg: "700px" }}
         w="full"
         maxH="90vh"
         p={0}
-        overflow="hidden"
+        overflow="auto"
         onClick={(e) => e.stopPropagation()}
         display="flex"
         flexDirection="column"
       >
         <VStack gap={0} align="stretch" h="full" flex="1">
           {/* Header */}
-          <Box p={6} borderBottom="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)">
-            <HStack justify="space-between" align="center">
-              <HStack gap={3} align="center">
-                <Text fontSize="2xl">{currentTutorial.icon}</Text>
-                <VStack align="start" gap={1}>
-                  <Heading size="md" color="#ffffff" fontWeight="bold">
+          <Box p={{ base: 4, md: 6 }} borderBottom="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)" flexShrink={0}>
+            <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
+              <HStack gap={3} align="center" flex="1" minW="0">
+                <Text fontSize={{ base: "xl", md: "2xl" }}>{currentTutorial.icon}</Text>
+                <VStack align="start" gap={1} flex="1" minW="0">
+                  <Heading 
+                    size="md" 
+                    fontSize={{ base: "lg", md: "md" }} 
+                    color="#ffffff" 
+                    fontWeight="bold"
+                  >
                     {currentTutorial.title}
                   </Heading>
                   <Badge colorScheme="blue" fontSize="xs" variant="subtle">
@@ -153,32 +168,40 @@ export default function TutorialModal() {
               
               <IconButton
                 aria-label="Close tutorial"
-                children={<Text fontSize="lg">✕</Text>}
                 size="sm"
                 variant="ghost"
                 color="#9ca3af"
                 _hover={{ color: "#ffffff", bg: "rgba(255, 255, 255, 0.1)" }}
                 onClick={skipTutorial}
-              />
+                flexShrink={0}
+              >
+                <Text fontSize="lg">✕</Text>
+              </IconButton>
             </HStack>
           </Box>
 
           {/* Content */}
-          <Box p={6} bg="rgba(0, 0, 0, 0.6)" flex="1" overflow="auto">
-            <VStack gap={6} align="stretch">
-              <Text fontSize="md" color="#ffffff" lineHeight="1.6" textAlign="center">
+          <Box p={{ base: 4, md: 6 }} bg="rgba(0, 0, 0, 0.6)" flex="1" overflow="auto">
+            <VStack gap={{ base: 4, md: 6 }} align="stretch">
+              <Text 
+                fontSize={{ base: "sm", md: "md" }} 
+                color="#ffffff" 
+                lineHeight="1.6" 
+                textAlign="center"
+                whiteSpace="pre-line"
+              >
                 {currentTutorial.content}
               </Text>
 
               {/* Features List */}
               <VStack gap={3} align="stretch">
-                <Text fontSize="sm" fontWeight="bold" color="#3b82f6" textAlign="center">
+                <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="bold" color="#3b82f6" textAlign="center">
                   Key Features:
                 </Text>
                 {currentTutorial.features.map((feature, index) => (
                   <HStack key={index} gap={3} align="start" p={2} bg="rgba(255, 255, 255, 0.05)" borderRadius="md">
-                    <Text fontSize="sm" color="#10b981" mt={0.5} fontWeight="bold">✓</Text>
-                    <Text fontSize="sm" color="#ffffff">
+                    <Text fontSize={{ base: "xs", md: "sm" }} color="#10b981" mt={0.5} fontWeight="bold">✓</Text>
+                    <Text fontSize={{ base: "xs", md: "sm" }} color="#ffffff">
                       {feature}
                     </Text>
                   </HStack>
@@ -186,8 +209,8 @@ export default function TutorialModal() {
               </VStack>
 
               {/* Action Call */}
-              <Box p={4} bg="rgba(59, 130, 246, 0.1)" borderRadius="lg" border="1px solid" borderColor="rgba(59, 130, 246, 0.3)">
-                <Text fontSize="sm" color="#3b82f6" fontWeight="medium" textAlign="center">
+              <Box p={{ base: 3, md: 4 }} bg="rgba(59, 130, 246, 0.1)" borderRadius="lg" border="1px solid" borderColor="rgba(59, 130, 246, 0.3)">
+                <Text fontSize={{ base: "xs", md: "sm" }} color="#3b82f6" fontWeight="medium" textAlign="center" whiteSpace="pre-line">
                   💡 {currentTutorial.action}
                 </Text>
               </Box>
@@ -195,14 +218,14 @@ export default function TutorialModal() {
               {/* Progress Bar */}
               <VStack gap={2} align="stretch">
                 <HStack justify="space-between" align="center">
-                  <Text fontSize="xs" color="#9ca3af">Progress</Text>
-                  <Text fontSize="xs" color="#9ca3af">
+                  <Text fontSize={{ base: "2xs", md: "xs" }} color="#9ca3af">Progress</Text>
+                  <Text fontSize={{ base: "2xs", md: "xs" }} color="#9ca3af">
                     {Math.round(((currentStep + 1) / tutorialSteps.length) * 100)}%
                   </Text>
                 </HStack>
                 <Box
                   w="full"
-                  h="4px"
+                  h={{ base: "3px", md: "4px" }}
                   bg="rgba(255, 255, 255, 0.1)"
                   borderRadius="full"
                   overflow="hidden"
@@ -220,15 +243,15 @@ export default function TutorialModal() {
           </Box>
 
           {/* Footer */}
-          <Box p={6} borderTop="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)" flexShrink={0}>
-            <VStack gap={4} align="stretch">
+          <Box p={{ base: 4, md: 6 }} borderTop="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)" flexShrink={0}>
+            <VStack gap={{ base: 3, md: 4 }} align="stretch">
               {/* Progress Dots */}
-              <HStack justify="center" gap={2}>
+              <HStack justify="center" gap={2} flexWrap="wrap">
                 {tutorialSteps.map((_, index) => (
                   <Box
                     key={index}
-                    w="10px"
-                    h="10px"
+                    w={{ base: "8px", md: "10px" }}
+                    h={{ base: "8px", md: "10px" }}
                     borderRadius="full"
                     bg={index === currentStep ? "#3b82f6" : "rgba(255, 255, 255, 0.3)"}
                     transition="all 0.2s ease"
@@ -240,8 +263,8 @@ export default function TutorialModal() {
               </HStack>
 
               {/* Action Buttons */}
-              <HStack justify="space-between" align="center">
-                <HStack gap={2}>
+              <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
+                <HStack gap={2} flex="1" minW="0">
                   {currentStep > 0 && (
                     <UniformButton
                       variant="secondary"
@@ -253,7 +276,7 @@ export default function TutorialModal() {
                   )}
                 </HStack>
                 
-                <HStack gap={2}>
+                <HStack gap={2} flex="1" justify="flex-end" minW="0">
                   <UniformButton
                     variant="ghost"
                     size="sm"

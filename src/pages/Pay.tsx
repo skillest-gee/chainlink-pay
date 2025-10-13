@@ -114,37 +114,96 @@ export default function Pay() {
     setPaymentProgress(0);
 
     try {
-      // Simulate payment processing with progress
-      const progressInterval = setInterval(() => {
-        setPaymentProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(progressInterval);
-            return 100;
+      if (payment.paymentType === 'STX' && isAuthenticated) {
+        // Real STX payment using Stacks Connect
+        const { openContractCall } = await import('@stacks/connect');
+        const { stacksNetwork } = await import('../config/stacksConfig');
+        const network = stacksNetwork;
+        
+        const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
+        const contractName = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
+        
+        if (!contractAddress || contractAddress === 'ST000000000000000000002AMW42H') {
+          throw new Error('Contract not deployed. Please deploy the contract first.');
+        }
+
+        // Generate payment ID buffer
+        const paymentId = payment.id;
+        // Create a 32-byte buffer for the payment ID
+        const idBuffer = new Uint8Array(32);
+        const paymentIdBytes = new TextEncoder().encode(paymentId);
+        idBuffer.set(paymentIdBytes.slice(0, 32));
+        
+        // Mark payment as paid on-chain
+        await openContractCall({
+          contractAddress,
+          contractName,
+          functionName: 'mark-paid',
+          functionArgs: [
+            { type: 'buff', value: idBuffer }
+          ] as any,
+          network,
+          onFinish: (data) => {
+            console.log('Payment transaction finished:', data);
+            
+            // Update payment status
+            setPayment(prev => prev ? { ...prev, status: 'paid' } : null);
+            
+            // Update in storage
+            const allPayments = paymentStorage.getAllPaymentLinks();
+            const updatedPayments = allPayments.map(p => 
+              p.id === payment.id ? { ...p, status: 'paid' as const } : p
+            );
+            paymentStorage.saveAllPaymentLinks(updatedPayments);
+            
+            toast({ 
+              title: 'Success', 
+              status: 'success', 
+              description: `Payment completed! TX: ${data.txId.slice(0, 8)}...` 
+            });
+          },
+          onCancel: () => {
+            toast({ title: 'Cancelled', status: 'warning', description: 'Payment was cancelled' });
           }
-          return prev + 20;
         });
-      }, 500);
+        
+      } else if (payment.paymentType === 'BTC' && btcConnected) {
+        // For BTC payments, we'll simulate for now since we need Bitcoin wallet integration
+        // In a real implementation, this would use the Bitcoin wallet to send BTC
+        const progressInterval = setInterval(() => {
+          setPaymentProgress(prev => {
+            if (prev >= 100) {
+              clearInterval(progressInterval);
+              return 100;
+            }
+            return prev + 20;
+          });
+        }, 500);
 
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      clearInterval(progressInterval);
-      setPaymentProgress(100);
+        // Simulate BTC payment processing
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        clearInterval(progressInterval);
+        setPaymentProgress(100);
 
-      // Update payment status
-      setPayment(prev => prev ? { ...prev, status: 'paid' } : null);
-      
-      // Update in storage
-      const allPayments = paymentStorage.getAllPaymentLinks();
-      const updatedPayments = allPayments.map(p => 
-        p.id === payment.id ? { ...p, status: 'paid' as const } : p
-      );
-      paymentStorage.saveAllPaymentLinks(updatedPayments);
-      
-      toast({ title: 'Success', status: 'success', description: 'Payment completed successfully!' });
-    } catch (err) {
-      setPaymentError('Payment failed. Please try again.');
-      toast({ title: 'Error', status: 'error', description: 'Payment failed' });
+        // Update payment status
+        setPayment(prev => prev ? { ...prev, status: 'paid' } : null);
+        
+        // Update in storage
+        const allPayments = paymentStorage.getAllPaymentLinks();
+        const updatedPayments = allPayments.map(p => 
+          p.id === payment.id ? { ...p, status: 'paid' as const } : p
+        );
+        paymentStorage.saveAllPaymentLinks(updatedPayments);
+        
+        toast({ title: 'Success', status: 'success', description: 'BTC Payment completed successfully!' });
+      } else {
+        throw new Error('Invalid payment type or wallet not connected');
+      }
+    } catch (err: any) {
+      console.error('Payment error:', err);
+      setPaymentError(err.message || 'Payment failed. Please try again.');
+      toast({ title: 'Error', status: 'error', description: err.message || 'Payment failed' });
     } finally {
       setIsPaying(false);
       setPaymentProgress(0);

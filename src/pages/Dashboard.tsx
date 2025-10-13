@@ -144,9 +144,17 @@ export default function Dashboard() {
     loadStats();
   }, [isAuthenticated, address, btcConnected, btcAddress]);
 
-  const formatBalance = (balance: number | null) => {
+  const formatBalance = (balance: number | string | null) => {
     if (balance === null) return '0.00';
-    return balance.toFixed(6);
+    
+    let stxBalance: number;
+    if (typeof balance === 'string') {
+      stxBalance = parseInt(balance) / 1000000; // Convert microSTX to STX
+    } else {
+      stxBalance = balance;
+    }
+    
+    return stxBalance.toFixed(6);
   };
 
   const getWalletInfo = () => {
@@ -211,7 +219,7 @@ export default function Dashboard() {
                 </HStack>
                 <VStack align="end" gap={1}>
                   <Text fontSize="lg" fontWeight="bold" color="#10b981">
-                    {formatBalance(typeof walletInfo.balance === 'number' ? walletInfo.balance : 0)} {walletInfo.type === 'Stacks' ? 'STX' : 'BTC'}
+                    {formatBalance(walletInfo.balance)} {walletInfo.type === 'Stacks' ? 'STX' : 'BTC'}
                   </Text>
                   {walletInfo.loading && (
                     <Text fontSize="xs" color="#9ca3af">Loading balance...</Text>

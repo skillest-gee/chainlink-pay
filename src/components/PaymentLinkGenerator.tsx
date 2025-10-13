@@ -103,7 +103,8 @@ export default function PaymentLinkGenerator() {
       const { openContractCall } = await import('@stacks/connect');
       
       // Use existing network configuration
-      const network = process.env.REACT_APP_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+      const { stacksNetwork } = await import('../config/stacksConfig');
+      const network = stacksNetwork;
       const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
       const contractName = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
       
@@ -111,18 +112,25 @@ export default function PaymentLinkGenerator() {
         throw new Error('Contract not deployed. Please deploy the contract first.');
       }
 
+      // Generate a unique ID for the payment
+      const paymentId = generateId();
+      // Create a 32-byte buffer for the payment ID
+      const idBuffer = new Uint8Array(32);
+      const paymentIdBytes = new TextEncoder().encode(paymentId);
+      idBuffer.set(paymentIdBytes.slice(0, 32));
+      
       // Create payment registration transaction using Stacks Connect
       await openContractCall({
         contractAddress,
         contractName,
         functionName: 'create-payment',
         functionArgs: [
-          // amount (uint)
-          { type: 'uint', value: BigInt(parseFloat(amount) * 1000000) }, // Convert to microSTX
-          // description (string-utf8)
-          { type: 'string-utf8', value: description },
+          // id (buff 32) - must be exactly 32 bytes
+          { type: 'buff', value: idBuffer },
           // merchant (principal)
-          { type: 'principal', value: address! }
+          { type: 'principal', value: address! },
+          // amount (uint)
+          { type: 'uint', value: BigInt(parseFloat(amount) * 1000000) } // Convert to microSTX
         ] as any,
         network,
         onFinish: (data) => {
