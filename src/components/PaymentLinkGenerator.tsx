@@ -72,7 +72,7 @@ export default function PaymentLinkGenerator() {
         paymentType,
         status: 'pending',
         createdAt: Date.now(),
-        merchantAddress: isAuthenticated ? 'connected' : 'local'
+        merchantAddress: isAuthenticated ? address! : (btcConnected ? btcAddress! : 'unknown')
       };
 
       paymentStorage.savePaymentLink(paymentLink);
@@ -117,7 +117,10 @@ export default function PaymentLinkGenerator() {
       // Create a 32-byte buffer for the payment ID
       const idBuffer = new Uint8Array(32);
       const paymentIdBytes = new TextEncoder().encode(paymentId);
-      idBuffer.set(paymentIdBytes.slice(0, 32));
+      // Fill the buffer with the payment ID bytes, padding with zeros if needed
+      for (let i = 0; i < Math.min(32, paymentIdBytes.length); i++) {
+        idBuffer[i] = paymentIdBytes[i];
+      }
       
       // Create payment registration transaction using Stacks Connect
       await openContractCall({

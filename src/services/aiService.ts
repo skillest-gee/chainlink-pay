@@ -31,8 +31,14 @@ export class AIService {
   }
 
   async generateContract(request: AIContractRequest): Promise<AIContractResponse> {
+    console.log('AI Service: Environment variables:', {
+      OPENAI_API_KEY: process.env.REACT_APP_OPENAI_API_KEY ? 'Present' : 'Missing',
+      OPENROUTER_API_KEY: process.env.REACT_APP_OPENROUTER_API_KEY ? 'Present' : 'Missing',
+      apiKey: this.apiKey ? 'Present' : 'Missing'
+    });
+
     if (!this.apiKey) {
-      throw new Error('OpenRouter API key not configured. Please set REACT_APP_OPENAI_API_KEY environment variable.');
+      throw new Error('OpenRouter API key not configured. Please set REACT_APP_OPENAI_API_KEY or REACT_APP_OPENROUTER_API_KEY environment variable.');
     }
 
     console.log('AI Service: Generating contract with API key:', this.apiKey.substring(0, 10) + '...');

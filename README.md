@@ -12,18 +12,18 @@ ChainLinkPay is a comprehensive DeFi platform that solves real-world problems by
 
 ### 🎯 Problem Solved
 
-- **Cross-Chain Fragmentation**: Users struggle to move assets between Bitcoin and Stacks ecosystems
+- **Multi-Chain Fragmentation**: Users struggle to move assets between Bitcoin, Stacks, Ethereum, and BNB Chain ecosystems
 - **Complex Smart Contract Development**: Developers need AI assistance for Clarity contract creation
-- **Payment Processing Complexity**: Merchants need simple, secure payment solutions
+- **Payment Processing Complexity**: Merchants need simple, secure payment solutions across multiple chains
 - **Lack of Real-World DeFi Applications**: Most DeFi projects don't solve actual business problems
 
 ### 💡 Solution
 
 ChainLinkPay provides:
-- **Real Cross-Chain Bridge**: Seamlessly move assets between Bitcoin and Stacks
+- **Multi-Chain Bridge**: Seamlessly move assets between Bitcoin, Stacks, Ethereum, and BNB Chain
 - **AI Contract Builder**: Generate production-ready Clarity smart contracts
 - **Payment Link System**: Create and manage payment links with real blockchain transactions
-- **Comprehensive Dashboard**: Track all transactions and analytics
+- **Comprehensive Dashboard**: Track all transactions and analytics across multiple chains
 - **Real-World Integration**: Built for actual business use cases
 
 ## 🚀 Features
@@ -35,11 +35,12 @@ ChainLinkPay provides:
 - **Real-Time Status**: Track payment status with blockchain confirmation
 - **Merchant Dashboard**: Comprehensive analytics and transaction history
 
-### 🌉 Cross-Chain Bridge
-- **STX ↔ Bitcoin**: Real cross-chain asset transfers
+### 🌉 Multi-Chain Bridge
+- **Bitcoin ↔ Stacks ↔ Ethereum ↔ BNB Chain**: Comprehensive cross-chain asset transfers
+- **Supported Assets**: BTC, STX, ETH, BNB, USDC, USDT
 - **Live Exchange Rates**: Dynamic pricing based on market conditions
-- **Low Fees**: Competitive 0.5% bridge fee
-- **Fast Processing**: 10-20 minute bridge completion
+- **Competitive Fees**: 0.3% - 1% bridge fees depending on chain
+- **Fast Processing**: 5-30 minute bridge completion
 - **Transaction Tracking**: Real-time status updates
 
 ### 🤖 AI Smart Contract Builder

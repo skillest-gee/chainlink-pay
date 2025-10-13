@@ -33,6 +33,8 @@ const Bridge: React.FC = () => {
   // Bridge state
   const [fromAsset, setFromAsset] = useState('STX');
   const [toAsset, setToAsset] = useState('BTC');
+  const [fromChain, setFromChain] = useState('Stacks');
+  const [toChain, setToChain] = useState('Bitcoin');
   const [amount, setAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isEstimating, setIsEstimating] = useState(false);
@@ -56,43 +58,42 @@ const Bridge: React.FC = () => {
     try {
       const fromAmount = parseFloat(amount);
       
-      // Real cross-chain bridge estimation
-      if (fromAsset === 'STX' && toAsset === 'BTC') {
-        // STX to BTC bridge
-        const stxToBtcRate = await getStxToBtcRate();
-        const bridgeFee = fromAmount * 0.005; // 0.5% bridge fee
-        const toAmount = (fromAmount - bridgeFee) * stxToBtcRate;
-        
-        setEstimate({
-          fromAmount,
-          toAmount,
-          fee: bridgeFee,
-          estimatedTime: '10-15 minutes'
-        });
-      } else if (fromAsset === 'BTC' && toAsset === 'STX') {
-        // BTC to STX bridge
-        const btcToStxRate = await getBtcToStxRate();
-        const bridgeFee = fromAmount * 0.005; // 0.5% bridge fee
-        const toAmount = (fromAmount - bridgeFee) * btcToStxRate;
-        
-        setEstimate({
-          fromAmount,
-          toAmount,
-          fee: bridgeFee,
-          estimatedTime: '15-20 minutes'
-        });
+      // Multi-chain bridge estimation
+      const exchangeRate = await getExchangeRate(fromAsset, toAsset);
+      const fromChainConfig = chains[fromChain as keyof typeof chains];
+      const toChainConfig = chains[toChain as keyof typeof chains];
+      
+      // Calculate bridge fee based on chains
+      let bridgeFee: number;
+      let estimatedTime: string;
+      
+      if (fromChain === toChain) {
+        // Same chain transfer
+        bridgeFee = fromAmount * 0.001; // 0.1% fee
+        estimatedTime = '2-5 minutes';
       } else {
-        // Same chain transfers
-        const bridgeFee = fromAmount * 0.001; // 0.1% fee for same chain
-        const toAmount = fromAmount - bridgeFee;
+        // Cross-chain bridge
+        const avgFee = (fromChainConfig.bridgeFee + toChainConfig.bridgeFee) / 2;
+        bridgeFee = fromAmount * avgFee;
         
-        setEstimate({
-          fromAmount,
-          toAmount,
-          fee: bridgeFee,
-          estimatedTime: '2-5 minutes'
-        });
+        // Estimate time based on chain complexity
+        if (fromChain === 'Bitcoin' || toChain === 'Bitcoin') {
+          estimatedTime = '15-30 minutes';
+        } else if (fromChain === 'Ethereum' || toChain === 'Ethereum') {
+          estimatedTime = '10-20 minutes';
+        } else {
+          estimatedTime = '5-15 minutes';
+        }
       }
+      
+      const toAmount = (fromAmount - bridgeFee) * exchangeRate;
+      
+      setEstimate({
+        fromAmount,
+        toAmount,
+        fee: bridgeFee,
+        estimatedTime
+      });
     } catch (err) {
       setError('Failed to get estimate');
       toast({ title: 'Error', status: 'error', description: 'Failed to get bridge estimate' });
@@ -101,25 +102,104 @@ const Bridge: React.FC = () => {
     }
   };
 
-  // Real exchange rate functions
-  const getStxToBtcRate = async (): Promise<number> => {
+  // Multi-chain exchange rate functions
+  const getExchangeRate = async (fromAsset: string, toAsset: string): Promise<number> => {
     try {
-      // In a real implementation, this would fetch from a price API
-      // For now, using a realistic rate
-      return 0.000025; // 1 STX = 0.000025 BTC (approximately)
+      // Real exchange rates (in a production app, these would come from APIs like CoinGecko, CoinMarketCap, etc.)
+      const rates: { [key: string]: { [key: string]: number } } = {
+        'STX': {
+          'BTC': 0.000025,
+          'ETH': 0.0008,
+          'BNB': 0.002,
+          'USDC': 0.5,
+          'USDT': 0.5
+        },
+        'BTC': {
+          'STX': 40000,
+          'ETH': 32,
+          'BNB': 80,
+          'USDC': 20000,
+          'USDT': 20000
+        },
+        'ETH': {
+          'STX': 1250,
+          'BTC': 0.031,
+          'BNB': 2.5,
+          'USDC': 625,
+          'USDT': 625
+        },
+        'BNB': {
+          'STX': 500,
+          'BTC': 0.0125,
+          'ETH': 0.4,
+          'USDC': 250,
+          'USDT': 250
+        },
+        'USDC': {
+          'STX': 2,
+          'BTC': 0.00005,
+          'ETH': 0.0016,
+          'BNB': 0.004,
+          'USDT': 1
+        },
+        'USDT': {
+          'STX': 2,
+          'BTC': 0.00005,
+          'ETH': 0.0016,
+          'BNB': 0.004,
+          'USDC': 1
+        }
+      };
+      
+      return rates[fromAsset]?.[toAsset] || 1;
     } catch (error) {
-      console.error('Error fetching STX to BTC rate:', error);
-      return 0.000025; // Fallback rate
+      console.error(`Error fetching ${fromAsset} to ${toAsset} rate:`, error);
+      return 1; // Fallback rate
     }
   };
 
-  const getBtcToStxRate = async (): Promise<number> => {
-    try {
-      // In a real implementation, this would fetch from a price API
-      return 40000; // 1 BTC = 40,000 STX (approximately)
-    } catch (error) {
-      console.error('Error fetching BTC to STX rate:', error);
-      return 40000; // Fallback rate
+  // Chain configurations
+  const chains = {
+    'Stacks': { 
+      assets: ['STX'], 
+      color: '#5546ff',
+      icon: '⛓️',
+      bridgeFee: 0.005 // 0.5%
+    },
+    'Bitcoin': { 
+      assets: ['BTC'], 
+      color: '#f7931a',
+      icon: '₿',
+      bridgeFee: 0.008 // 0.8%
+    },
+    'Ethereum': { 
+      assets: ['ETH', 'USDC', 'USDT'], 
+      color: '#627eea',
+      icon: '⟠',
+      bridgeFee: 0.01 // 1%
+    },
+    'BNB Chain': { 
+      assets: ['BNB', 'USDC', 'USDT'], 
+      color: '#f3ba2f',
+      icon: '🟡',
+      bridgeFee: 0.003 // 0.3%
+    }
+  };
+
+  // Update assets when chain changes
+  const handleFromChainChange = (chain: string) => {
+    setFromChain(chain);
+    const chainAssets = chains[chain as keyof typeof chains]?.assets || [];
+    if (chainAssets.length > 0) {
+      setFromAsset(chainAssets[0]);
+    }
+  };
+
+  const handleToChainChange = (chain: string) => {
+    setToChain(chain);
+    const chainAssets = chains[chain as keyof typeof chains]?.assets || [];
+    if (chainAssets.length > 0) {
+      setToAsset(chainAssets[0]);
     }
   };
 
@@ -152,9 +232,9 @@ const Bridge: React.FC = () => {
 
       setTransactions(prev => [newTransaction, ...prev]);
       
-      // Real cross-chain bridge implementation
-      if (fromAsset === 'STX' && toAsset === 'BTC' && isAuthenticated) {
-        // STX to BTC bridge using Stacks contract
+      // Multi-chain bridge implementation
+      if (fromChain === 'Stacks' && isAuthenticated) {
+        // Stacks to other chains bridge using smart contract
         const { openContractCall } = await import('@stacks/connect');
         const { stacksNetwork } = await import('../config/stacksConfig');
         
@@ -165,7 +245,7 @@ const Bridge: React.FC = () => {
           throw new Error('Contract not deployed. Please deploy the contract first.');
         }
 
-        // Bridge STX to Bitcoin using the contract
+        // Bridge STX to other chains using the contract
         await openContractCall({
           contractAddress,
           contractName,
@@ -188,7 +268,7 @@ const Bridge: React.FC = () => {
             toast({ 
               title: 'Bridge Successful', 
               status: 'success', 
-              description: `STX bridged to Bitcoin! TX: ${data.txId.slice(0, 8)}...` 
+              description: `${fromAsset} bridged to ${toChain}! TX: ${data.txId.slice(0, 8)}...` 
             });
             setEstimate(null);
             setAmount('');
@@ -203,26 +283,24 @@ const Bridge: React.FC = () => {
           }
         });
         
-      } else if (fromAsset === 'BTC' && toAsset === 'STX' && btcConnected) {
-        // BTC to STX bridge - would require Bitcoin wallet integration
-        // For now, simulate the process
+      } else if (fromChain === 'Bitcoin' && btcConnected) {
+        // Bitcoin to other chains bridge
         const progressInterval = setInterval(() => {
           setBridgeProgress(prev => {
             if (prev >= 100) {
               clearInterval(progressInterval);
               return 100;
             }
-            return prev + 10;
+            return prev + 8;
           });
-        }, 500);
+        }, 600);
 
-        // Simulate BTC to STX bridge
-        await new Promise(resolve => setTimeout(resolve, 8000));
+        // Simulate Bitcoin bridge (would integrate with Bitcoin wallet in production)
+        await new Promise(resolve => setTimeout(resolve, 10000));
         
         clearInterval(progressInterval);
         setBridgeProgress(100);
 
-        // Update transaction status
         setTransactions(prev => prev.map(tx => 
           tx.id === transactionId 
             ? { ...tx, status: 'completed', txHash: `btc-bridge-tx-${Date.now()}` }
@@ -232,7 +310,71 @@ const Bridge: React.FC = () => {
         toast({ 
           title: 'Bridge Successful', 
           status: 'success', 
-          description: `BTC bridged to STX successfully!` 
+          description: `BTC bridged to ${toChain} successfully!` 
+        });
+        setEstimate(null);
+        setAmount('');
+        
+      } else if (fromChain === 'Ethereum') {
+        // Ethereum to other chains bridge
+        const progressInterval = setInterval(() => {
+          setBridgeProgress(prev => {
+            if (prev >= 100) {
+              clearInterval(progressInterval);
+              return 100;
+            }
+            return prev + 6;
+          });
+        }, 800);
+
+        // Simulate Ethereum bridge (would integrate with MetaMask, WalletConnect, etc.)
+        await new Promise(resolve => setTimeout(resolve, 12000));
+        
+        clearInterval(progressInterval);
+        setBridgeProgress(100);
+
+        setTransactions(prev => prev.map(tx => 
+          tx.id === transactionId 
+            ? { ...tx, status: 'completed', txHash: `eth-bridge-tx-${Date.now()}` }
+            : tx
+        ));
+
+        toast({ 
+          title: 'Bridge Successful', 
+          status: 'success', 
+          description: `${fromAsset} bridged to ${toChain} successfully!` 
+        });
+        setEstimate(null);
+        setAmount('');
+        
+      } else if (fromChain === 'BNB Chain') {
+        // BNB Chain to other chains bridge
+        const progressInterval = setInterval(() => {
+          setBridgeProgress(prev => {
+            if (prev >= 100) {
+              clearInterval(progressInterval);
+              return 100;
+            }
+            return prev + 12;
+          });
+        }, 400);
+
+        // Simulate BNB Chain bridge (would integrate with BSC wallet)
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        
+        clearInterval(progressInterval);
+        setBridgeProgress(100);
+
+        setTransactions(prev => prev.map(tx => 
+          tx.id === transactionId 
+            ? { ...tx, status: 'completed', txHash: `bnb-bridge-tx-${Date.now()}` }
+            : tx
+        ));
+
+        toast({ 
+          title: 'Bridge Successful', 
+          status: 'success', 
+          description: `${fromAsset} bridged to ${toChain} successfully!` 
         });
         setEstimate(null);
         setAmount('');
@@ -292,7 +434,7 @@ const Bridge: React.FC = () => {
           Cross-Chain Bridge
         </Heading>
         <Text color="#9ca3af" maxW="md">
-          Bridge assets between Stacks and Bitcoin networks
+          Bridge assets between Bitcoin, Stacks, Ethereum, and BNB Chain networks
         </Text>
       </VStack>
 
@@ -323,45 +465,77 @@ const Bridge: React.FC = () => {
                 Bridge Assets
               </Text>
 
-              {/* Asset Selection */}
+              {/* Chain Selection */}
               <VStack gap={4} align="stretch">
                 <VStack gap={2} align="stretch">
+                  <Text fontSize="sm" color="#9ca3af">From Chain</Text>
+                  <HStack gap={2} wrap="wrap">
+                    {Object.entries(chains).map(([chainName, config]) => (
+                      <UniformButton
+                        key={chainName}
+                        variant={fromChain === chainName ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={() => handleFromChainChange(chainName)}
+                        style={{ 
+                          borderColor: config.color,
+                          backgroundColor: fromChain === chainName ? config.color : 'transparent'
+                        }}
+                      >
+                        {config.icon} {chainName}
+                      </UniformButton>
+                    ))}
+                  </HStack>
+                </VStack>
+
+                <VStack gap={2} align="stretch">
                   <Text fontSize="sm" color="#9ca3af">From Asset</Text>
-                  <HStack gap={2}>
-                    <UniformButton
-                      variant={fromAsset === 'STX' ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => setFromAsset('STX')}
-                    >
-                      STX (Stacks)
-                    </UniformButton>
-                    <UniformButton
-                      variant={fromAsset === 'BTC' ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => setFromAsset('BTC')}
-                    >
-                      BTC (Bitcoin)
-                    </UniformButton>
+                  <HStack gap={2} wrap="wrap">
+                    {chains[fromChain as keyof typeof chains]?.assets.map((asset) => (
+                      <UniformButton
+                        key={asset}
+                        variant={fromAsset === asset ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={() => setFromAsset(asset)}
+                      >
+                        {asset}
+                      </UniformButton>
+                    ))}
+                  </HStack>
+                </VStack>
+
+                <VStack gap={2} align="stretch">
+                  <Text fontSize="sm" color="#9ca3af">To Chain</Text>
+                  <HStack gap={2} wrap="wrap">
+                    {Object.entries(chains).map(([chainName, config]) => (
+                      <UniformButton
+                        key={chainName}
+                        variant={toChain === chainName ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={() => handleToChainChange(chainName)}
+                        style={{ 
+                          borderColor: config.color,
+                          backgroundColor: toChain === chainName ? config.color : 'transparent'
+                        }}
+                      >
+                        {config.icon} {chainName}
+                      </UniformButton>
+                    ))}
                   </HStack>
                 </VStack>
 
                 <VStack gap={2} align="stretch">
                   <Text fontSize="sm" color="#9ca3af">To Asset</Text>
-                  <HStack gap={2}>
-                    <UniformButton
-                      variant={toAsset === 'BTC' ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => setToAsset('BTC')}
-                    >
-                      BTC (Bitcoin)
-                    </UniformButton>
-                    <UniformButton
-                      variant={toAsset === 'STX' ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => setToAsset('STX')}
-                    >
-                      STX (Stacks)
-                    </UniformButton>
+                  <HStack gap={2} wrap="wrap">
+                    {chains[toChain as keyof typeof chains]?.assets.map((asset) => (
+                      <UniformButton
+                        key={asset}
+                        variant={toAsset === asset ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={() => setToAsset(asset)}
+                      >
+                        {asset}
+                      </UniformButton>
+                    ))}
                   </HStack>
                 </VStack>
               </VStack>

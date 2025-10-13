@@ -6,17 +6,7 @@ import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
 import { UniformButton } from '../components/UniformButton';
 import { UniformCard } from '../components/UniformCard';
-import { paymentStorage } from '../services/paymentStorage';
-
-interface PaymentData {
-  id: string;
-  amount: number;
-  description: string;
-  status: 'pending' | 'paid' | 'expired';
-  merchant: string;
-  paymentType: 'STX' | 'BTC';
-  createdAt: string;
-}
+import { paymentStorage, PaymentLink } from '../services/paymentStorage';
 
 export default function Pay() {
   const { id: paymentId } = useParams<{ id: string }>();
@@ -24,7 +14,7 @@ export default function Pay() {
   const { isConnected: btcConnected, address: btcAddress, connect: connectBTC } = useBitcoinWallet();
   const { toast } = useToast();
   
-  const [payment, setPayment] = useState<PaymentData | null>(null);
+  const [payment, setPayment] = useState<PaymentLink | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPaying, setIsPaying] = useState(false);
@@ -33,9 +23,19 @@ export default function Pay() {
 
   // Check if current user is the merchant (creator of the payment link)
   const isMerchant = payment && (
-    (isAuthenticated && address === payment.merchant) ||
-    (btcConnected && btcAddress === payment.merchant)
+    (isAuthenticated && address === payment.merchantAddress) ||
+    (btcConnected && btcAddress === payment.merchantAddress)
   );
+
+  // Debug logging
+  console.log('Payment debug:', {
+    payment: payment?.id,
+    merchantAddress: payment?.merchantAddress,
+    currentAddress: isAuthenticated ? address : btcAddress,
+    isAuthenticated,
+    btcConnected,
+    isMerchant
+  });
 
   useEffect(() => {
     const fetchPayment = async () => {
@@ -54,28 +54,19 @@ export default function Pay() {
         const foundPayment = allPayments.find(p => p.id === paymentId);
         
         if (foundPayment) {
-          const paymentData: PaymentData = {
-            id: foundPayment.id,
-            amount: parseFloat(foundPayment.amount),
-            description: foundPayment.description || 'Payment',
-            status: foundPayment.status as 'pending' | 'paid' | 'expired',
-            merchant: foundPayment.merchantAddress || 'unknown',
-            paymentType: foundPayment.paymentType || 'STX',
-            createdAt: new Date(foundPayment.createdAt).toISOString()
-          };
-          setPayment(paymentData);
+          setPayment(foundPayment);
         } else {
           // Simulate fetching from server
           await new Promise(resolve => setTimeout(resolve, 1000));
           
-          const mockPayment: PaymentData = {
+          const mockPayment: PaymentLink = {
             id: paymentId,
-            amount: 10.5,
+            amount: '10.5',
             description: 'Sample payment for services',
             status: 'pending',
-            merchant: 'merchant-address',
+            merchantAddress: 'merchant-address',
             paymentType: 'STX',
-            createdAt: new Date().toISOString()
+            createdAt: Date.now()
           };
           
           setPayment(mockPayment);
@@ -132,7 +123,10 @@ export default function Pay() {
         // Create a 32-byte buffer for the payment ID
         const idBuffer = new Uint8Array(32);
         const paymentIdBytes = new TextEncoder().encode(paymentId);
-        idBuffer.set(paymentIdBytes.slice(0, 32));
+        // Fill the buffer with the payment ID bytes, padding with zeros if needed
+        for (let i = 0; i < Math.min(32, paymentIdBytes.length); i++) {
+          idBuffer[i] = paymentIdBytes[i];
+        }
         
         // Mark payment as paid on-chain
         await openContractCall({
