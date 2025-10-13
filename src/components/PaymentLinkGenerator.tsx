@@ -115,13 +115,36 @@ export default function PaymentLinkGenerator() {
 
       // Generate a unique ID for the payment
       const paymentId = generateId();
-      // Create a 32-byte buffer for the payment ID
-      const idBuffer = new Uint8Array(32);
-      const paymentIdBytes = new TextEncoder().encode(paymentId);
-      // Fill the buffer with the payment ID bytes, padding with zeros if needed
-      for (let i = 0; i < Math.min(32, paymentIdBytes.length); i++) {
-        idBuffer[i] = paymentIdBytes[i];
+      
+      // Create a 32-byte buffer for the payment ID using a more reliable method
+      let idBuffer: Uint8Array;
+      try {
+        // Method 1: Try to create from hex string if paymentId is hex
+        if (paymentId.match(/^[0-9a-fA-F]+$/)) {
+          const hexString = paymentId.padStart(64, '0').slice(0, 64); // Ensure 32 bytes (64 hex chars)
+          idBuffer = new Uint8Array(32);
+          for (let i = 0; i < 32; i++) {
+            idBuffer[i] = parseInt(hexString.substr(i * 2, 2), 16);
+          }
+        } else {
+          // Method 2: Use TextEncoder for string IDs
+          const paymentIdBytes = new TextEncoder().encode(paymentId);
+          idBuffer = new Uint8Array(32);
+          for (let i = 0; i < Math.min(32, paymentIdBytes.length); i++) {
+            idBuffer[i] = paymentIdBytes[i];
+          }
+        }
+      } catch (error) {
+        console.error('Error creating buffer:', error);
+        throw new Error('Failed to create payment ID buffer');
       }
+      
+      console.log('Buffer details for create-payment:', {
+        paymentId,
+        bufferLength: idBuffer.length,
+        bufferBytes: Array.from(idBuffer),
+        bufferHex: Array.from(idBuffer).map(b => b.toString(16).padStart(2, '0')).join('')
+      });
       
       // Validate the amount is within safe range
       const amountInMicroSTX = Math.floor(parseFloat(amount) * 1000000);

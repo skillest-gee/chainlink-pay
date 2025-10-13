@@ -1,4 +1,4 @@
-// AI Service for Contract Generation using OpenRouter API
+// AI Service for Contract Generation using Gemini AI API
 export interface AIContractRequest {
   description: string;
   template: string;
@@ -23,17 +23,17 @@ export interface ContractValidation {
 
 export class AIService {
   private apiKey: string;
-  private baseUrl = 'https://openrouter.ai/api/v1';
+  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
   constructor() {
-    this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || process.env.REACT_APP_OPENROUTER_API_KEY || '';
+    this.apiKey = process.env.REACT_APP_GEMINI_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || '';
     console.log('AI Service initialized with API key:', this.apiKey ? 'Present' : 'Missing');
   }
 
   async generateContract(request: AIContractRequest): Promise<AIContractResponse> {
     console.log('AI Service: Environment variables:', {
+      GEMINI_API_KEY: process.env.REACT_APP_GEMINI_API_KEY ? 'Present' : 'Missing',
       OPENAI_API_KEY: process.env.REACT_APP_OPENAI_API_KEY ? 'Present' : 'Missing',
-      OPENROUTER_API_KEY: process.env.REACT_APP_OPENROUTER_API_KEY ? 'Present' : 'Missing',
       apiKey: this.apiKey ? 'Present' : 'Missing'
     });
 
@@ -48,28 +48,21 @@ export class AIService {
     const prompt = this.buildPrompt(request);
     
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      const response = await fetch(`${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'ChainLinkPay AI Contract Builder'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'meta-llama/llama-3.1-8b-instruct:free',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert Clarity smart contract developer. Generate professional, secure, and well-documented Clarity contracts. Always include proper error handling, security checks, and documentation.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 4000
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 4000
+          }
         })
       });
 
@@ -79,18 +72,18 @@ export class AIService {
         
         // Handle specific error cases
         if (response.status === 401) {
-          throw new Error('Invalid API key. Please check your OpenRouter API key configuration.');
+          throw new Error('Invalid API key. Please check your Gemini API key configuration.');
         } else if (response.status === 429) {
           throw new Error('API rate limit exceeded. Please try again later.');
         } else if (response.status === 500) {
-          throw new Error('OpenRouter API server error. Please try again later.');
+          throw new Error('Gemini API server error. Please try again later.');
         }
         
         throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
-      const content = data.choices[0]?.message?.content || '';
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
       return this.parseAIResponse(content, request);
     } catch (error: any) {
@@ -108,7 +101,7 @@ export class AIService {
 
   async validateContract(contract: string): Promise<ContractValidation> {
     if (!this.apiKey) {
-      throw new Error('OpenRouter API key not configured. Please set REACT_APP_OPENAI_API_KEY environment variable.');
+      throw new Error('Gemini API key not configured. Please set REACT_APP_GEMINI_API_KEY environment variable.');
     }
 
     const errors: string[] = [];
@@ -162,7 +155,7 @@ export class AIService {
 
   async improveContract(contract: string, feedback: string): Promise<AIContractResponse> {
     if (!this.apiKey) {
-      throw new Error('OpenRouter API key not configured. Please set REACT_APP_OPENAI_API_KEY environment variable.');
+      throw new Error('Gemini API key not configured. Please set REACT_APP_GEMINI_API_KEY environment variable.');
     }
 
     const prompt = `Please improve this Clarity smart contract based on the feedback provided:
@@ -207,11 +200,11 @@ Please provide an improved version with better security, error handling, and doc
         
         // Handle specific error cases
         if (response.status === 401) {
-          throw new Error('Invalid API key. Please check your OpenRouter API key configuration.');
+          throw new Error('Invalid API key. Please check your Gemini API key configuration.');
         } else if (response.status === 429) {
           throw new Error('API rate limit exceeded. Please try again later.');
         } else if (response.status === 500) {
-          throw new Error('OpenRouter API server error. Please try again later.');
+          throw new Error('Gemini API server error. Please try again later.');
         }
         
         throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
@@ -444,7 +437,7 @@ REQUIREMENTS:
 - Add read-only functions for data retrieval
 - Include contract statistics and analytics
 
-Please generate a complete, production-ready Clarity contract that follows Stacks blockchain standards.`;
+Please generate a complete, production-ready Clarity contract that follows Stacks blockchain standards. Return ONLY the Clarity code wrapped in \`\`\`clarity code blocks.`;
   }
 
   private parseAIResponse(content: string, request: AIContractRequest): AIContractResponse {
