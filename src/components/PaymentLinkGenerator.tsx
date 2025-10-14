@@ -6,6 +6,7 @@ import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useMerchantNotifications } from '../hooks/useMerchantNotifications';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
+import { paymentStatusAPI } from '../services/paymentStatusAPI';
 import { UniformButton } from './UniformButton';
 import { UniformInput, UniformTextarea } from './UniformInput';
 import { UniformCard } from './UniformCard';
@@ -60,9 +61,31 @@ export default function PaymentLinkGenerator() {
 
   // Load payment history and listen for payment updates
   React.useEffect(() => {
-    const loadPaymentHistory = () => {
+  const loadPaymentHistory = async () => {
+    const currentAddress = isAuthenticated ? address : btcAddress;
+    if (currentAddress) {
+      try {
+        // First try to load from centralized API
+        const apiPayments = await paymentStatusAPI.getPaymentsByMerchant(currentAddress);
+        if (apiPayments.length > 0) {
+          console.log('PaymentLinkGenerator: Loaded payments from centralized API:', apiPayments.length);
+          setPaymentHistory(apiPayments as PaymentLink[]);
+          
+          // Update payment status if we have a generated payment
+          if (generatedId) {
+            const currentPayment = apiPayments.find(p => p.id === generatedId);
+            if (currentPayment) {
+              setPaymentStatus(currentPayment.status);
+            }
+          }
+          return;
+        }
+      } catch (error) {
+        console.log('PaymentLinkGenerator: Failed to load from API, falling back to localStorage:', error);
+      }
+      
+      // Fallback to localStorage
       const allPayments = paymentStorage.getAllPaymentLinks();
-      const currentAddress = isAuthenticated ? address : btcAddress;
       const userPayments = allPayments.filter(payment => 
         payment.merchantAddress === currentAddress
       );
@@ -75,7 +98,8 @@ export default function PaymentLinkGenerator() {
           setPaymentStatus(currentPayment.status);
         }
       }
-    };
+    }
+  };
 
     loadPaymentHistory();
 
@@ -130,46 +154,79 @@ export default function PaymentLinkGenerator() {
     window.addEventListener('message', handlePostMessage);
 
     // Set up periodic refresh for pending payments
-    const refreshInterval = setInterval(() => {
+    const refreshInterval = setInterval(async () => {
       console.log('PaymentLinkGenerator: Periodic refresh check');
-      const allPayments = paymentStorage.getAllPaymentLinks();
+      
+      // Sync with blockchain first
+      await paymentStatusAPI.syncWithBlockchain();
+      
+      // Then refresh payment history and check for pending payments
       const currentAddress = isAuthenticated ? address : btcAddress;
-      const userPayments = allPayments.filter(payment => 
-        payment.merchantAddress === currentAddress
-      );
-      
-      // Check if any payments are still pending
-      const hasPendingPayments = userPayments.some(p => p.status === 'pending');
-      if (hasPendingPayments) {
-        console.log('PaymentLinkGenerator: Found pending payments, refreshing');
-        loadPaymentHistory();
-      }
-      
-      // Also refresh if we have a generated payment that's pending
-      if (generatedId) {
-        const currentPayment = userPayments.find(p => p.id === generatedId);
-        if (currentPayment && currentPayment.status === 'pending') {
-          console.log('PaymentLinkGenerator: Generated payment still pending, refreshing', generatedId);
-          loadPaymentHistory();
+      if (currentAddress) {
+        try {
+          const apiPayments = await paymentStatusAPI.getPaymentsByMerchant(currentAddress);
+          setPaymentHistory(apiPayments as PaymentLink[]);
+          
+          const hasPendingPayments = apiPayments.some(p => p.status === 'pending');
+          
+          if (hasPendingPayments) {
+            console.log('PaymentLinkGenerator: Found pending payments after blockchain sync');
+          }
+          
+          // Also check if we have a generated payment that's pending
+          if (generatedId) {
+            const currentPayment = apiPayments.find(p => p.id === generatedId);
+            if (currentPayment && currentPayment.status === 'pending') {
+              console.log('PaymentLinkGenerator: Generated payment still pending after blockchain sync', generatedId);
+            }
+          }
+        } catch (error) {
+          console.log('Failed to load from API in periodic refresh:', error);
         }
       }
-    }, 2000); // Check every 2 seconds for pending payments (more aggressive)
+    }, 3000); // Check every 3 seconds with blockchain sync
 
     // Subscribe to merchant payment updates
     const currentAddress = isAuthenticated ? address : btcAddress;
     const unsubscribe = currentAddress ? subscribeToPaymentUpdates(currentAddress, (payment) => {
       console.log('PaymentLinkGenerator: Merchant payment update received:', payment);
       // Force immediate refresh when payment is updated
-      setTimeout(() => {
-        loadPaymentHistory();
+      setTimeout(async () => {
+        const currentAddress = isAuthenticated ? address : btcAddress;
+        if (currentAddress) {
+          try {
+            const apiPayments = await paymentStatusAPI.getPaymentsByMerchant(currentAddress);
+            setPaymentHistory(apiPayments as PaymentLink[]);
+          } catch (error) {
+            console.log('Failed to load from API in event handler:', error);
+          }
+        }
       }, 100);
     }) : () => {};
+
+    // Listen for centralized API updates
+    const handleAPIUpdate = (event: CustomEvent) => {
+      console.log('PaymentLinkGenerator: Centralized API update received:', event.detail);
+      if (event.detail.paymentId === generatedId) {
+        console.log('PaymentLinkGenerator: Generated payment updated via API');
+        const currentAddress = isAuthenticated ? address : btcAddress;
+        if (currentAddress) {
+          paymentStatusAPI.getPaymentsByMerchant(currentAddress).then(apiPayments => {
+            setPaymentHistory(apiPayments as PaymentLink[]);
+          }).catch(error => {
+            console.log('Failed to load from API in API update handler:', error);
+          });
+        }
+      }
+    };
+    window.addEventListener('paymentStatusAPIUpdate', handleAPIUpdate as EventListener);
 
     return () => {
       window.removeEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
       window.removeEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
       window.removeEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
       window.removeEventListener('message', handlePostMessage);
+      window.removeEventListener('paymentStatusAPIUpdate', handleAPIUpdate as EventListener);
       clearInterval(refreshInterval);
       unsubscribe();
     };
@@ -249,20 +306,38 @@ export default function PaymentLinkGenerator() {
 
   // Load existing payment links for this wallet on component mount
   React.useEffect(() => {
-    const currentAddress = isAuthenticated ? address : btcAddress;
-    if (currentAddress) {
-      const allPayments = paymentStorage.getAllPaymentLinks();
-      const userPayments = allPayments.filter(p => p.merchantAddress === currentAddress);
-      
-      // If user has recent payments, show the most recent one
-      if (userPayments.length > 0) {
-        const latestPayment = userPayments.sort((a, b) => b.createdAt - a.createdAt)[0];
-        setGeneratedId(latestPayment.id);
-        setAmount(latestPayment.amount);
-        setDescription(latestPayment.description);
-        setPaymentType(latestPayment.paymentType || 'STX');
+    const loadInitialData = async () => {
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      if (currentAddress) {
+        // Start periodic blockchain sync
+        paymentStatusAPI.startPeriodicSync(5000); // Every 5 seconds
+        
+        // Load payment history from centralized API
+        try {
+          const apiPayments = await paymentStatusAPI.getPaymentsByMerchant(currentAddress);
+          if (apiPayments.length > 0) {
+            setPaymentHistory(apiPayments as PaymentLink[]);
+          }
+        } catch (error) {
+          console.log('Failed to load from API on mount:', error);
+        }
+        
+        // Also load from localStorage as fallback
+        const allPayments = paymentStorage.getAllPaymentLinks();
+        const userPayments = allPayments.filter(p => p.merchantAddress === currentAddress);
+        
+        // If user has recent payments, show the most recent one
+        if (userPayments.length > 0) {
+          const latestPayment = userPayments.sort((a, b) => b.createdAt - a.createdAt)[0];
+          setGeneratedId(latestPayment.id);
+          setAmount(latestPayment.amount);
+          setDescription(latestPayment.description);
+          setPaymentType(latestPayment.paymentType || 'STX');
+        }
       }
-    }
+    };
+
+    loadInitialData();
   }, [isAuthenticated, address, btcConnected, btcAddress]);
 
   // Listen for wallet state changes
@@ -760,7 +835,7 @@ export default function PaymentLinkGenerator() {
         <UniformInput
           type="number"
           placeholder="Enter amount"
-          value={amount}
+            value={amount}
           onChange={(e) => setAmount(e.target.value)}
           variant="default"
           fontSize={{ base: "md", md: "sm" }}
@@ -775,7 +850,7 @@ export default function PaymentLinkGenerator() {
           </Text>
         <UniformTextarea
           placeholder="Enter payment description"
-          value={description}
+            value={description} 
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
           fontSize={{ base: "md", md: "sm" }}
@@ -802,7 +877,7 @@ export default function PaymentLinkGenerator() {
               <Text fontSize="lg">🚨</Text>
               <Text color="#ef4444" fontSize="sm" fontWeight="medium">Error</Text>
             </HStack>
-            <Text color="#ef4444" fontSize="sm">{error}</Text>
+          <Text color="#ef4444" fontSize="sm">{error}</Text>
             {errorDetails && (
               <Box p={2} bg="rgba(0, 0, 0, 0.3)" borderRadius="md">
                 <Text color="#9ca3af" fontSize="xs" fontFamily="mono">
@@ -861,30 +936,31 @@ export default function PaymentLinkGenerator() {
                   onClick={async () => {
                     console.log('Manual payment status check for:', generatedId);
                     
-                    // Force immediate status update
+                    // Force blockchain sync first
+                    await paymentStatusAPI.syncWithBlockchain();
+                    
+                    // Then refresh payment history from centralized API
                     const currentAddress = isAuthenticated ? address : btcAddress;
                     if (currentAddress) {
-                      const allPayments = paymentStorage.getAllPaymentLinks();
-                      const userPayments = allPayments.filter(p => p.merchantAddress === currentAddress);
-                      setPaymentHistory(userPayments);
-                      
-                      const currentPayment = userPayments.find(p => p.id === generatedId);
-                      if (currentPayment) {
-                        setPaymentStatus(currentPayment.status);
-                        console.log('Manual check: Payment status updated to', currentPayment.status);
+                      try {
+                        const apiPayments = await paymentStatusAPI.getPaymentsByMerchant(currentAddress);
+                        setPaymentHistory(apiPayments as PaymentLink[]);
                         
-                        // If payment has a transaction hash, check blockchain status
-                        if (currentPayment.txHash && currentPayment.status === 'pending') {
-                          console.log('Checking blockchain status for transaction:', currentPayment.txHash);
-                          const blockchainStatus = await checkBlockchainStatus(currentPayment.txHash, generatedId);
-                          console.log('Blockchain status result:', blockchainStatus);
+                        // Get updated payment status
+                        const currentPayment = apiPayments.find(p => p.id === generatedId);
+                        
+                        if (currentPayment) {
+                          setPaymentStatus(currentPayment.status);
+                          console.log('Manual check: Payment status updated to', currentPayment.status);
+                          
+                          toast({
+                            title: 'Payment Status Checked',
+                            status: currentPayment.status === 'paid' ? 'success' : 'info',
+                            description: `Status: ${currentPayment.status.toUpperCase()}`
+                          });
                         }
-                        
-                        toast({
-                          title: 'Payment Status Checked',
-                          status: currentPayment.status === 'paid' ? 'success' : 'info',
-                          description: `Status: ${currentPayment.status.toUpperCase()}`
-                        });
+                      } catch (error) {
+                        console.log('Failed to load from API:', error);
                       }
                     }
                   }}
@@ -1080,9 +1156,9 @@ export default function PaymentLinkGenerator() {
                 <Text fontSize="sm" color="#9ca3af" textAlign="center">
                   Showing 5 of {paymentHistory.length} payments. View all in Dashboard.
                 </Text>
-              )}
-            </VStack>
-          </UniformCard>
+            )}
+          </VStack>
+        </UniformCard>
         )}
         </>
         )}

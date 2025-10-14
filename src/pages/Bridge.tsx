@@ -115,13 +115,13 @@ const Bridge: React.FC = () => {
     }
 
     if (!isWalletConnected) {
-      toast({
+        toast({ 
         title: 'Wallet Not Connected',
-        status: 'error',
+          status: 'error', 
         description: 'Please connect your wallet to bridge assets',
-      });
-      return;
-    }
+        });
+        return;
+      }
 
     setIsBridging(true);
     try {
@@ -147,10 +147,10 @@ const Bridge: React.FC = () => {
 
       setTransactions(bridgeService.getTransactions());
       setSelectedTransaction(transaction);
-      
-      toast({
+
+            toast({ 
         title: 'Bridge Initiated',
-        status: 'success',
+              status: 'success', 
         description: `Bridge transaction started. ID: ${transaction.id}`,
       });
 
@@ -160,7 +160,7 @@ const Bridge: React.FC = () => {
       setEstimate(null);
 
     } catch (error: any) {
-      toast({
+        toast({ 
         title: 'Bridge Failed',
         status: 'error',
         description: error.message || 'Failed to initiate bridge transaction',
@@ -180,7 +180,7 @@ const Bridge: React.FC = () => {
         setFromChain(chain);
         setFromAsset(chain.supportedAssets[0]); // STX
       } else {
-        toast({
+        toast({ 
           title: 'Invalid Source Chain',
           status: 'warning',
           description: 'You can only bridge from Stacks (STX) since that\'s your connected wallet.',
@@ -203,7 +203,7 @@ const Bridge: React.FC = () => {
       if (asset.id === 'stx') {
         setFromAsset(asset);
       } else {
-        toast({
+        toast({ 
           title: 'Invalid Source Asset',
           status: 'warning',
           description: 'You can only bridge STX since that\'s what your wallet contains.',
@@ -232,28 +232,28 @@ const Bridge: React.FC = () => {
           {/* Header */}
           <VStack gap={4} textAlign="center">
             <Heading size={{ base: "lg", md: "xl" }} color="#ffffff">
-              🌉 Cross-Chain Bridge
-            </Heading>
+            🌉 Cross-Chain Bridge
+          </Heading>
             <Text color="#9ca3af" maxW="3xl" fontSize={{ base: "md", md: "lg" }} textAlign="center">
               Bridge your STX from Stacks testnet to other blockchains. 
               Your connected wallet determines the source chain and asset.
-            </Text>
+          </Text>
             
             {/* Testnet Warning */}
             <Box
               bg="rgba(255, 193, 7, 0.1)"
               border="1px solid rgba(255, 193, 7, 0.3)"
               borderRadius="lg"
-              p={4}
-              maxW="2xl"
-            >
-              <VStack gap={2}>
+          p={4}
+          maxW="2xl"
+        >
+          <VStack gap={2}>
                 <Text fontSize="sm" fontWeight="medium" color="#ffc107">
                   ⚠️ Testnet Environment
                 </Text>
-                <Text fontSize="xs" color="#9ca3af" textAlign="center">
+            <Text fontSize="xs" color="#9ca3af" textAlign="center">
                   You are bridging on testnet. All transactions use test tokens and have no real value.
-                </Text>
+            </Text>
               </VStack>
             </Box>
             
@@ -262,16 +262,16 @@ const Bridge: React.FC = () => {
               {chains.map(chain => (
                 <Badge key={chain.id} colorScheme="blue" variant="solid" px={3} py={1} borderRadius="full">
                   {chain.icon} {chain.name}
-                </Badge>
+              </Badge>
               ))}
             </HStack>
-          </VStack>
+      </VStack>
 
           {/* Main Bridge Interface */}
           <HStack gap={8} align="start" wrap="wrap">
             {/* Bridge Form */}
             <Box flex="1" minW="400px">
-              <UniformCard p={6}>
+        <UniformCard p={6}>
                 <VStack gap={6} align="stretch">
                   <HStack justify="space-between" align="center">
                     <Heading size="md" color="#ffffff">
@@ -303,7 +303,7 @@ const Bridge: React.FC = () => {
                       >
                         <Text color="#ffffff" fontSize="14px">
                           🟦 Stacks (Testnet)
-                        </Text>
+            </Text>
                       </Box>
                       <Box
                         bg="rgba(255, 255, 255, 0.05)"
@@ -315,13 +315,13 @@ const Bridge: React.FC = () => {
                       >
                         <Text color="#ffffff" fontSize="14px">
                           🟦 STX
-                        </Text>
+            </Text>
                       </Box>
                     </HStack>
                     <Text fontSize="xs" color="#9ca3af">
                       Source is locked to your connected Stacks wallet
-                    </Text>
-                  </VStack>
+            </Text>
+          </VStack>
 
                   {/* Swap Button - Disabled */}
                   <HStack justify="center">
@@ -342,7 +342,7 @@ const Bridge: React.FC = () => {
                   <VStack gap={3} align="stretch">
                     <Text fontSize="sm" fontWeight="medium" color="#ffffff">
                       To
-                    </Text>
+              </Text>
                     <HStack gap={3}>
                       <select
                         value={toChain?.id || ''}
@@ -384,40 +384,40 @@ const Bridge: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                    </HStack>
-                  </VStack>
+                  </HStack>
+                </VStack>
 
-                  {/* Amount Input */}
+                {/* Amount Input */}
                   <VStack gap={3} align="stretch">
                     <Text fontSize="sm" fontWeight="medium" color="#ffffff">
                       Amount
                     </Text>
-                    <UniformInput
-                      type="number"
+                  <UniformInput
+                    type="number"
                       placeholder="0.00"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
+                value={amount} 
+                    onChange={(e) => setAmount(e.target.value)}
                       variant="default"
-                    />
+                />
                     {estimate && (
                       <Text fontSize="xs" color="#9ca3af">
                         Min: {estimate.minAmount} {fromAsset?.symbol} | Max: {estimate.maxAmount} {fromAsset?.symbol}
                       </Text>
                     )}
-                  </VStack>
+                </VStack>
 
-                  {/* Recipient Address */}
+                {/* Recipient Address */}
                   <VStack gap={3} align="stretch">
                     <Text fontSize="sm" fontWeight="medium" color="#ffffff">
                       Recipient Address
                     </Text>
-                    <UniformInput
-                      placeholder="Enter recipient address"
-                      value={recipientAddress}
-                      onChange={(e) => setRecipientAddress(e.target.value)}
+                  <UniformInput
+                    placeholder="Enter recipient address"
+                    value={recipientAddress}
+                    onChange={(e) => setRecipientAddress(e.target.value)}
                       variant="default"
-                    />
-                  </VStack>
+                  />
+                </VStack>
 
                   {/* Bridge Estimate */}
                   {estimate && (
@@ -427,60 +427,60 @@ const Bridge: React.FC = () => {
                       borderRadius="lg"
                       p={4}
                     >
-                      <VStack gap={2} align="stretch">
+                  <VStack gap={2} align="stretch">
                         <Text fontSize="sm" fontWeight="medium" color="#3b82f6">
                           Bridge Estimate
                         </Text>
-                        <HStack justify="space-between">
+                    <HStack justify="space-between">
                           <Text fontSize="sm" color="#9ca3af">You send:</Text>
                           <Text fontSize="sm" color="#ffffff">
                             {amount} {fromAsset?.symbol}
                           </Text>
-                        </HStack>
-                        <HStack justify="space-between">
+                    </HStack>
+                    <HStack justify="space-between">
                           <Text fontSize="sm" color="#9ca3af">You receive:</Text>
                           <Text fontSize="sm" color="#ffffff">
                             {(parseFloat(amount) * estimate.rate).toFixed(6)} {toAsset?.symbol}
                           </Text>
-                        </HStack>
-                        <HStack justify="space-between">
+                    </HStack>
+                    <HStack justify="space-between">
                           <Text fontSize="sm" color="#9ca3af">Bridge fee:</Text>
                           <Text fontSize="sm" color="#ffffff">
                             {estimate.fee} {fromAsset?.symbol}
                           </Text>
-                        </HStack>
-                        <HStack justify="space-between">
+                    </HStack>
+                    <HStack justify="space-between">
                           <Text fontSize="sm" color="#9ca3af">Estimated time:</Text>
                           <Text fontSize="sm" color="#ffffff">
                             {estimate.estimatedTime}
                           </Text>
-                        </HStack>
-                      </VStack>
-                    </Box>
-                  )}
+                    </HStack>
+                  </VStack>
+                </Box>
+              )}
 
-                  {/* Bridge Button */}
-                  <UniformButton
+              {/* Bridge Button */}
+                    <UniformButton
                     onClick={handleBridge}
                     isLoading={isBridging}
                     loadingText="Bridging..."
                     disabled={!isWalletConnected || !estimate || isEstimating}
-                    variant="primary"
+                      variant="primary"
                     size="lg"
-                  >
+                    >
                     {isEstimating ? 'Estimating...' : 'Bridge Assets'}
-                  </UniformButton>
-                </VStack>
-              </UniformCard>
+                    </UniformButton>
+              </VStack>
+            </UniformCard>
             </Box>
 
-            {/* Transaction History */}
+          {/* Transaction History */}
             <Box flex="1" minW="400px">
               <UniformCard p={6}>
                 <VStack gap={4} align="stretch">
                   <HStack justify="space-between" align="center">
                     <Heading size="md" color="#ffffff">
-                      Bridge History
+                  Bridge History
                     </Heading>
                     <Badge colorScheme="blue" fontSize="sm">
                       {transactions.length} Transactions
@@ -490,7 +490,7 @@ const Bridge: React.FC = () => {
                   {transactions.length === 0 ? (
                     <Text color="#9ca3af" textAlign="center" py={8}>
                       No bridge transactions yet
-                    </Text>
+                      </Text>
                   ) : (
                     <VStack gap={3} align="stretch" maxH="400px" overflowY="auto">
                       {transactions.map(transaction => (
@@ -499,24 +499,24 @@ const Bridge: React.FC = () => {
                           bg="rgba(255, 255, 255, 0.05)"
                           border="1px solid rgba(255, 255, 255, 0.1)"
                           borderRadius="lg"
-                          p={4}
+                      p={4}
                           cursor="pointer"
                           _hover={{ bg: "rgba(255, 255, 255, 0.1)" }}
                           onClick={() => setSelectedTransaction(transaction)}
                         >
                           <VStack gap={2} align="stretch">
                             <HStack justify="space-between" align="center">
-                              <HStack gap={2}>
+                          <HStack gap={2}>
                                 <Text fontSize="sm" color="#ffffff">
                                   {transaction.route.fromAsset.icon} {transaction.route.fromAsset.symbol}
                                 </Text>
                                 <Text fontSize="sm" color="#9ca3af">→</Text>
                                 <Text fontSize="sm" color="#ffffff">
                                   {transaction.route.toAsset.icon} {transaction.route.toAsset.symbol}
-                                </Text>
+                  </Text>
                               </HStack>
-                              <Badge
-                                colorScheme={
+                          <Badge 
+                            colorScheme={
                                   transaction.status === 'completed' ? 'green' :
                                   transaction.status === 'processing' ? 'blue' :
                                   transaction.status === 'failed' ? 'red' : 'yellow'
@@ -524,20 +524,20 @@ const Bridge: React.FC = () => {
                                 fontSize="xs"
                               >
                                 {transaction.status}
-                              </Badge>
-                            </HStack>
+                          </Badge>
+                          </HStack>
                             <HStack justify="space-between">
                               <Text fontSize="sm" color="#9ca3af">
                                 {transaction.amount} {transaction.route.fromAsset.symbol}
-                              </Text>
+                          </Text>
                               <Text fontSize="xs" color="#9ca3af">
                                 {new Date(transaction.timestamp).toLocaleString()}
-                              </Text>
-                            </HStack>
+                        </Text>
+                        </HStack>
                           </VStack>
-                        </Box>
-                      ))}
-                    </VStack>
+                      </Box>
+                    ))}
+                  </VStack>
                   )}
                 </VStack>
               </UniformCard>
@@ -623,8 +623,8 @@ const Bridge: React.FC = () => {
                 </VStack>
               </VStack>
             </UniformCard>
-          )}
-        </VStack>
+      )}
+      </VStack>
       </Box>
     </Box>
   );

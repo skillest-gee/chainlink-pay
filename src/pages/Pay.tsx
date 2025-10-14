@@ -8,6 +8,7 @@ import { usePaymentStateManager } from '../hooks/usePaymentStateManager';
 import { UniformButton } from '../components/UniformButton';
 import { UniformCard } from '../components/UniformCard';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
+import { paymentStatusAPI } from '../services/paymentStatusAPI';
 import { validateTransactionParams, formatAddress } from '../utils/validation';
 import { CONTRACT_DEPLOYED, verifyContractDeployment } from '../config/stacksConfig';
 // Removed buffer utils import - using simplified buffer creation
@@ -289,7 +290,7 @@ export default function Pay() {
           userSession: userSession,
           // Route to the correct wallet provider
           walletProvider: walletProvider || 'unknown',
-          onFinish: (data: any) => {
+          onFinish: async (data: any) => {
             console.log('Payment transaction finished:', data);
             console.log('Payment ID used in mark-paid:', payment.id);
             console.log('Buffer used in mark-paid:', idBuffer);
@@ -315,6 +316,13 @@ export default function Pay() {
               } : p
             );
             paymentStorage.saveAllPaymentLinks(updatedPayments);
+            
+            // Update centralized payment status API
+            const updatedPayment = updatedPayments.find(p => p.id === payment.id);
+            if (updatedPayment) {
+              await paymentStatusAPI.savePayment(updatedPayment);
+              console.log('PaymentStatusAPI: Payment saved to centralized storage:', updatedPayment.id);
+            }
             
             // Initiate comprehensive payment state management
             initiatePayment(payment, data.txId);

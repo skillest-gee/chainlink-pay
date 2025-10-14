@@ -496,9 +496,9 @@ Do not include any explanation or additional text outside the code blocks.`;
             <UniformCard p={{ base: 4, md: 6 }}>
               <VStack gap={6} align="stretch">
                 <HStack justify="space-between" align="center">
-                  <Heading size="md" color="#ffffff">
-                    Contract Requirements
-                  </Heading>
+                <Heading size="md" color="#ffffff">
+                  Contract Requirements
+                </Heading>
                   <HStack gap={2}>
                     <Badge colorScheme={isAuthenticated ? 'green' : 'red'} fontSize="sm">
                       {isAuthenticated ? `🔗 ${walletProvider === 'xverse' ? 'Xverse' : walletProvider === 'leather' ? 'Leather' : 'Wallet'} Connected` : '🔌 Wallet Not Connected'}

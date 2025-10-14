@@ -73,11 +73,11 @@ export function useStacksWallet() {
     // Initialize with persisted wallet provider
     const persistedProvider = loadWalletProvider();
     return {
-      address: null,
-      isAuthenticated: false,
-      isConnecting: false,
-      error: null,
-      version: 0,
+    address: null,
+    isAuthenticated: false,
+    isConnecting: false,
+    error: null,
+    version: 0,
       walletProvider: persistedProvider,
     };
   });
@@ -501,20 +501,20 @@ export function useStacksWallet() {
         userSession,
         (address) => {
           console.log('Mobile wallet connection successful:', address);
-          const walletProvider = detectWalletProvider();
-          console.log('Detected wallet provider:', walletProvider);
+              const walletProvider = detectWalletProvider();
+              console.log('Detected wallet provider:', walletProvider);
           
           // Save wallet provider to localStorage for persistence
           saveWalletProvider(walletProvider);
           
-          updateState({ address, isAuthenticated: true, isConnecting: false, error: null, walletProvider });
-          console.log('Wallet connected successfully:', address, 'with provider:', walletProvider);
-          
-          // Dispatch custom event for immediate UI updates
-          window.dispatchEvent(new CustomEvent('walletConnected', { detail: { address, walletProvider } }));
-          
-          // Notify other tabs
-          window.postMessage({ type: 'walletStateChange', action: 'connect', address, walletProvider }, '*');
+              updateState({ address, isAuthenticated: true, isConnecting: false, error: null, walletProvider });
+              console.log('Wallet connected successfully:', address, 'with provider:', walletProvider);
+              
+              // Dispatch custom event for immediate UI updates
+              window.dispatchEvent(new CustomEvent('walletConnected', { detail: { address, walletProvider } }));
+              
+              // Notify other tabs
+              window.postMessage({ type: 'walletStateChange', action: 'connect', address, walletProvider }, '*');
         },
         (error) => {
           console.error('Mobile wallet connection error:', error);
