@@ -521,10 +521,10 @@ export default function PaymentLinkGenerator() {
       {/* Header with Innovation Showcase */}
       <VStack gap={4} textAlign="center">
         <VStack gap={2}>
-          <Heading size="xl" color="#ffffff">
+          <Heading size={{ base: "lg", md: "xl" }} color="#ffffff">
             💳 Payment Link Generator
           </Heading>
-          <Text color="#9ca3af" maxW="2xl" fontSize="lg">
+          <Text color="#9ca3af" maxW="2xl" fontSize={{ base: "md", md: "lg" }} textAlign="center">
             Create secure Bitcoin and STX payment links with QR codes. Share payment requests instantly across any device or platform.
           </Text>
         </VStack>
@@ -534,7 +534,7 @@ export default function PaymentLinkGenerator() {
           bg="linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(239, 68, 68, 0.1) 100%)"
           border="1px solid rgba(245, 158, 11, 0.2)"
           borderRadius="xl"
-          p={4}
+          p={{ base: 3, md: 4 }}
           maxW="2xl"
         >
           <VStack gap={2}>
@@ -609,9 +609,11 @@ export default function PaymentLinkGenerator() {
         <UniformInput
           type="number"
           placeholder="Enter amount"
-            value={amount}
+          value={amount}
           onChange={(e) => setAmount(e.target.value)}
           variant="default"
+          fontSize={{ base: "md", md: "sm" }}
+          h={{ base: "48px", md: "40px" }}
         />
       </VStack>
 
@@ -622,9 +624,11 @@ export default function PaymentLinkGenerator() {
           </Text>
         <UniformTextarea
           placeholder="Enter payment description"
-            value={description} 
+          value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={3}
+          rows={4}
+          fontSize={{ base: "md", md: "sm" }}
+          minH={{ base: "100px", md: "80px" }}
         />
       </VStack>
 
@@ -633,6 +637,8 @@ export default function PaymentLinkGenerator() {
         variant="primary"
         onClick={handleGenerate}
         disabled={!amount || !description || isGenerating}
+        h={{ base: "56px", md: "48px" }}
+        fontSize={{ base: "md", md: "sm" }}
       >
         {isGenerating ? 'Generating...' : 'Generate Payment Link'}
       </UniformButton>

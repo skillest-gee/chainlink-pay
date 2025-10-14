@@ -227,14 +227,14 @@ const Bridge: React.FC = () => {
 
   return (
     <Box minH="100vh" bg="#000000" color="#ffffff">
-      <Box maxW="7xl" mx="auto" py={8} px={4}>
+      <Box maxW="7xl" mx="auto" py={{ base: 4, md: 8 }} px={{ base: 2, md: 4 }}>
         <VStack gap={8} align="stretch">
           {/* Header */}
           <VStack gap={4} textAlign="center">
-            <Heading size="xl" color="#ffffff">
+            <Heading size={{ base: "lg", md: "xl" }} color="#ffffff">
               🌉 Cross-Chain Bridge
             </Heading>
-            <Text color="#9ca3af" maxW="3xl" fontSize="lg">
+            <Text color="#9ca3af" maxW="3xl" fontSize={{ base: "md", md: "lg" }} textAlign="center">
               Bridge your STX from Stacks testnet to other blockchains. 
               Your connected wallet determines the source chain and asset.
             </Text>

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { showConnect } from '@stacks/connect';
 import { UserSession, AppConfig } from '@stacks/auth';
 import { appDetails, STACKS_NETWORK_KEY } from '../config/stacksConfig';
+import { mobileWalletConnect, handlePostInstallRedirect, isMobileDevice } from '../utils/mobileWalletConnection';
 
 // Debounce utility function
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
@@ -100,6 +101,9 @@ export function useStacksWallet() {
     console.log('address:', state.address);
     console.log('isConnecting:', state.isConnecting);
     console.log('error:', state.error);
+    
+    // Handle post-installation redirect for mobile wallets
+    handlePostInstallRedirect();
   }, [state]);
 
   // Detect which wallet was actually used for the connection
@@ -492,72 +496,31 @@ export function useStacksWallet() {
       console.log('App details:', appDetails);
       console.log('User session:', userSession);
       
-      // Enhanced mobile wallet support
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      console.log('Mobile device detected:', isMobile);
-      
-      showConnect({
+      // Use mobile-optimized wallet connection
+      mobileWalletConnect(
         userSession,
-        appDetails,
-        // Enhanced mobile support
-        redirectTo: isMobile ? window.location.origin : undefined,
-        // Mobile wallet configuration
-        ...(isMobile && {
-          // Enable mobile deep linking without forcing walletConnect
-          enableMobile: true,
-        }),
-        onFinish: () => {
-          console.log('=== WALLET CONNECTION ONFINISH CALLED ===');
-          console.log('Wallet connection onFinish called');
-          try {
-            console.log('Wallet connection finished, loading user data...');
-            const userData = userSession.loadUserData();
-            console.log('User data loaded:', userData);
-            const addresses = (userData as any)?.profile?.stxAddress;
-            console.log('Addresses found:', addresses);
-            const testnet = addresses?.testnet || null;
-            const mainnet = addresses?.mainnet || null;
-            
-            const address = STACKS_NETWORK_KEY === 'testnet' ? testnet : mainnet;
-            console.log('Selected address for network', STACKS_NETWORK_KEY, ':', address);
-            
-            if (address) {
-              const walletProvider = detectWalletProvider();
-              console.log('Detected wallet provider:', walletProvider);
-              console.log('Setting wallet state with address:', address);
-              
-              // Save wallet provider to localStorage for persistence
-              saveWalletProvider(walletProvider);
-              
-              updateState({ address, isAuthenticated: true, isConnecting: false, error: null, walletProvider });
-              console.log('Wallet connected successfully:', address, 'with provider:', walletProvider);
-              
-              // Dispatch custom event for immediate UI updates
-              window.dispatchEvent(new CustomEvent('walletConnected', { detail: { address, walletProvider } }));
-              
-              // Notify other tabs
-              window.postMessage({ type: 'walletStateChange', action: 'connect', address, walletProvider }, '*');
-            } else {
-              updateState({ 
-                error: `No ${STACKS_NETWORK_KEY} address found. Please check your wallet settings.`,
-                isAuthenticated: false,
-                isConnecting: false 
-              });
-            }
-          } catch (err: any) {
-            console.error('Error in onFinish:', err);
-            updateState({ 
-              error: 'Failed to load wallet data after connection.', 
-              isAuthenticated: false,
-              isConnecting: false 
-            });
-          }
+        (address) => {
+          console.log('Mobile wallet connection successful:', address);
+          const walletProvider = detectWalletProvider();
+          console.log('Detected wallet provider:', walletProvider);
+          
+          // Save wallet provider to localStorage for persistence
+          saveWalletProvider(walletProvider);
+          
+          updateState({ address, isAuthenticated: true, isConnecting: false, error: null, walletProvider });
+          console.log('Wallet connected successfully:', address, 'with provider:', walletProvider);
+          
+          // Dispatch custom event for immediate UI updates
+          window.dispatchEvent(new CustomEvent('walletConnected', { detail: { address, walletProvider } }));
+          
+          // Notify other tabs
+          window.postMessage({ type: 'walletStateChange', action: 'connect', address, walletProvider }, '*');
         },
-        onCancel: () => {
-          console.log('Wallet connection cancelled by user');
-          updateState({ isConnecting: false });
-        },
-      });
+        (error) => {
+          console.error('Mobile wallet connection error:', error);
+          updateState({ isConnecting: false, error });
+        }
+      );
     } catch (err: any) {
       console.error('Wallet connection error:', err);
       updateState({ 

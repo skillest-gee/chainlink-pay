@@ -96,19 +96,19 @@ function App() {
         backdropFilter="blur(10px)"
         w="100%"
       >
-        <Container maxW="7xl" py={4} px={4}>
+        <Container maxW="7xl" py={{ base: 2, md: 4 }} px={{ base: 2, md: 4 }}>
           <Flex align="center" justify="space-between" gap={4} w="100%">
             {/* Logo and Brand */}
-            <HStack gap={3} align="center" flexShrink={0}>
+            <HStack gap={{ base: 2, md: 3 }} align="center" flexShrink={0}>
               <Box 
-                w="45px"
-                h="45px"
+                w={{ base: "35px", md: "45px" }}
+                h={{ base: "35px", md: "45px" }}
                 bg="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
                 borderRadius="xl"
                 display="flex"
                 alignItems="center"
                 justifyContent="center"
-                fontSize="xl"
+                fontSize={{ base: "lg", md: "xl" }}
                 color="#ffffff"
                 fontWeight="bold"
                 boxShadow="0 4px 12px rgba(59, 130, 246, 0.3)"
@@ -116,10 +116,10 @@ function App() {
                 🔗
               </Box>
               <VStack align="start" gap={0}>
-                <Heading size="lg" color="#ffffff" fontWeight="bold">
+                <Heading size={{ base: "md", md: "lg" }} color="#ffffff" fontWeight="bold">
                   ChainLinkPay
                 </Heading>
-                <Text fontSize="xs" color="#9ca3af" fontWeight="medium">
+                <Text fontSize={{ base: "2xs", md: "xs" }} color="#9ca3af" fontWeight="medium">
                   Bitcoin Payment Platform
                 </Text>
               </VStack>
@@ -159,6 +159,8 @@ function App() {
                 size="sm"
                 title="Learn how to use ChainLinkPay"
                 onClick={() => setShowTutorial(true)}
+                onTouchStart={() => setShowTutorial(true)}
+                style={{ touchAction: 'manipulation' }}
               >
                 Tutorial
               </UniformButton>
@@ -285,6 +287,8 @@ function App() {
                 variant="secondary"
                 size="sm"
                 onClick={() => setShowTutorial(true)}
+                onTouchStart={() => setShowTutorial(true)}
+                style={{ touchAction: 'manipulation' }}
               >
                 Tutorial
               </UniformButton>
@@ -294,7 +298,7 @@ function App() {
       )}
 
       {/* Main Content */}
-      <Container maxW="6xl" py={8} flex="1">
+      <Container maxW="6xl" py={{ base: 4, md: 8 }} px={{ base: 2, md: 4 }} flex="1">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/generate" element={<PaymentLinkGenerator />} />

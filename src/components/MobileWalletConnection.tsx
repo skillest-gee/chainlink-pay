@@ -61,28 +61,52 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
     }
   ];
 
-  const handleWalletSelect = (wallet: typeof wallets[0]) => {
+  const handleWalletSelect = async (wallet: typeof wallets[0]) => {
     setSelectedWallet(wallet.id);
     
-    // Try to open the wallet app
-    const deepLink = wallet.deepLink;
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isIOS = /iphone|ipad|ipod/.test(userAgent);
-    const isAndroid = /android/.test(userAgent);
-    
-    if (isIOS || isAndroid) {
-      // Try to open the wallet app
-      window.location.href = deepLink;
+    try {
+      // Import the mobile wallet connection utility
+      const { openWalletApp, detectWalletApps } = await import('../utils/mobileWalletConnection');
       
-      // Fallback to app store after a delay
-      setTimeout(() => {
-        const storeUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
-        window.open(storeUrl, '_blank');
-      }, 2000);
-    } else {
-      // Desktop - show download options
-      const downloadUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
-      window.open(downloadUrl, '_blank');
+      const { isMobile, isIOS, isAndroid } = detectWalletApps();
+      
+      if (isMobile) {
+        // Use the new mobile wallet connection
+        const walletType = wallet.id === 'xverse' ? 'xverse' : 'leather';
+        const appOpened = await openWalletApp(walletType);
+        
+        if (appOpened) {
+          console.log('Wallet app opened successfully');
+          // Close the modal and let the wallet connection handle the rest
+          onClose();
+        } else {
+          console.log('Wallet app not available, redirecting to app store');
+          const storeUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
+          window.open(storeUrl, '_blank');
+        }
+      } else {
+        // Desktop - show download options
+        const downloadUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
+        window.open(downloadUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Error handling wallet selection:', error);
+      // Fallback to original behavior
+      const deepLink = wallet.deepLink;
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isIOS = /iphone|ipad|ipod/.test(userAgent);
+      const isAndroid = /android/.test(userAgent);
+      
+      if (isIOS || isAndroid) {
+        window.location.href = deepLink;
+        setTimeout(() => {
+          const storeUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
+          window.open(storeUrl, '_blank');
+        }, 2000);
+      } else {
+        const downloadUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
+        window.open(downloadUrl, '_blank');
+      }
     }
   };
 
@@ -107,14 +131,16 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
       display="flex"
       alignItems="center"
       justifyContent="center"
-      p={4}
+      p={{ base: 2, md: 4 }}
+      overflowY="auto"
+      style={{ WebkitOverflowScrolling: 'touch' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <UniformCard maxW="md" w="full" p={6}>
+      <UniformCard maxW="md" w="full" p={{ base: 4, md: 6 }} maxH="90vh" overflowY="auto" style={{ WebkitOverflowScrolling: 'touch' }}>
         <VStack gap={6} align="stretch">
           {/* Header */}
           <HStack justify="space-between" align="center">
@@ -128,8 +154,10 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
             </VStack>
             <UniformButton
               onClick={onClose}
+              onTouchStart={onClose}
               variant="secondary"
               size="sm"
+              style={{ touchAction: 'manipulation' }}
             >
               ✕
             </UniformButton>

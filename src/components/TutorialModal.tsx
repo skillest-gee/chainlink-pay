@@ -46,9 +46,11 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
       display="flex"
       alignItems="center"
       justifyContent="center"
-      p={4}
+      p={{ base: 2, md: 4 }}
+      overflowY="auto"
+      style={{ WebkitOverflowScrolling: 'touch' }}
     >
-      <UniformCard maxW="2xl" w="full" p={6}>
+      <UniformCard maxW="2xl" w="full" p={{ base: 4, md: 6 }} maxH="80vh" overflowY="auto" style={{ WebkitOverflowScrolling: 'touch' }}>
         <VStack gap={6} align="stretch">
           {/* Header */}
           <HStack justify="space-between" align="center">
@@ -62,8 +64,10 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
             </VStack>
             <UniformButton
               onClick={onClose}
+              onTouchStart={onClose}
               variant="secondary"
               size="sm"
+              style={{ touchAction: 'manipulation' }}
             >
               ✕
             </UniformButton>

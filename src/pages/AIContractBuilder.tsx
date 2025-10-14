@@ -50,8 +50,7 @@ export default function AIContractBuilder() {
   const [improvementFeedback, setImprovementFeedback] = useState(() => {
     return localStorage.getItem('ai-builder-feedback') || '';
   });
-  // Removed test results state - using simplified testing
-  // Removed test running state - using simplified testing
+  // Production-ready AI Contract Builder - no test states needed
   
   // UI state with persistence
   const [activeTab, setActiveTab] = useState<'generate' | 'validate' | 'improve' | 'deploy'>(() => {
@@ -328,31 +327,9 @@ export default function AIContractBuilder() {
     }
   };
 
-  const handleTestAI = async () => {
-    console.log('AI Contract Builder: Testing AI service');
-    toast({ 
-      title: 'AI Service', 
-      status: 'info', 
-      description: 'AI service is ready for contract generation!' 
-    });
-  };
+  // Production-ready AI Contract Builder - test functions removed
 
-  const handleTestAPIKey = () => {
-    const geminiKey = process.env.REACT_APP_GEMINI_API_KEY;
-    const openaiKey = process.env.REACT_APP_OPENAI_API_KEY;
-    
-    console.log('API Key Debug:', {
-      geminiKey: geminiKey ? `${geminiKey.substring(0, 10)}...` : 'Missing',
-      openaiKey: openaiKey ? `${openaiKey.substring(0, 10)}...` : 'Missing',
-      allEnvKeys: Object.keys(process.env).filter(key => key.includes('API'))
-    });
-    
-    toast({
-      title: 'API Key Debug',
-      status: 'info',
-      description: `Gemini: ${geminiKey ? 'Present' : 'Missing'}, OpenAI: ${openaiKey ? 'Present' : 'Missing'}`,
-    });
-  };
+  // Production-ready AI Contract Builder - debug functions removed
 
   const handleTestGeminiDirect = async () => {
     const geminiKey = process.env.REACT_APP_GEMINI_API_KEY;
@@ -450,13 +427,7 @@ Do not include any explanation or additional text outside the code blocks.`;
     }
   };
 
-  const handleRunComprehensiveTest = async () => {
-    toast({
-      title: 'Testing',
-      status: 'info',
-      description: 'AI Builder is ready for comprehensive testing!'
-    });
-  };
+  // Production-ready AI Contract Builder - comprehensive test removed
 
   const removeRequirement = (index: number) => {
     setRequirements(requirements.filter((_, i) => i !== index));
@@ -522,7 +493,7 @@ Do not include any explanation or additional text outside the code blocks.`;
           {/* Main Content */}
           <VStack gap={6} align="stretch">
             {/* Contract Generation Form */}
-            <UniformCard p={6}>
+            <UniformCard p={{ base: 4, md: 6 }}>
               <VStack gap={6} align="stretch">
                 <HStack justify="space-between" align="center">
                   <Heading size="md" color="#ffffff">
@@ -658,13 +629,7 @@ Do not include any explanation or additional text outside the code blocks.`;
                     {isGenerating ? 'Generating Contract...' : 'Generate Contract with AI'}
                   </UniformButton>
                   
-                  <UniformButton
-                    variant="secondary"
-                    onClick={handleTestAI}
-                    size="sm"
-                  >
-                    Test AI Service
-                  </UniformButton>
+                  {/* Production-ready AI Contract Builder - test AI button removed */}
                   
                   <UniformButton
                     variant="secondary"
@@ -685,29 +650,7 @@ Do not include any explanation or additional text outside the code blocks.`;
                     Clear All
                   </UniformButton>
                   
-                  <UniformButton
-                    variant="secondary"
-                    onClick={handleTestAPIKey}
-                    size="sm"
-                  >
-                    Test API Key
-                  </UniformButton>
-                  
-                  <UniformButton
-                    variant="secondary"
-                    onClick={handleTestGeminiDirect}
-                    size="sm"
-                  >
-                    Test Gemini Direct
-                  </UniformButton>
-                  
-                  <UniformButton
-                    variant="accent"
-                    onClick={handleRunComprehensiveTest}
-                    size="sm"
-                  >
-                    🧪 Run Full Test
-                  </UniformButton>
+                  {/* Production-ready AI Contract Builder - test buttons removed */}
                 </HStack>
 
                 {/* Error Display */}
