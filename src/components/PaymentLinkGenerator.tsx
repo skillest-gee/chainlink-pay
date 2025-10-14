@@ -153,7 +153,7 @@ export default function PaymentLinkGenerator() {
           loadPaymentHistory();
         }
       }
-    }, 3000); // Check every 3 seconds for pending payments
+    }, 2000); // Check every 2 seconds for pending payments (more aggressive)
 
     // Subscribe to merchant payment updates
     const currentAddress = isAuthenticated ? address : btcAddress;
@@ -174,6 +174,78 @@ export default function PaymentLinkGenerator() {
       unsubscribe();
     };
   }, [isAuthenticated, address, btcConnected, btcAddress, generatedId, subscribeToPaymentUpdates]);
+
+  // Function to check blockchain status for a transaction
+  const checkBlockchainStatus = async (txId: string, paymentId: string) => {
+    try {
+      console.log('Checking blockchain status for transaction:', txId);
+      
+      const network = process.env.REACT_APP_STACKS_NETWORK === 'testnet' ? 'testnet' : 'mainnet';
+      const apiUrl = network === 'testnet' 
+        ? 'https://api.testnet.hiro.so' 
+        : 'https://api.hiro.so';
+
+      const response = await fetch(`${apiUrl}/extended/v1/tx/${txId}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('Transaction not found yet, still pending');
+          return 'pending';
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Blockchain transaction data:', data);
+
+      if (data.tx_status === 'success') {
+        console.log('Transaction confirmed on blockchain!');
+        
+        // Update the payment status in storage
+        const allPayments = paymentStorage.getAllPaymentLinks();
+        const updatedPayments = allPayments.map(p => 
+          p.id === paymentId ? { 
+            ...p, 
+            status: 'paid' as const,
+            txHash: txId,
+            paidAt: Date.now()
+          } : p
+        );
+        paymentStorage.saveAllPaymentLinks(updatedPayments);
+        
+        // Reload payment history to reflect the change
+        const currentAddress = isAuthenticated ? address : btcAddress;
+        if (currentAddress) {
+          const allPayments = paymentStorage.getAllPaymentLinks();
+          const userPayments = allPayments.filter(p => p.merchantAddress === currentAddress);
+          setPaymentHistory(userPayments);
+          
+          // Update payment status if this is the current generated payment
+          if (generatedId === paymentId) {
+            setPaymentStatus('paid');
+          }
+        }
+        
+        // Show success notification
+        toast({
+          title: 'Payment Confirmed!',
+          status: 'success',
+          description: 'Payment has been confirmed on the blockchain'
+        });
+        
+        return 'confirmed';
+      } else if (data.tx_status === 'abort_by_response' || data.tx_status === 'abort_by_post_condition') {
+        console.log('Transaction failed on blockchain:', data.tx_status);
+        return 'failed';
+      } else {
+        console.log('Transaction still pending on blockchain:', data.tx_status);
+        return 'pending';
+      }
+    } catch (error) {
+      console.error('Error checking blockchain status:', error);
+      return 'unknown';
+    }
+  };
 
   // Load existing payment links for this wallet on component mount
   React.useEffect(() => {
@@ -769,19 +841,58 @@ export default function PaymentLinkGenerator() {
               <Text fontSize="lg" fontWeight="semibold" color="#ffffff">
                 Payment Link Generated
               </Text>
-              <Badge 
-                colorScheme={
-                  paymentStatus === 'paid' ? 'green' : 
-                  paymentStatus === 'cancelled' ? 'red' : 
-                  paymentStatus === 'expired' ? 'orange' :
-                  'blue'
-                }
-              >
-                {paymentStatus === 'paid' ? '✅ Paid' : 
-                 paymentStatus === 'cancelled' ? '❌ Cancelled' : 
-                 paymentStatus === 'expired' ? '⏰ Expired' :
-                 '⏳ Pending'}
-              </Badge>
+              <HStack gap={2}>
+                <Badge 
+                  colorScheme={
+                    paymentStatus === 'paid' ? 'green' : 
+                    paymentStatus === 'cancelled' ? 'red' : 
+                    paymentStatus === 'expired' ? 'orange' :
+                    'blue'
+                  }
+                >
+                  {paymentStatus === 'paid' ? '✅ Paid' : 
+                   paymentStatus === 'cancelled' ? '❌ Cancelled' : 
+                   paymentStatus === 'expired' ? '⏰ Expired' :
+                   '⏳ Pending'}
+                </Badge>
+                <UniformButton
+                  size="sm"
+                  variant="secondary"
+                  onClick={async () => {
+                    console.log('Manual payment status check for:', generatedId);
+                    
+                    // Force immediate status update
+                    const currentAddress = isAuthenticated ? address : btcAddress;
+                    if (currentAddress) {
+                      const allPayments = paymentStorage.getAllPaymentLinks();
+                      const userPayments = allPayments.filter(p => p.merchantAddress === currentAddress);
+                      setPaymentHistory(userPayments);
+                      
+                      const currentPayment = userPayments.find(p => p.id === generatedId);
+                      if (currentPayment) {
+                        setPaymentStatus(currentPayment.status);
+                        console.log('Manual check: Payment status updated to', currentPayment.status);
+                        
+                        // If payment has a transaction hash, check blockchain status
+                        if (currentPayment.txHash && currentPayment.status === 'pending') {
+                          console.log('Checking blockchain status for transaction:', currentPayment.txHash);
+                          const blockchainStatus = await checkBlockchainStatus(currentPayment.txHash, generatedId);
+                          console.log('Blockchain status result:', blockchainStatus);
+                        }
+                        
+                        toast({
+                          title: 'Payment Status Checked',
+                          status: currentPayment.status === 'paid' ? 'success' : 'info',
+                          description: `Status: ${currentPayment.status.toUpperCase()}`
+                        });
+                      }
+                    }
+                  }}
+                  title="Check payment status on blockchain"
+                >
+                  🔍 Check Status
+                </UniformButton>
+              </HStack>
             </HStack>
             
             {/* QR Code */}

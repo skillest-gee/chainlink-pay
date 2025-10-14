@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTransactionStatus } from './useTransactionStatus';
 import { usePaymentStorage, PaymentRecord } from './usePaymentStorage';
 import { useMerchantNotifications } from './useMerchantNotifications';
-import { PaymentLink } from '../services/paymentStorage';
+import { PaymentLink, paymentStorage } from '../services/paymentStorage';
 
 export interface PaymentState {
   id: string;
@@ -64,6 +64,46 @@ export const usePaymentStateManager = (): PaymentStateManagerHook => {
           
           savePayment(paymentRecord);
           notifyPaymentUpdate(paymentRecord);
+          
+          // Also update the PaymentLink storage for merchant dashboard
+          const allPayments = paymentStorage.getAllPaymentLinks();
+          const updatedPayments = allPayments.map(p => 
+            p.id === paymentState.id ? { 
+              ...p, 
+              status: 'paid' as const,
+              txHash: paymentState.txId,
+              payerAddress: paymentState.payerAddress,
+              paidAt: Date.now()
+            } : p
+          );
+          paymentStorage.saveAllPaymentLinks(updatedPayments);
+          
+          // Dispatch the original payment events for merchant dashboard
+          const paymentCompletedEvent = new CustomEvent('paymentCompleted', {
+            detail: {
+              paymentId: paymentState.id,
+              status: 'paid',
+              txId: paymentState.txId,
+              merchantAddress: paymentState.merchantAddress
+            }
+          });
+          window.dispatchEvent(paymentCompletedEvent);
+          
+          const paymentUpdatedEvent = new CustomEvent('paymentUpdated', {
+            detail: {
+              paymentId: paymentState.id,
+              status: 'paid',
+              txId: paymentState.txId
+            }
+          });
+          window.dispatchEvent(paymentUpdatedEvent);
+          
+          console.log('Payment confirmed and merchant notified:', {
+            paymentId: paymentState.id,
+            status: 'paid',
+            txId: paymentState.txId,
+            merchantAddress: paymentState.merchantAddress
+          });
         }
         
         stopPolling();
