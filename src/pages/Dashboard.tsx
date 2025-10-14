@@ -219,19 +219,32 @@ export default function Dashboard() {
     loadStats();
   }, [isAuthenticated, address, btcConnected, btcAddress]);
 
-  // Listen for wallet state changes
+  // Listen for wallet state changes and payment updates
   useEffect(() => {
     const handleWalletChange = () => {
       console.log('Dashboard: Wallet state changed, reloading stats');
       loadStats();
     };
 
+    const handlePaymentUpdate = (event: CustomEvent) => {
+      console.log('Dashboard: Payment update received', event.detail);
+      // Refresh dashboard data when payments are updated
+      setTimeout(() => {
+        console.log('Dashboard: Refreshing after payment update');
+        loadStats();
+      }, 100);
+    };
+
     window.addEventListener('walletConnected', handleWalletChange);
+    window.addEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
+    window.addEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
     window.addEventListener('walletDisconnected', handleWalletChange);
 
     return () => {
       window.removeEventListener('walletConnected', handleWalletChange);
       window.removeEventListener('walletDisconnected', handleWalletChange);
+      window.removeEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
+      window.removeEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
     };
   }, []);
 

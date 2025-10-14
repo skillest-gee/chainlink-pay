@@ -80,19 +80,62 @@ export default function PaymentLinkGenerator() {
     // Listen for payment completion events
     const handlePaymentUpdate = (event: CustomEvent) => {
       console.log('PaymentLinkGenerator: Payment update received', event.detail);
-      // Immediate refresh when payment is updated
+      
+      // Force immediate UI update
+      const allPayments = paymentStorage.getAllPaymentLinks();
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      const userPayments = allPayments.filter(payment => 
+        payment.merchantAddress === currentAddress
+      );
+      setPaymentHistory(userPayments);
+      
+      // Check if current generated payment is completed
+      if (generatedId) {
+        const currentPayment = userPayments.find(p => p.id === generatedId);
+        if (currentPayment) {
+          setPaymentStatus(currentPayment.status);
+          console.log('PaymentLinkGenerator: Updated payment status to', currentPayment.status);
+        }
+      }
+      
+      // Also refresh after a small delay to ensure localStorage is updated
       setTimeout(() => {
-        console.log('PaymentLinkGenerator: Immediate refresh after payment update');
+        console.log('PaymentLinkGenerator: Delayed refresh after payment update');
         loadPaymentHistory();
-      }, 100); // Small delay to ensure localStorage is updated
+      }, 100);
     };
 
     window.addEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
     window.addEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
+    window.addEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
+    
+    // Also listen for postMessage events
+    const handlePostMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'PAYMENT_COMPLETED') {
+        console.log('PaymentLinkGenerator: PostMessage payment update received', event.data);
+        handlePaymentUpdate(new CustomEvent('paymentCompleted', { detail: event.data }));
+      }
+    };
+    window.addEventListener('message', handlePostMessage);
+
+    // Set up periodic refresh for pending payments
+    const refreshInterval = setInterval(() => {
+      if (generatedId) {
+        const allPayments = paymentStorage.getAllPaymentLinks();
+        const currentPayment = allPayments.find(p => p.id === generatedId);
+        if (currentPayment && currentPayment.status === 'pending') {
+          console.log('PaymentLinkGenerator: Periodic refresh for pending payment', generatedId);
+          loadPaymentHistory();
+        }
+      }
+    }, 5000); // Check every 5 seconds for pending payments
 
     return () => {
       window.removeEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
       window.removeEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
+      window.removeEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
+      window.removeEventListener('message', handlePostMessage);
+      clearInterval(refreshInterval);
     };
   }, [isAuthenticated, address, btcConnected, btcAddress, generatedId]);
 

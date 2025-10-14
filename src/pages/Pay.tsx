@@ -287,6 +287,27 @@ export default function Pay() {
             });
             window.dispatchEvent(paymentUpdatedEvent);
             
+            // Dispatch a global payment status change event
+            const globalPaymentEvent = new CustomEvent('globalPaymentStatusChange', {
+              detail: {
+                paymentId: payment.id,
+                status: 'paid',
+                txId: data.txId,
+                merchantAddress: payment.merchantAddress,
+                timestamp: Date.now()
+              }
+            });
+            window.dispatchEvent(globalPaymentEvent);
+            
+            // Also use postMessage for cross-tab communication
+            window.postMessage({
+              type: 'PAYMENT_COMPLETED',
+              paymentId: payment.id,
+              status: 'paid',
+              txId: data.txId,
+              merchantAddress: payment.merchantAddress
+            }, '*');
+            
             toast({ 
               title: 'Success', 
               status: 'success', 
