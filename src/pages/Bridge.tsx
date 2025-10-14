@@ -277,9 +277,31 @@ const Bridge: React.FC = () => {
                     <Heading size="md" color="#ffffff">
                       Bridge Assets
                     </Heading>
-                    <Badge colorScheme={isWalletConnected ? 'green' : 'red'} fontSize="sm">
-                      {isWalletConnected ? '🔗 Wallet Connected' : '🔌 Wallet Not Connected'}
-                    </Badge>
+                    <HStack gap={2}>
+                      <UniformButton
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          // Load sample data for demo
+                          setAmount('100');
+                          setRecipientAddress('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+                          setToChain(chains.find(c => c.id === 'bitcoin') || null);
+                          setToAsset(chains.find(c => c.id === 'bitcoin')?.supportedAssets[0] || null);
+                          
+                          toast({
+                            title: 'Sample Data Loaded',
+                            status: 'info',
+                            description: 'Demo data loaded for testing bridge functionality'
+                          });
+                        }}
+                        title="Load sample data for demo testing"
+                      >
+                        📋 Load Sample
+                      </UniformButton>
+                      <Badge colorScheme={isWalletConnected ? 'green' : 'red'} fontSize="sm">
+                        {isWalletConnected ? '🔗 Wallet Connected' : '🔌 Wallet Not Connected'}
+                      </Badge>
+                    </HStack>
                   </HStack>
 
                   {/* From Chain & Asset - Locked to Stacks/STX */}
