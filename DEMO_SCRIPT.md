@@ -12,7 +12,7 @@
 ### **🎬 Opening (30 seconds)**
 **"Hi, I'm [Your Name], and I'm excited to present ChainLinkPay - an AI-powered Bitcoin payment platform that's revolutionizing how we handle cryptocurrency payments."**
 
-**Show the live app:** `https://chainlink-jc8oiskp9-clementarthur753-1864s-projects.vercel.app`
+**Show the live app:** `https://chainlink-ivpuyowbs-clementarthur753-1864s-projects.vercel.app`
 
 ### **🎯 Problem Statement (30 seconds)**
 **"The Problem: Bitcoin payments are powerful but complex. Creating smart contracts requires technical expertise, cross-chain transactions are complicated, and payment flows are difficult to manage. This creates barriers for non-technical users who want to leverage Bitcoin's programmability."**

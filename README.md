@@ -3,7 +3,7 @@
 > **🏆 Stacks Vibe Coding Hackathon Submission**  
 > Making programmable Bitcoin payments accessible to everyone through AI and Stacks blockchain
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20App-blue?style=for-the-badge&logo=vercel)](https://chainlink-jc8oiskp9-clementarthur753-1864s-projects.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20App-blue?style=for-the-badge&logo=vercel)](https://chainlink-ivpuyowbs-clementarthur753-1864s-projects.vercel.app)
 [![Stacks](https://img.shields.io/badge/Stacks-2.0-blue?style=for-the-badge&logo=stacks)](https://stacks.co)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
