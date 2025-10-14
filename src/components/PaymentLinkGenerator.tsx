@@ -936,7 +936,47 @@ export default function PaymentLinkGenerator() {
                   onClick={async () => {
                     console.log('Manual payment status check for:', generatedId);
                     
-                    // Force blockchain sync first
+                    // First, try to find the payment in localStorage
+                    const localPayments = paymentStorage.getAllPaymentLinks();
+                    const currentPayment = localPayments.find(p => p.id === generatedId);
+                    
+                    if (currentPayment && currentPayment.txHash) {
+                      // Direct blockchain check for this specific transaction
+                      try {
+                        console.log('Checking blockchain directly for tx:', currentPayment.txHash);
+                        const response = await fetch(`https://api.testnet.hiro.so/extended/v1/tx/${currentPayment.txHash}`);
+                        
+                        if (response.ok) {
+                          const txData = await response.json();
+                          console.log('Blockchain response:', txData);
+                          
+                          if (txData.tx_status === 'success') {
+                            // Update payment status to paid
+                            const updatedPayment = { ...currentPayment, status: 'paid' as const };
+                            paymentStorage.saveAllPaymentLinks([...localPayments.filter(p => p.id !== generatedId), updatedPayment]);
+                            
+                            // Update centralized API
+                            await paymentStatusAPI.savePayment(updatedPayment);
+                            
+                            // Update UI
+                            setPaymentStatus('paid');
+                            setPaymentHistory(prev => prev.map(p => p.id === generatedId ? updatedPayment : p));
+                            
+                            toast({
+                              title: 'Payment Confirmed!',
+                              status: 'success',
+                              description: 'Transaction confirmed on blockchain'
+                            });
+                            
+                            return;
+                          }
+                        }
+                      } catch (error) {
+                        console.log('Direct blockchain check failed:', error);
+                      }
+                    }
+                    
+                    // Fallback to centralized API sync
                     await paymentStatusAPI.syncWithBlockchain();
                     
                     // Then refresh payment history from centralized API

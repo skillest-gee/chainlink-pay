@@ -99,9 +99,9 @@ export class AIService {
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('AI Service: Request timeout after 15 seconds');
+        console.log('AI Service: Request timeout after 30 seconds');
         controller.abort();
-      }, 15000); // 15 second timeout
+      }, 30000); // 30 second timeout
 
       const response = await fetch(`${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`, {
         method: 'POST',
