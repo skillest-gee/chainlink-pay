@@ -98,37 +98,83 @@ export default function Home() {
     <Box minH="100vh" bg="#000000" color="#ffffff">
       <Container maxW="6xl" py={8} px={4}>
         <VStack gap={8} align="stretch">
-          {/* Hero Section */}
-          <VStack gap={6} textAlign="center" py={8}>
-            <HStack gap={3} align="center">
-              <Box
-                w="60px"
-                h="60px"
-                bg="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
-                borderRadius="2xl"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                fontSize="2xl"
-                color="#ffffff"
-                fontWeight="bold"
-                boxShadow="0 8px 32px rgba(59, 130, 246, 0.4)"
-              >
-                🔗
-              </Box>
-              <VStack align="start" gap={1}>
-                <Heading size="2xl" fontWeight="bold" color="#ffffff">
-                  ChainLinkPay
-                </Heading>
-                <Text fontSize="lg" color="#9ca3af">
-                  Professional Bitcoin Payment Platform
-                </Text>
-              </VStack>
-            </HStack>
+          {/* Hero Section with Innovation Showcase */}
+          <VStack gap={8} textAlign="center" py={8}>
+            <VStack gap={6}>
+              <HStack gap={3} align="center">
+                <Box
+                  w="60px"
+                  h="60px"
+                  bg="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
+                  borderRadius="2xl"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  fontSize="2xl"
+                  color="#ffffff"
+                  fontWeight="bold"
+                  boxShadow="0 8px 32px rgba(59, 130, 246, 0.4)"
+                >
+                  🔗
+                </Box>
+                <VStack align="start" gap={1}>
+                  <Heading size="2xl" fontWeight="bold" color="#ffffff">
+                    ChainLinkPay
+                  </Heading>
+                  <Text fontSize="lg" color="#9ca3af">
+                    Professional Bitcoin Payment Platform
+                  </Text>
+                </VStack>
+              </HStack>
+              
+              <Text fontSize="lg" color="#9ca3af" maxW="3xl" mx="auto">
+                Create secure payment links, manage transactions, bridge assets across blockchain networks, and generate smart contracts with AI.
+              </Text>
+            </VStack>
             
-            <Text fontSize="lg" color="#9ca3af" maxW="3xl" mx="auto">
-              Create secure payment links, manage transactions, bridge assets across blockchain networks, and generate smart contracts with AI.
-            </Text>
+            {/* Hackathon Innovation Showcase */}
+            <Box 
+              bg="linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 50%, rgba(16, 185, 129, 0.1) 100%)"
+              border="1px solid rgba(59, 130, 246, 0.2)"
+              borderRadius="2xl"
+              p={8}
+              maxW="4xl"
+            >
+              <VStack gap={6}>
+                <Heading size="lg" color="#3b82f6">
+                  🏆 Stacks Vibe Coding Hackathon Innovation
+                </Heading>
+                <Text fontSize="md" color="#9ca3af" textAlign="center" maxW="3xl">
+                  Revolutionary Bitcoin payment platform with AI-powered smart contract generation, 
+                  cross-chain asset bridging, and seamless payment link sharing across all devices.
+                </Text>
+                
+                {/* Feature Highlights Grid */}
+                <VStack gap={4} align="stretch" w="full">
+                  <HStack gap={4} justify="center" wrap="wrap">
+                    <Badge colorScheme="blue" variant="solid" px={4} py={2} borderRadius="full" fontSize="sm">
+                      🤖 AI Smart Contracts
+                    </Badge>
+                    <Badge colorScheme="green" variant="solid" px={4} py={2} borderRadius="full" fontSize="sm">
+                      🌉 Cross-Chain Bridge
+                    </Badge>
+                    <Badge colorScheme="purple" variant="solid" px={4} py={2} borderRadius="full" fontSize="sm">
+                      💳 Payment Links
+                    </Badge>
+                    <Badge colorScheme="orange" variant="solid" px={4} py={2} borderRadius="full" fontSize="sm">
+                      📱 Mobile First
+                    </Badge>
+                  </HStack>
+                  
+                  <HStack gap={4} justify="center" wrap="wrap">
+                    <Text fontSize="xs" color="#10b981">✓ Real Stacks Smart Contracts</Text>
+                    <Text fontSize="xs" color="#10b981">✓ Bitcoin Layer 2 Integration</Text>
+                    <Text fontSize="xs" color="#10b981">✓ Multi-Wallet Support</Text>
+                    <Text fontSize="xs" color="#10b981">✓ Production Ready</Text>
+                  </HStack>
+                </VStack>
+              </VStack>
+            </Box>
           </VStack>
 
           {/* Wallet Status */}

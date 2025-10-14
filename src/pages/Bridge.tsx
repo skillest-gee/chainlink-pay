@@ -1,811 +1,632 @@
-import React, { useState } from 'react';
-import { Box, VStack, HStack, Text, Button, Input, Badge, Heading } from '@chakra-ui/react';
+import React, { useState, useEffect } from 'react';
+import { Box, VStack, HStack, Text, Button, Badge, Heading } from '@chakra-ui/react';
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { UniformCard } from '../components/UniformCard';
 import { UniformButton } from '../components/UniformButton';
 import { UniformInput } from '../components/UniformInput';
-
-interface BridgeEstimate {
-  fromAmount: number;
-  toAmount: number;
-  fee: number;
-  estimatedTime: string;
-}
-
-interface BridgeTransaction {
-  id: string;
-  fromAsset: string;
-  toAsset: string;
-  amount: number;
-  recipientAddress: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  txHash?: string;
-  timestamp: number;
-}
+import { validateTransactionParams } from '../utils/validation';
+import { CONTRACT_DEPLOYED, verifyContractDeployment } from '../config/stacksConfig';
+import { bridgeService, BridgeChain, BridgeAsset, BridgeRoute, BridgeTransaction, BridgeEstimate } from '../services/bridgeService';
+import { routeContractCall } from '../utils/walletProviderRouter';
 
 const Bridge: React.FC = () => {
-  const { isAuthenticated, address } = useStacksWallet();
+  const { isAuthenticated, address, userSession, walletProvider, detectWalletProvider, disconnect } = useStacksWallet();
   const { isConnected: btcConnected, address: btcAddress } = useBitcoinWallet();
   const { toast } = useToast();
-
-  // Bridge state with persistence
-  const [fromAsset, setFromAsset] = useState(() => {
-    return localStorage.getItem('bridge-from-asset') || 'STX';
-  });
-  const [toAsset, setToAsset] = useState(() => {
-    return localStorage.getItem('bridge-to-asset') || 'BTC';
-  });
-  const [fromChain, setFromChain] = useState(() => {
-    return localStorage.getItem('bridge-from-chain') || 'Stacks';
-  });
-  const [toChain, setToChain] = useState(() => {
-    return localStorage.getItem('bridge-to-chain') || 'Bitcoin';
-  });
-  const [amount, setAmount] = useState(() => {
-    return localStorage.getItem('bridge-amount') || '';
-  });
-  const [recipientAddress, setRecipientAddress] = useState(() => {
-    return localStorage.getItem('bridge-recipient') || '';
-  });
+  
+  // Bridge state
+  const [chains, setChains] = useState<BridgeChain[]>([]);
+  const [fromChain, setFromChain] = useState<BridgeChain | null>(null);
+  const [toChain, setToChain] = useState<BridgeChain | null>(null);
+  const [fromAsset, setFromAsset] = useState<BridgeAsset | null>(null);
+  const [toAsset, setToAsset] = useState<BridgeAsset | null>(null);
+  const [amount, setAmount] = useState('');
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [estimate, setEstimate] = useState<BridgeEstimate | null>(null);
   const [isEstimating, setIsEstimating] = useState(false);
   const [isBridging, setIsBridging] = useState(false);
-  const [estimate, setEstimate] = useState<BridgeEstimate | null>(() => {
-    const saved = localStorage.getItem('bridge-estimate');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [transactions, setTransactions] = useState<BridgeTransaction[]>(() => {
-    const saved = localStorage.getItem('bridge-transactions');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [bridgeProgress, setBridgeProgress] = useState(0);
+  const [transactions, setTransactions] = useState<BridgeTransaction[]>([]);
+  const [selectedTransaction, setSelectedTransaction] = useState<BridgeTransaction | null>(null);
 
-  const isWalletConnected = isAuthenticated || btcConnected;
-  
-  // Save bridge state to localStorage when it changes
-  React.useEffect(() => {
-    localStorage.setItem('bridge-from-asset', fromAsset);
-  }, [fromAsset]);
-
-  React.useEffect(() => {
-    localStorage.setItem('bridge-to-asset', toAsset);
-  }, [toAsset]);
-
-  React.useEffect(() => {
-    localStorage.setItem('bridge-from-chain', fromChain);
-  }, [fromChain]);
-
-  React.useEffect(() => {
-    localStorage.setItem('bridge-to-chain', toChain);
-  }, [toChain]);
-
-  React.useEffect(() => {
-    localStorage.setItem('bridge-amount', amount);
-  }, [amount]);
-
-  React.useEffect(() => {
-    localStorage.setItem('bridge-recipient', recipientAddress);
-  }, [recipientAddress]);
-
-  React.useEffect(() => {
-    localStorage.setItem('bridge-estimate', JSON.stringify(estimate));
-  }, [estimate]);
-
-  React.useEffect(() => {
-    localStorage.setItem('bridge-transactions', JSON.stringify(transactions));
-  }, [transactions]);
-  
-  // Determine available assets based on connected wallet
-  const getAvailableAssets = () => {
-    if (isAuthenticated) {
-      return ['STX'];
-    } else if (btcConnected) {
-      return ['BTC'];
-    }
-    return [];
-  };
-  
-  const getAvailableToAssets = (fromAsset: string) => {
-    const allAssets = ['BTC', 'STX', 'ETH', 'BNB', 'USDC', 'USDT'];
-    return allAssets.filter(asset => asset !== fromAsset);
-  };
-  
-  // Auto-set from asset based on connected wallet
-  React.useEffect(() => {
-    if (isAuthenticated && fromAsset !== 'STX') {
-      setFromAsset('STX');
-      setFromChain('Stacks');
-    } else if (btcConnected && fromAsset !== 'BTC') {
-      setFromAsset('BTC');
-      setFromChain('Bitcoin');
-    }
-  }, [isAuthenticated, btcConnected, fromAsset]);
-  
-  // Auto-set to chain based on to asset
-  React.useEffect(() => {
-    const assetToChain: { [key: string]: string } = {
-      'BTC': 'Bitcoin',
-      'STX': 'Stacks',
-      'ETH': 'Ethereum',
-      'BNB': 'BNB Chain',
-      'USDC': 'Ethereum',
-      'USDT': 'Ethereum'
-    };
+  // Initialize bridge service
+  useEffect(() => {
+    const availableChains = bridgeService.getChains();
+    setChains(availableChains);
     
-    const suggestedChain = assetToChain[toAsset];
-    if (suggestedChain && toChain !== suggestedChain) {
-      setToChain(suggestedChain);
+    // Set default chains based on connected wallet
+    const stacksChain = availableChains.find(chain => chain.id === 'stacks');
+    const bitcoinChain = availableChains.find(chain => chain.id === 'bitcoin');
+    
+    if (stacksChain && bitcoinChain) {
+      // Always set Stacks as the source chain since that's what the wallet is connected to
+      setFromChain(stacksChain);
+      setFromAsset(stacksChain.supportedAssets[0]); // STX
+      setToChain(bitcoinChain);
+      setToAsset(bitcoinChain.supportedAssets[0]); // BTC
     }
-  }, [toAsset, toChain]);
+    
+    // Load existing transactions
+    setTransactions(bridgeService.getTransactions());
+  }, []);
+
+  // Update source chain/asset based on connected wallet
+  useEffect(() => {
+    if (isAuthenticated && fromChain?.id !== 'stacks') {
+      const stacksChain = chains.find(chain => chain.id === 'stacks');
+      if (stacksChain) {
+        setFromChain(stacksChain);
+        setFromAsset(stacksChain.supportedAssets[0]); // STX
+      }
+    }
+  }, [isAuthenticated, chains, fromChain]);
+
+  // Auto-estimate when parameters change
+  useEffect(() => {
+    if (fromChain && toChain && fromAsset && toAsset && amount && parseFloat(amount) > 0) {
+      handleEstimate();
+    }
+  }, [fromChain, toChain, fromAsset, toAsset, amount]);
 
   const handleEstimate = async () => {
-    if (!amount || !recipientAddress) {
-      toast({ title: 'Error', status: 'error', description: 'Please fill in all fields' });
-      return;
-    }
-
+    if (!fromChain || !toChain || !fromAsset || !toAsset || !amount) return;
+    
     setIsEstimating(true);
-    setError(null);
-
     try {
-      const fromAmount = parseFloat(amount);
+      const estimateResult = await bridgeService.getEstimate(
+        fromChain.id,
+        toChain.id,
+        fromAsset.id,
+        toAsset.id,
+        parseFloat(amount)
+      );
       
-      // Multi-chain bridge estimation
-      const exchangeRate = await getExchangeRate(fromAsset, toAsset);
-      const fromChainConfig = chains[fromChain as keyof typeof chains];
-      const toChainConfig = chains[toChain as keyof typeof chains];
-      
-      // Calculate bridge fee based on chains
-      let bridgeFee: number;
-      let estimatedTime: string;
-      
-      if (fromChain === toChain) {
-        // Same chain transfer
-        bridgeFee = fromAmount * 0.001; // 0.1% fee
-        estimatedTime = '2-5 minutes';
+      if (estimateResult) {
+        setEstimate(estimateResult);
       } else {
-        // Cross-chain bridge
-        const avgFee = (fromChainConfig.bridgeFee + toChainConfig.bridgeFee) / 2;
-        bridgeFee = fromAmount * avgFee;
-        
-        // Estimate time based on chain complexity
-        if (fromChain === 'Bitcoin' || toChain === 'Bitcoin') {
-          estimatedTime = '15-30 minutes';
-        } else if (fromChain === 'Ethereum' || toChain === 'Ethereum') {
-          estimatedTime = '10-20 minutes';
-        } else {
-          estimatedTime = '5-15 minutes';
-        }
+        setEstimate(null);
+        toast({
+          title: 'Estimate Failed',
+          status: 'error',
+          description: 'Unable to get bridge estimate. Please check your parameters.',
+        });
       }
-      
-      const toAmount = (fromAmount - bridgeFee) * exchangeRate;
-      
-      setEstimate({
-        fromAmount,
-        toAmount,
-        fee: bridgeFee,
-        estimatedTime
+    } catch (error: any) {
+      setEstimate(null);
+      toast({
+        title: 'Estimate Error',
+        status: 'error',
+        description: error.message || 'Failed to get bridge estimate',
       });
-    } catch (err) {
-      setError('Failed to get estimate');
-      toast({ title: 'Error', status: 'error', description: 'Failed to get bridge estimate' });
     } finally {
       setIsEstimating(false);
     }
   };
 
-  // Multi-chain exchange rate functions
-  const getExchangeRate = async (fromAsset: string, toAsset: string): Promise<number> => {
-    try {
-      // Real exchange rates (in a production app, these would come from APIs like CoinGecko, CoinMarketCap, etc.)
-      const rates: { [key: string]: { [key: string]: number } } = {
-        'STX': {
-          'BTC': 0.000025,
-          'ETH': 0.0008,
-          'BNB': 0.002,
-          'USDC': 0.5,
-          'USDT': 0.5
-        },
-        'BTC': {
-          'STX': 40000,
-          'ETH': 32,
-          'BNB': 80,
-          'USDC': 20000,
-          'USDT': 20000
-        },
-        'ETH': {
-          'STX': 1250,
-          'BTC': 0.031,
-          'BNB': 2.5,
-          'USDC': 625,
-          'USDT': 625
-        },
-        'BNB': {
-          'STX': 500,
-          'BTC': 0.0125,
-          'ETH': 0.4,
-          'USDC': 250,
-          'USDT': 250
-        },
-        'USDC': {
-          'STX': 2,
-          'BTC': 0.00005,
-          'ETH': 0.0016,
-          'BNB': 0.004,
-          'USDT': 1
-        },
-        'USDT': {
-          'STX': 2,
-          'BTC': 0.00005,
-          'ETH': 0.0016,
-          'BNB': 0.004,
-          'USDC': 1
-        }
-      };
-      
-      return rates[fromAsset]?.[toAsset] || 1;
-    } catch (error) {
-      console.error(`Error fetching ${fromAsset} to ${toAsset} rate:`, error);
-      return 1; // Fallback rate
-    }
-  };
-
-  // Chain configurations
-  const chains = {
-    'Stacks': { 
-      assets: ['STX'], 
-      color: '#5546ff',
-      icon: '⛓️',
-      bridgeFee: 0.005 // 0.5%
-    },
-    'Bitcoin': { 
-      assets: ['BTC'], 
-      color: '#f7931a',
-      icon: '₿',
-      bridgeFee: 0.008 // 0.8%
-    },
-    'Ethereum': { 
-      assets: ['ETH', 'USDC', 'USDT'], 
-      color: '#627eea',
-      icon: '⟠',
-      bridgeFee: 0.01 // 1%
-    },
-    'BNB Chain': { 
-      assets: ['BNB', 'USDC', 'USDT'], 
-      color: '#f3ba2f',
-      icon: '🟡',
-      bridgeFee: 0.003 // 0.3%
-    }
-  };
-
-  // Update assets when chain changes
-  const handleFromChainChange = (chain: string) => {
-    setFromChain(chain);
-    const chainAssets = chains[chain as keyof typeof chains]?.assets || [];
-    if (chainAssets.length > 0) {
-      setFromAsset(chainAssets[0]);
-    }
-  };
-
-  const handleToChainChange = (chain: string) => {
-    setToChain(chain);
-    const chainAssets = chains[chain as keyof typeof chains]?.assets || [];
-    if (chainAssets.length > 0) {
-      setToAsset(chainAssets[0]);
-    }
-  };
-
   const handleBridge = async () => {
-    if (!amount || !recipientAddress || !estimate) {
-      toast({ title: 'Error', status: 'error', description: 'Please get an estimate first' });
+    if (!fromChain || !toChain || !fromAsset || !toAsset || !amount || !recipientAddress || !estimate) {
+      toast({
+        title: 'Missing Information',
+        status: 'error',
+        description: 'Please fill in all required fields',
+      });
       return;
     }
 
     if (!isWalletConnected) {
-      toast({ title: 'Error', status: 'error', description: 'Please connect your wallet first' });
+      toast({
+        title: 'Wallet Not Connected',
+        status: 'error',
+        description: 'Please connect your wallet to bridge assets',
+      });
       return;
     }
 
     setIsBridging(true);
-    setError(null);
-    setBridgeProgress(0);
-
     try {
-      const transactionId = `bridge-${Date.now()}`;
-      const newTransaction: BridgeTransaction = {
-        id: transactionId,
+      const route: BridgeRoute = {
+        fromChain,
+        toChain,
         fromAsset,
         toAsset,
-        amount: parseFloat(amount),
-        recipientAddress,
-        status: 'processing',
-        timestamp: Date.now()
+        estimatedTime: estimate.estimatedTime,
+        fee: estimate.fee,
+        minAmount: estimate.minAmount,
+        maxAmount: estimate.maxAmount,
+        rate: estimate.rate
       };
 
-      setTransactions(prev => [newTransaction, ...prev]);
+      const transaction = await bridgeService.executeBridge(
+        route,
+        parseFloat(amount),
+        recipientAddress,
+        userSession,
+        walletProvider
+      );
+
+      setTransactions(bridgeService.getTransactions());
+      setSelectedTransaction(transaction);
       
-      // Multi-chain bridge implementation
-      if (fromChain === 'Stacks' && isAuthenticated) {
-        // Stacks to other chains bridge using smart contract
-        const { openContractCall } = await import('@stacks/connect');
-        const { uintCV, stringAsciiCV } = await import('@stacks/transactions');
-        const { stacksNetwork } = await import('../config/stacksConfig');
-        
-        const { CONTRACT_ADDRESS, CONTRACT_NAME } = await import('../config/stacksConfig');
-        const contractAddress = CONTRACT_ADDRESS;
-        const contractName = CONTRACT_NAME;
-        
-        if (!contractAddress) {
-          throw new Error('Contract not deployed. Please deploy the contract first.');
-        }
+      toast({
+        title: 'Bridge Initiated',
+        status: 'success',
+        description: `Bridge transaction started. ID: ${transaction.id}`,
+      });
 
-        // Validate the amount is within safe range
-        const amountInMicroSTX = Math.floor(parseFloat(amount) * 1000000);
-        if (amountInMicroSTX <= 0 || amountInMicroSTX > Number.MAX_SAFE_INTEGER) {
-          throw new Error('Invalid amount. Please enter a valid amount.');
-        }
-        
-        // Validate the recipient address
-        if (!recipientAddress || recipientAddress.trim() === '') {
-          throw new Error('Please enter a valid recipient address.');
-        }
-        
-        console.log('Bridge transaction data:', {
-          contractAddress,
-          contractName,
-          functionName: 'bridge-to-bitcoin',
-          amount: amountInMicroSTX,
-          recipientAddress
-        });
-        
-        // Bridge STX to other chains using the contract
-        await openContractCall({
-          contractAddress,
-          contractName,
-          functionName: 'bridge-to-bitcoin',
-          functionArgs: [
-            // amount (uint) - use uintCV helper
-            uintCV(amountInMicroSTX),
-            // recipient (string-ascii) - use stringAsciiCV helper
-            stringAsciiCV(recipientAddress)
-          ],
-          network: stacksNetwork,
-          onFinish: (data) => {
-            console.log('Bridge transaction finished:', data);
-            
-            // Update transaction status
-            setTransactions(prev => prev.map(tx => 
-              tx.id === transactionId 
-                ? { ...tx, status: 'completed', txHash: data.txId }
-                : tx
-            ));
+      // Clear form
+      setAmount('');
+      setRecipientAddress('');
+      setEstimate(null);
 
-            toast({ 
-              title: 'Bridge Successful', 
-              status: 'success', 
-              description: `${fromAsset} bridged to ${toChain}! TX: ${data.txId.slice(0, 8)}...` 
-            });
-            setEstimate(null);
-            setAmount('');
-          },
-          onCancel: () => {
-            setTransactions(prev => prev.map(tx => 
-              tx.id === transactionId 
-                ? { ...tx, status: 'failed' }
-                : tx
-            ));
-            toast({ title: 'Cancelled', status: 'warning', description: 'Bridge transaction was cancelled' });
-          }
-        });
-        
-      } else if (fromChain === 'Bitcoin' && btcConnected) {
-        // Bitcoin to other chains bridge
-        const progressInterval = setInterval(() => {
-          setBridgeProgress(prev => {
-            if (prev >= 100) {
-              clearInterval(progressInterval);
-              return 100;
-            }
-            return prev + 8;
-          });
-        }, 600);
-
-        // Simulate Bitcoin bridge (would integrate with Bitcoin wallet in production)
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        
-        clearInterval(progressInterval);
-        setBridgeProgress(100);
-
-        setTransactions(prev => prev.map(tx => 
-          tx.id === transactionId 
-            ? { ...tx, status: 'completed', txHash: `btc-bridge-tx-${Date.now()}` }
-            : tx
-        ));
-
-        toast({ 
-          title: 'Bridge Successful', 
-          status: 'success', 
-          description: `BTC bridged to ${toChain} successfully!` 
-        });
-        setEstimate(null);
-        setAmount('');
-        
-      } else if (fromChain === 'Ethereum') {
-        // Ethereum to other chains bridge
-        const progressInterval = setInterval(() => {
-          setBridgeProgress(prev => {
-            if (prev >= 100) {
-              clearInterval(progressInterval);
-              return 100;
-            }
-            return prev + 6;
-          });
-        }, 800);
-
-        // Simulate Ethereum bridge (would integrate with MetaMask, WalletConnect, etc.)
-        await new Promise(resolve => setTimeout(resolve, 12000));
-        
-        clearInterval(progressInterval);
-        setBridgeProgress(100);
-
-        setTransactions(prev => prev.map(tx => 
-          tx.id === transactionId 
-            ? { ...tx, status: 'completed', txHash: `eth-bridge-tx-${Date.now()}` }
-            : tx
-        ));
-
-        toast({ 
-          title: 'Bridge Successful', 
-          status: 'success', 
-          description: `${fromAsset} bridged to ${toChain} successfully!` 
-        });
-        setEstimate(null);
-        setAmount('');
-        
-      } else if (fromChain === 'BNB Chain') {
-        // BNB Chain to other chains bridge
-        const progressInterval = setInterval(() => {
-          setBridgeProgress(prev => {
-            if (prev >= 100) {
-              clearInterval(progressInterval);
-              return 100;
-            }
-            return prev + 12;
-          });
-        }, 400);
-
-        // Simulate BNB Chain bridge (would integrate with BSC wallet)
-        await new Promise(resolve => setTimeout(resolve, 6000));
-        
-        clearInterval(progressInterval);
-        setBridgeProgress(100);
-
-        setTransactions(prev => prev.map(tx => 
-          tx.id === transactionId 
-            ? { ...tx, status: 'completed', txHash: `bnb-bridge-tx-${Date.now()}` }
-            : tx
-        ));
-
-        toast({ 
-          title: 'Bridge Successful', 
-          status: 'success', 
-          description: `${fromAsset} bridged to ${toChain} successfully!` 
-        });
-        setEstimate(null);
-        setAmount('');
-        
-      } else {
-        // Same chain transfers
-        const progressInterval = setInterval(() => {
-          setBridgeProgress(prev => {
-            if (prev >= 100) {
-              clearInterval(progressInterval);
-              return 100;
-            }
-            return prev + 20;
-          });
-        }, 200);
-
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        clearInterval(progressInterval);
-        setBridgeProgress(100);
-
-        setTransactions(prev => prev.map(tx => 
-          tx.id === transactionId 
-            ? { ...tx, status: 'completed', txHash: `transfer-tx-${Date.now()}` }
-            : tx
-        ));
-
-        toast({ 
-          title: 'Transfer Successful', 
-          status: 'success', 
-          description: `${fromAsset} transferred successfully!` 
-        });
-        setEstimate(null);
-        setAmount('');
-      }
-    } catch (err: any) {
-      console.error('Bridge error:', err);
-      setError(err.message || 'Bridge transaction failed');
-      // Find the transaction ID from the current transactions
-      const currentTxId = transactions[0]?.id || `bridge-${Date.now()}`;
-      setTransactions(prev => prev.map(tx => 
-        tx.id === currentTxId 
-          ? { ...tx, status: 'failed' }
-          : tx
-      ));
-      toast({ title: 'Error', status: 'error', description: err.message || 'Bridge transaction failed' });
+    } catch (error: any) {
+      toast({
+        title: 'Bridge Failed',
+        status: 'error',
+        description: error.message || 'Failed to initiate bridge transaction',
+      });
     } finally {
       setIsBridging(false);
-      setBridgeProgress(0);
     }
   };
 
+  const handleChainChange = (chainId: string, type: 'from' | 'to') => {
+    const chain = chains.find(c => c.id === chainId);
+    if (!chain) return;
+
+    if (type === 'from') {
+      // Only allow Stacks as source since that's what the wallet is connected to
+      if (chain.id === 'stacks') {
+        setFromChain(chain);
+        setFromAsset(chain.supportedAssets[0]); // STX
+      } else {
+        toast({
+          title: 'Invalid Source Chain',
+          status: 'warning',
+          description: 'You can only bridge from Stacks (STX) since that\'s your connected wallet.',
+        });
+      }
+    } else {
+      setToChain(chain);
+      setToAsset(chain.supportedAssets[0]);
+    }
+  };
+
+  const handleAssetChange = (assetId: string, type: 'from' | 'to') => {
+    if (!fromChain || !toChain) return;
+
+    const asset = (type === 'from' ? fromChain : toChain).supportedAssets.find(a => a.id === assetId);
+    if (!asset) return;
+
+    if (type === 'from') {
+      // Only allow STX as source asset since that's what the wallet holds
+      if (asset.id === 'stx') {
+        setFromAsset(asset);
+      } else {
+        toast({
+          title: 'Invalid Source Asset',
+          status: 'warning',
+          description: 'You can only bridge STX since that\'s what your wallet contains.',
+        });
+      }
+    } else {
+      setToAsset(asset);
+    }
+  };
+
+  const swapChains = () => {
+    // Disable swap functionality since source is always Stacks/STX
+    toast({
+      title: 'Swap Disabled',
+      status: 'info',
+      description: 'Source chain is always Stacks (STX) based on your connected wallet.',
+    });
+  };
+
+  const isWalletConnected = isAuthenticated || btcConnected;
+
   return (
-    <VStack gap={6} align="stretch" p={6}>
-      <VStack gap={2} align="center" textAlign="center">
-        <Heading size="lg" color="#ffffff">
-          Cross-Chain Bridge
-        </Heading>
-        <Text color="#9ca3af" maxW="md">
-          Bridge assets between Bitcoin, Stacks, Ethereum, and BNB Chain networks
-        </Text>
-      </VStack>
-
-      {/* Wallet Connection Check */}
-      {!isWalletConnected && (
-        <UniformCard p={6}>
-          <VStack gap={4} align="center" textAlign="center">
-            <Text fontSize="lg" color="#ffffff" fontWeight="bold">
-              Connect Your Wallet
+    <Box minH="100vh" bg="#000000" color="#ffffff">
+      <Box maxW="7xl" mx="auto" py={8} px={4}>
+        <VStack gap={8} align="stretch">
+          {/* Header */}
+          <VStack gap={4} textAlign="center">
+            <Heading size="xl" color="#ffffff">
+              🌉 Cross-Chain Bridge
+            </Heading>
+            <Text color="#9ca3af" maxW="3xl" fontSize="lg">
+              Bridge your STX from Stacks testnet to other blockchains. 
+              Your connected wallet determines the source chain and asset.
             </Text>
-            <Text color="#9ca3af">
-              Please connect your Stacks or Bitcoin wallet to start bridging assets.
-            </Text>
-            <Text fontSize="sm" color="#ef4444">
-              You can only bridge FROM the assets in your connected wallet.
-            </Text>
+            
+            {/* Testnet Warning */}
+            <Box
+              bg="rgba(255, 193, 7, 0.1)"
+              border="1px solid rgba(255, 193, 7, 0.3)"
+              borderRadius="lg"
+              p={4}
+              maxW="2xl"
+            >
+              <VStack gap={2}>
+                <Text fontSize="sm" fontWeight="medium" color="#ffc107">
+                  ⚠️ Testnet Environment
+                </Text>
+                <Text fontSize="xs" color="#9ca3af" textAlign="center">
+                  You are bridging on testnet. All transactions use test tokens and have no real value.
+                </Text>
+              </VStack>
+            </Box>
+            
+            {/* Supported Chains */}
+            <HStack gap={3} justify="center" wrap="wrap">
+              {chains.map(chain => (
+                <Badge key={chain.id} colorScheme="blue" variant="solid" px={3} py={1} borderRadius="full">
+                  {chain.icon} {chain.name}
+                </Badge>
+              ))}
+            </HStack>
           </VStack>
-        </UniformCard>
-      )}
 
-      {/* Main Bridge Interface - Only show when wallet is connected */}
-      {isWalletConnected && (
-        <>
-          <UniformCard p={6}>
-            <VStack gap={4} align="stretch">
-              <Text fontSize="lg" fontWeight="semibold" color="#ffffff">
-                Bridge Assets
-              </Text>
-
-              {/* Chain Selection */}
-              <VStack gap={4} align="stretch">
-                <VStack gap={2} align="stretch">
-                  <Text fontSize="sm" color="#9ca3af">From Chain</Text>
-                  <HStack gap={2} wrap="wrap">
-                    {Object.entries(chains).map(([chainName, config]) => (
-                      <UniformButton
-                        key={chainName}
-                        variant={fromChain === chainName ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => handleFromChainChange(chainName)}
-                        style={{ 
-                          borderColor: config.color,
-                          backgroundColor: fromChain === chainName ? config.color : 'transparent'
-                        }}
-                      >
-                        {config.icon} {chainName}
-                      </UniformButton>
-                    ))}
+          {/* Main Bridge Interface */}
+          <HStack gap={8} align="start" wrap="wrap">
+            {/* Bridge Form */}
+            <Box flex="1" minW="400px">
+              <UniformCard p={6}>
+                <VStack gap={6} align="stretch">
+                  <HStack justify="space-between" align="center">
+                    <Heading size="md" color="#ffffff">
+                      Bridge Assets
+                    </Heading>
+                    <Badge colorScheme={isWalletConnected ? 'green' : 'red'} fontSize="sm">
+                      {isWalletConnected ? '🔗 Wallet Connected' : '🔌 Wallet Not Connected'}
+                    </Badge>
                   </HStack>
-                </VStack>
 
-                <VStack gap={2} align="stretch">
-                  <Text fontSize="sm" color="#9ca3af">From Asset (Based on Connected Wallet)</Text>
-                  <HStack gap={2} wrap="wrap">
-                    {getAvailableAssets().map((asset) => (
-                      <UniformButton
-                        key={asset}
-                        variant={fromAsset === asset ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => setFromAsset(asset)}
-                        isDisabled={!isWalletConnected}
-                      >
-                        {asset}
-                      </UniformButton>
-                    ))}
-                    {!isWalletConnected && (
-                      <Text fontSize="xs" color="#ef4444">
-                        Connect wallet to see available assets
+                  {/* From Chain & Asset - Locked to Stacks/STX */}
+                  <VStack gap={3} align="stretch">
+                    <HStack justify="space-between" align="center">
+                      <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                        From (Connected Wallet)
                       </Text>
-                    )}
-                  </HStack>
-                </VStack>
+                      <Badge colorScheme="green" fontSize="xs">
+                        🔒 Locked
+                      </Badge>
+                    </HStack>
+                    <HStack gap={3}>
+                      <Box
+                        bg="rgba(255, 255, 255, 0.05)"
+                        border="1px solid rgba(255, 255, 255, 0.1)"
+                        borderRadius="8px"
+                        padding="8px 12px"
+                        flex="1"
+                        opacity={0.7}
+                      >
+                        <Text color="#ffffff" fontSize="14px">
+                          🟦 Stacks (Testnet)
+                        </Text>
+                      </Box>
+                      <Box
+                        bg="rgba(255, 255, 255, 0.05)"
+                        border="1px solid rgba(255, 255, 255, 0.1)"
+                        borderRadius="8px"
+                        padding="8px 12px"
+                        flex="1"
+                        opacity={0.7}
+                      >
+                        <Text color="#ffffff" fontSize="14px">
+                          🟦 STX
+                        </Text>
+                      </Box>
+                    </HStack>
+                    <Text fontSize="xs" color="#9ca3af">
+                      Source is locked to your connected Stacks wallet
+                    </Text>
+                  </VStack>
 
-                <VStack gap={2} align="stretch">
-                  <Text fontSize="sm" color="#9ca3af">To Chain</Text>
-                  <HStack gap={2} wrap="wrap">
-                    {Object.entries(chains).map(([chainName, config]) => (
-                      <UniformButton
-                        key={chainName}
-                        variant={toChain === chainName ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => handleToChainChange(chainName)}
-                        style={{ 
-                          borderColor: config.color,
-                          backgroundColor: toChain === chainName ? config.color : 'transparent'
+                  {/* Swap Button - Disabled */}
+                  <HStack justify="center">
+                    <Button
+                      onClick={swapChains}
+                      variant="outline"
+                      borderColor="rgba(255, 255, 255, 0.1)"
+                      color="#9ca3af"
+                      _hover={{ bg: "rgba(255, 255, 255, 0.05)" }}
+                      size="sm"
+                      disabled
+                    >
+                      🔄 Swap (Disabled)
+                    </Button>
+                  </HStack>
+
+                  {/* To Chain & Asset */}
+                  <VStack gap={3} align="stretch">
+                    <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                      To
+                    </Text>
+                    <HStack gap={3}>
+                      <select
+                        value={toChain?.id || ''}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleChainChange(e.target.value, 'to')}
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                          color: '#ffffff',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          width: '100%'
                         }}
                       >
-                        {config.icon} {chainName}
-                      </UniformButton>
-                    ))}
-                  </HStack>
-                </VStack>
-
-                <VStack gap={2} align="stretch">
-                  <Text fontSize="sm" color="#9ca3af">To Asset (Cross-Chain Destination)</Text>
-                  <HStack gap={2} wrap="wrap">
-                    {getAvailableToAssets(fromAsset).map((asset) => (
-                      <UniformButton
-                        key={asset}
-                        variant={toAsset === asset ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => setToAsset(asset)}
+                        {chains.map(chain => (
+                          <option key={chain.id} value={chain.id} style={{ backgroundColor: '#000000', color: '#ffffff' }}>
+                            {chain.icon} {chain.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={toAsset?.id || ''}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleAssetChange(e.target.value, 'to')}
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                          color: '#ffffff',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          width: '100%'
+                        }}
                       >
-                        {asset}
-                      </UniformButton>
-                    ))}
-                  </HStack>
-                </VStack>
-              </VStack>
-
-              {/* Amount Input */}
-              <VStack gap={2} align="stretch">
-                <Text fontSize="sm" color="#9ca3af">Amount</Text>
-                <UniformInput
-                  type="number"
-                  placeholder="Enter amount"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </VStack>
-
-              {/* Recipient Address */}
-              <VStack gap={2} align="stretch">
-                <Text fontSize="sm" color="#9ca3af">Recipient Address</Text>
-                <UniformInput
-                  placeholder="Enter recipient address"
-                  value={recipientAddress}
-                  onChange={(e) => setRecipientAddress(e.target.value)}
-                />
-              </VStack>
-
-              {/* Estimate Button */}
-              <UniformButton
-                variant="secondary"
-                onClick={handleEstimate}
-                loading={isEstimating}
-                disabled={!amount || !recipientAddress}
-              >
-                {isEstimating ? 'Getting Estimate...' : 'Get Estimate'}
-              </UniformButton>
-
-              {/* Estimate Display */}
-              {estimate && (
-                <Box p={4} bg="rgba(0, 0, 0, 0.4)" borderRadius="md" border="1px solid" borderColor="rgba(255, 255, 255, 0.1)">
-                  <VStack gap={2} align="stretch">
-                    <HStack justify="space-between">
-                      <Text color="#9ca3af">You send:</Text>
-                      <Text color="#ffffff">{estimate.fromAmount} {fromAsset}</Text>
-                    </HStack>
-                    <HStack justify="space-between">
-                      <Text color="#9ca3af">Fee:</Text>
-                      <Text color="#ff6b6b">{estimate.fee} {fromAsset}</Text>
-                    </HStack>
-                    <HStack justify="space-between">
-                      <Text color="#9ca3af">You receive:</Text>
-                      <Text color="#10b981">{estimate.toAmount} {toAsset}</Text>
-                    </HStack>
-                    <HStack justify="space-between">
-                      <Text color="#9ca3af">Estimated time:</Text>
-                      <Text color="#ffffff">{estimate.estimatedTime}</Text>
+                        {toChain?.supportedAssets.map(asset => (
+                          <option key={asset.id} value={asset.id} style={{ backgroundColor: '#000000', color: '#ffffff' }}>
+                            {asset.icon} {asset.symbol}
+                          </option>
+                        ))}
+                      </select>
                     </HStack>
                   </VStack>
-                </Box>
-              )}
 
-              {/* Bridge Button */}
-              <UniformButton
-                variant="primary"
-                onClick={handleBridge}
-                loading={isBridging}
-                disabled={!estimate || isBridging}
-              >
-                {isBridging ? 'Bridging...' : 'Bridge Assets'}
-              </UniformButton>
+                  {/* Amount Input */}
+                  <VStack gap={3} align="stretch">
+                    <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                      Amount
+                    </Text>
+                    <UniformInput
+                      type="number"
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      variant="default"
+                    />
+                    {estimate && (
+                      <Text fontSize="xs" color="#9ca3af">
+                        Min: {estimate.minAmount} {fromAsset?.symbol} | Max: {estimate.maxAmount} {fromAsset?.symbol}
+                      </Text>
+                    )}
+                  </VStack>
 
-              {/* Progress Bar */}
-              {isBridging && (
-                <Box w="full" h="2" bg="rgba(255, 255, 255, 0.1)" borderRadius="full" overflow="hidden">
-                  <Box
-                    h="full"
-                    bg="#10b981"
-                    borderRadius="full"
-                    transition="width 0.3s ease"
-                    width={`${bridgeProgress}%`}
-                  />
-                </Box>
-              )}
+                  {/* Recipient Address */}
+                  <VStack gap={3} align="stretch">
+                    <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                      Recipient Address
+                    </Text>
+                    <UniformInput
+                      placeholder="Enter recipient address"
+                      value={recipientAddress}
+                      onChange={(e) => setRecipientAddress(e.target.value)}
+                      variant="default"
+                    />
+                  </VStack>
 
-              {/* Error Display */}
-              {error && (
-                <Box p={3} bg="rgba(255, 107, 107, 0.1)" borderRadius="md" border="1px solid" borderColor="rgba(255, 107, 107, 0.3)">
-                  <Text color="#ff6b6b" fontSize="sm">{error}</Text>
-                </Box>
-              )}
-            </VStack>
-          </UniformCard>
+                  {/* Bridge Estimate */}
+                  {estimate && (
+                    <Box
+                      bg="rgba(59, 130, 246, 0.1)"
+                      border="1px solid rgba(59, 130, 246, 0.2)"
+                      borderRadius="lg"
+                      p={4}
+                    >
+                      <VStack gap={2} align="stretch">
+                        <Text fontSize="sm" fontWeight="medium" color="#3b82f6">
+                          Bridge Estimate
+                        </Text>
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" color="#9ca3af">You send:</Text>
+                          <Text fontSize="sm" color="#ffffff">
+                            {amount} {fromAsset?.symbol}
+                          </Text>
+                        </HStack>
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" color="#9ca3af">You receive:</Text>
+                          <Text fontSize="sm" color="#ffffff">
+                            {(parseFloat(amount) * estimate.rate).toFixed(6)} {toAsset?.symbol}
+                          </Text>
+                        </HStack>
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" color="#9ca3af">Bridge fee:</Text>
+                          <Text fontSize="sm" color="#ffffff">
+                            {estimate.fee} {fromAsset?.symbol}
+                          </Text>
+                        </HStack>
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" color="#9ca3af">Estimated time:</Text>
+                          <Text fontSize="sm" color="#ffffff">
+                            {estimate.estimatedTime}
+                          </Text>
+                        </HStack>
+                      </VStack>
+                    </Box>
+                  )}
 
-          {/* Transaction History */}
-          {transactions.length > 0 && (
+                  {/* Bridge Button */}
+                  <UniformButton
+                    onClick={handleBridge}
+                    isLoading={isBridging}
+                    loadingText="Bridging..."
+                    disabled={!isWalletConnected || !estimate || isEstimating}
+                    variant="primary"
+                    size="lg"
+                  >
+                    {isEstimating ? 'Estimating...' : 'Bridge Assets'}
+                  </UniformButton>
+                </VStack>
+              </UniformCard>
+            </Box>
+
+            {/* Transaction History */}
+            <Box flex="1" minW="400px">
+              <UniformCard p={6}>
+                <VStack gap={4} align="stretch">
+                  <HStack justify="space-between" align="center">
+                    <Heading size="md" color="#ffffff">
+                      Bridge History
+                    </Heading>
+                    <Badge colorScheme="blue" fontSize="sm">
+                      {transactions.length} Transactions
+                    </Badge>
+                  </HStack>
+
+                  {transactions.length === 0 ? (
+                    <Text color="#9ca3af" textAlign="center" py={8}>
+                      No bridge transactions yet
+                    </Text>
+                  ) : (
+                    <VStack gap={3} align="stretch" maxH="400px" overflowY="auto">
+                      {transactions.map(transaction => (
+                        <Box
+                          key={transaction.id}
+                          bg="rgba(255, 255, 255, 0.05)"
+                          border="1px solid rgba(255, 255, 255, 0.1)"
+                          borderRadius="lg"
+                          p={4}
+                          cursor="pointer"
+                          _hover={{ bg: "rgba(255, 255, 255, 0.1)" }}
+                          onClick={() => setSelectedTransaction(transaction)}
+                        >
+                          <VStack gap={2} align="stretch">
+                            <HStack justify="space-between" align="center">
+                              <HStack gap={2}>
+                                <Text fontSize="sm" color="#ffffff">
+                                  {transaction.route.fromAsset.icon} {transaction.route.fromAsset.symbol}
+                                </Text>
+                                <Text fontSize="sm" color="#9ca3af">→</Text>
+                                <Text fontSize="sm" color="#ffffff">
+                                  {transaction.route.toAsset.icon} {transaction.route.toAsset.symbol}
+                                </Text>
+                              </HStack>
+                              <Badge
+                                colorScheme={
+                                  transaction.status === 'completed' ? 'green' :
+                                  transaction.status === 'processing' ? 'blue' :
+                                  transaction.status === 'failed' ? 'red' : 'yellow'
+                                }
+                                fontSize="xs"
+                              >
+                                {transaction.status}
+                              </Badge>
+                            </HStack>
+                            <HStack justify="space-between">
+                              <Text fontSize="sm" color="#9ca3af">
+                                {transaction.amount} {transaction.route.fromAsset.symbol}
+                              </Text>
+                              <Text fontSize="xs" color="#9ca3af">
+                                {new Date(transaction.timestamp).toLocaleString()}
+                              </Text>
+                            </HStack>
+                          </VStack>
+                        </Box>
+                      ))}
+                    </VStack>
+                  )}
+                </VStack>
+              </UniformCard>
+            </Box>
+          </HStack>
+
+          {/* Transaction Details Modal */}
+          {selectedTransaction && (
             <UniformCard p={6}>
               <VStack gap={4} align="stretch">
-                <Text fontSize="lg" fontWeight="semibold" color="#ffffff">
-                  Bridge History
-                </Text>
-                
+                <HStack justify="space-between" align="center">
+                  <Heading size="md" color="#ffffff">
+                    Transaction Details
+                  </Heading>
+                  <Button
+                    onClick={() => setSelectedTransaction(null)}
+                    variant="outline"
+                    size="sm"
+                    color="#ffffff"
+                    borderColor="rgba(255, 255, 255, 0.2)"
+                  >
+                    ✕
+                  </Button>
+                </HStack>
+
                 <VStack gap={3} align="stretch">
-                  {transactions.map((tx) => (
-                    <Box
-                      key={tx.id}
-                      p={4}
-                      bg="rgba(0, 0, 0, 0.4)"
-                      borderRadius="md"
-                      border="1px solid"
-                      borderColor="rgba(255, 255, 255, 0.1)"
+                  <HStack justify="space-between">
+                    <Text color="#9ca3af">Transaction ID:</Text>
+                    <Text color="#ffffff" fontFamily="mono" fontSize="sm">
+                      {selectedTransaction.id}
+                    </Text>
+                  </HStack>
+                  <HStack justify="space-between">
+                    <Text color="#9ca3af">Status:</Text>
+                    <Badge
+                      colorScheme={
+                        selectedTransaction.status === 'completed' ? 'green' :
+                        selectedTransaction.status === 'processing' ? 'blue' :
+                        selectedTransaction.status === 'failed' ? 'red' : 'yellow'
+                      }
                     >
-                      <HStack justify="space-between" align="start">
-                        <VStack gap={1} align="start">
-                          <HStack gap={2}>
-                            <Text color="#ffffff" fontWeight="medium">
-                              {tx.amount} {tx.fromAsset} → {tx.toAsset}
-                            </Text>
-                            <Badge
-                              colorScheme={
-                                tx.status === 'completed' ? 'green' :
-                                tx.status === 'failed' ? 'red' :
-                                tx.status === 'processing' ? 'blue' : 'gray'
-                              }
-                              variant="subtle"
-                            >
-                              {tx.status}
-                            </Badge>
-                          </HStack>
-                          <Text color="#9ca3af" fontSize="sm">
-                            To: {tx.recipientAddress.slice(0, 8)}...{tx.recipientAddress.slice(-8)}
-                          </Text>
-                          {tx.txHash && (
-                            <Text color="#9ca3af" fontSize="sm">
-                              TX: {tx.txHash.slice(0, 8)}...{tx.txHash.slice(-8)}
-                            </Text>
-                          )}
-                        </VStack>
-                        <Text color="#9ca3af" fontSize="sm">
-                          {new Date(tx.timestamp).toLocaleString()}
-                        </Text>
-                      </HStack>
+                      {selectedTransaction.status}
+                    </Badge>
+                  </HStack>
+                  <HStack justify="space-between">
+                    <Text color="#9ca3af">Amount:</Text>
+                    <Text color="#ffffff">
+                      {selectedTransaction.amount} {selectedTransaction.route.fromAsset.symbol}
+                    </Text>
+                  </HStack>
+                  <HStack justify="space-between">
+                    <Text color="#9ca3af">Recipient:</Text>
+                    <Text color="#ffffff" fontFamily="mono" fontSize="sm">
+                      {selectedTransaction.recipientAddress}
+                    </Text>
+                  </HStack>
+                  <HStack justify="space-between">
+                    <Text color="#9ca3af">Estimated Time:</Text>
+                    <Text color="#ffffff">
+                      {selectedTransaction.route.estimatedTime}
+                    </Text>
+                  </HStack>
+                  {selectedTransaction.txHash && (
+                    <HStack justify="space-between">
+                      <Text color="#9ca3af">Transaction Hash:</Text>
+                      <Text color="#3b82f6" fontFamily="mono" fontSize="sm" cursor="pointer">
+                        {selectedTransaction.txHash.substring(0, 20)}...
+                      </Text>
+                    </HStack>
+                  )}
+                  {selectedTransaction.error && (
+                    <Box
+                      bg="rgba(255, 107, 107, 0.1)"
+                      border="1px solid rgba(255, 107, 107, 0.3)"
+                      borderRadius="md"
+                      p={3}
+                    >
+                      <Text color="#ff6b6b" fontSize="sm">
+                        Error: {selectedTransaction.error}
+                      </Text>
                     </Box>
-                  ))}
+                  )}
                 </VStack>
               </VStack>
             </UniformCard>
           )}
-        </>
-      )}
-    </VStack>
+        </VStack>
+      </Box>
+    </Box>
   );
 };
 

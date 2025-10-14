@@ -5,8 +5,8 @@ authors = ["ChainLinkPay Team"]
 telemetry = true
 cache_dir = "./.cache"
 
-[contracts.chainlink-pay]
-path = "contracts/chainlink-pay.clar"
+[contracts.chainlink-pay-v2]
+path = "contracts/chainlink-pay-v2.clar"
 epoch = "latest"
 
 [repl.analysis]

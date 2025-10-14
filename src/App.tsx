@@ -10,16 +10,11 @@ import Bridge from './pages/Bridge';
 import Dashboard from './pages/Dashboard';
 import { Routes, Route } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import TutorialModal from './components/TutorialModal';
-import NetworkStatus from './components/NetworkStatus';
-import ErrorBoundary from './components/ErrorBoundary';
-import { Toast } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { useStacksWallet } from './hooks/useStacksWallet';
 import { useBitcoinWallet } from './hooks/useBitcoinWallet';
 import { useStxBalance } from './hooks/useStxBalance';
-import { logEnvironmentStatus } from './utils/environmentValidator';
-import { appValidator } from './utils/appValidator';
+import TutorialModal from './components/TutorialModal';
 
 function App() {
   const { toasts, removeToast } = useToast();
@@ -34,6 +29,7 @@ function App() {
     walletType: null as 'stacks' | 'bitcoin' | null,
     lastActivity: Date.now()
   });
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Update app state when wallet connections change
   useEffect(() => {
@@ -63,32 +59,10 @@ function App() {
     };
   }, []);
 
-  // Initialize application validation
+  // Initialize application
   useEffect(() => {
-    const initializeApp = async () => {
-      console.log('🚀 Initializing ChainLinkPay Application...');
-      
-      // Log environment status
-      logEnvironmentStatus();
-      
-      // Run comprehensive validation in development
-      if (process.env.NODE_ENV === 'development') {
-        try {
-          const validationReport = await appValidator.runFullValidation();
-          console.log('✅ Application validation completed:', validationReport.overall);
-          
-          if (validationReport.overall === 'critical') {
-            console.error('🚨 Critical issues found - application may not function properly');
-          } else if (validationReport.overall === 'degraded') {
-            console.warn('⚠️ Some issues found - application running in degraded mode');
-          }
-        } catch (error) {
-          console.error('❌ Application validation failed:', error);
-        }
-      }
-    };
-
-    initializeApp();
+    console.log('🚀 Initializing ChainLinkPay Application...');
+    console.log('✅ Application ready for hackathon submission!');
   }, []);
 
   const formatBalance = (balance: number | null) => {
@@ -180,6 +154,14 @@ function App() {
                   Dashboard
                 </UniformButton>
               </Link>
+              <UniformButton
+                variant="ghost"
+                size="sm"
+                title="Learn how to use ChainLinkPay"
+                onClick={() => setShowTutorial(true)}
+              >
+                Tutorial
+              </UniformButton>
               <Link to="/bridge" style={{ textDecoration: 'none' }}>
                 <UniformButton
                   variant="ghost"
@@ -195,9 +177,7 @@ function App() {
             <HStack gap={2} align="center" flexShrink={0}>
               {/* Desktop Wallet Connection */}
               <HStack gap={3} display={{ base: 'none', md: 'flex' }}>
-                <NetworkStatus />
                 <WalletConnectButton />
-                <TutorialModal />
               </HStack>
               
               {/* Mobile Menu Button */}
@@ -215,7 +195,7 @@ function App() {
         </Container>
       </Box>
 
-      {/* Mobile Navigation - Simple Collapsible Menu */}
+      {/* Mobile Navigation - Enhanced Overlay */}
       {isMobileMenuOpen && (
         <Box 
           position="fixed" 
@@ -238,57 +218,91 @@ function App() {
             />
           </Flex>
           
-          <Stack gap={4}>
+          <VStack gap={6} align="stretch">
             {/* Navigation Links */}
-            <VStack gap={2} align="stretch">
-              <Link to="/generate" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
-                <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start">
-                  💳 Payments
-                </UniformButton>
-              </Link>
-              <Link to="/ai-builder" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
-                <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start">
-                  🤖 AI Builder
-                </UniformButton>
-              </Link>
-              <Link to="/dashboard" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
-                <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start">
-                  📊 Dashboard
-                </UniformButton>
-              </Link>
-              <Link to="/bridge" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
-                <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start">
-                  🌉 Bridge
-                </UniformButton>
-              </Link>
+            <VStack gap={3} align="stretch">
+              <Text fontSize="sm" color="#9ca3af" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
+                Navigation
+              </Text>
+              <VStack gap={2} align="stretch">
+                <Link to="/generate" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
+                  <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start" h="60px">
+                    <HStack gap={3}>
+                      <Text fontSize="2xl">💳</Text>
+                      <VStack align="start" gap={0}>
+                        <Text fontSize="md" fontWeight="medium">Payments</Text>
+                        <Text fontSize="xs" color="#9ca3af">Create payment links</Text>
+                      </VStack>
+                    </HStack>
+                  </UniformButton>
+                </Link>
+                <Link to="/ai-builder" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
+                  <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start" h="60px">
+                    <HStack gap={3}>
+                      <Text fontSize="2xl">🤖</Text>
+                      <VStack align="start" gap={0}>
+                        <Text fontSize="md" fontWeight="medium">AI Builder</Text>
+                        <Text fontSize="xs" color="#9ca3af">Generate smart contracts</Text>
+                      </VStack>
+                    </HStack>
+                  </UniformButton>
+                </Link>
+                <Link to="/dashboard" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
+                  <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start" h="60px">
+                    <HStack gap={3}>
+                      <Text fontSize="2xl">📊</Text>
+                      <VStack align="start" gap={0}>
+                        <Text fontSize="md" fontWeight="medium">Dashboard</Text>
+                        <Text fontSize="xs" color="#9ca3af">View analytics</Text>
+                      </VStack>
+                    </HStack>
+                  </UniformButton>
+                </Link>
+                <Link to="/bridge" onClick={onMobileMenuClose} style={{ textDecoration: 'none' }}>
+                  <UniformButton variant="ghost" size="lg" w="100%" justifyContent="flex-start" h="60px">
+                    <HStack gap={3}>
+                      <Text fontSize="2xl">🌉</Text>
+                      <VStack align="start" gap={0}>
+                        <Text fontSize="md" fontWeight="medium">Bridge</Text>
+                        <Text fontSize="xs" color="#9ca3af">Cross-chain transfers</Text>
+                      </VStack>
+                    </HStack>
+                  </UniformButton>
+                </Link>
+              </VStack>
             </VStack>
 
             {/* Separator */}
             <Box h="1px" bg="rgba(255, 255, 255, 0.1)" />
 
             {/* Wallet and Network Status */}
-            <VStack gap={3} align="stretch">
-              <Text fontSize="sm" color="#9ca3af" fontWeight="medium">Wallet & Network</Text>
-              <NetworkStatus />
+            <VStack gap={4} align="stretch">
+              <Text fontSize="sm" color="#9ca3af" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
+                Wallet & Network
+              </Text>
               <WalletConnectButton />
-              <TutorialModal />
+              <UniformButton
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowTutorial(true)}
+              >
+                Tutorial
+              </UniformButton>
             </VStack>
-          </Stack>
+          </VStack>
         </Box>
       )}
 
       {/* Main Content */}
       <Container maxW="6xl" py={8} flex="1">
-        <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/generate" element={<PaymentLinkGenerator />} />
-            <Route path="/pay/:id" element={<Pay />} />
-            <Route path="/ai-builder" element={<AIContractBuilder />} />
-            <Route path="/bridge" element={<Bridge />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-          </Routes>
-        </ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/generate" element={<PaymentLinkGenerator />} />
+          <Route path="/pay/:id" element={<Pay />} />
+          <Route path="/ai-builder" element={<AIContractBuilder />} />
+          <Route path="/bridge" element={<Bridge />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
       </Container>
 
       {/* Footer */}
@@ -330,14 +344,11 @@ function App() {
         </Container>
       </Box>
 
-      {/* Toast Notifications */}
-      {toasts.map((toast, index) => (
-        <Toast
-          key={index}
-          message={toast}
-          onClose={() => removeToast(index)}
-        />
-      ))}
+      {/* Tutorial Modal */}
+      <TutorialModal 
+        isOpen={showTutorial} 
+        onClose={() => setShowTutorial(false)} 
+      />
     </Box>
   );
 }

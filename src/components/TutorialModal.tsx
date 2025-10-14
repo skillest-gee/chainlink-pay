@@ -1,304 +1,164 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Box, Text, VStack, HStack, IconButton, Heading, Badge, Button, Portal } from '@chakra-ui/react';
-import { UniformButton } from './UniformButton';
+import React from 'react';
+import { Box, VStack, HStack, Text, Button, Badge } from '@chakra-ui/react';
 import { UniformCard } from './UniformCard';
+import { UniformButton } from './UniformButton';
 
-export default function TutorialModal() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const modalRef = useRef<HTMLDivElement>(null);
+interface TutorialModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-  // Debug logging
-  useEffect(() => {
-    console.log('TutorialModal state changed:', { isOpen, currentStep });
-  }, [isOpen, currentStep]);
+export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
 
-  // Focus management for accessibility
-  useEffect(() => {
-    if (isOpen && modalRef.current) {
-      modalRef.current.focus();
-    }
-  }, [isOpen]);
-  
-  const tutorialSteps = [
-    {
-      title: "Welcome to ChainLinkPay",
-      icon: "🔗",
-      content: "ChainLinkPay is a professional Bitcoin payment platform that allows you to create payment links, manage transactions, and bridge assets across blockchain networks.",
-      features: ["Create secure payment links", "Manage Bitcoin and STX transactions", "Cross-chain asset bridging", "AI-powered smart contracts"],
-      action: "Click 'Connect Wallet' to get started"
-    },
+  const steps = [
     {
       title: "Connect Your Wallet",
-      icon: "👛",
-      content: "Start by connecting your wallet to access all features. We support both Stacks and Bitcoin wallets for maximum flexibility.",
-      features: ["Stacks wallets (Hiro, Xverse, Leather)", "Bitcoin wallets (Unisat, OKX, Bitget)", "Mobile wallet support", "Secure connection"],
-      action: "Choose your preferred wallet and connect"
+      description: "Connect your Xverse or Leather wallet to start using ChainLinkPay",
+      icon: "🔗"
     },
     {
       title: "Create Payment Links",
-      icon: "💳",
-      content: "Generate secure payment links for your customers. Support both Bitcoin and STX payments with professional QR codes.",
-      features: ["Custom payment amounts", "Payment descriptions", "QR code generation", "Real-time tracking"],
-      action: "Go to 'Payments' to create your first link"
+      description: "Generate shareable payment links in seconds with QR codes",
+      icon: "💳"
     },
     {
       title: "AI Contract Builder",
-      icon: "🤖",
-      content: "Generate smart contracts using AI. Describe your requirements in natural language and get production-ready Clarity code.",
-      features: ["Natural language input", "Template-based generation", "Contract validation", "Deployment support"],
-      action: "Try the 'AI Builder' for custom contracts"
+      description: "Generate smart contracts using natural language with AI",
+      icon: "🤖"
     },
     {
       title: "Cross-Chain Bridge",
-      icon: "🌉",
-      content: "Bridge assets between different blockchain networks. Transfer Bitcoin, STX, and other supported tokens seamlessly.",
-      features: ["Multi-asset support", "Real-time fee estimation", "Transaction tracking", "Secure bridging"],
-      action: "Use 'Bridge' to transfer between chains"
-    },
-    {
-      title: "Dashboard & Analytics",
-      icon: "📊",
-      content: "Track your payment statistics, view transaction history, and monitor your business performance with detailed analytics.",
-      features: ["Real-time statistics", "Payment history", "Monthly growth tracking", "Quick actions"],
-      action: "Check your 'Dashboard' for insights"
+      description: "Bridge assets between Bitcoin, Stacks, Ethereum, and more",
+      icon: "🌉"
     }
   ];
 
-  const nextStep = () => {
-    if (currentStep < tutorialSteps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      setIsOpen(false);
-      setCurrentStep(0);
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const skipTutorial = () => {
-    setIsOpen(false);
-    setCurrentStep(0);
-  };
-
-  if (!isOpen) {
-    return (
-      <UniformButton
-        variant="ghost"
-        size="sm"
-        onClick={() => {
-          console.log('Tutorial button clicked, opening modal...');
-          setIsOpen(true);
-        }}
-        title="Learn how to use ChainLinkPay"
-      >
-        📚 Tutorial
-      </UniformButton>
-    );
-  }
-
-  const currentTutorial = tutorialSteps[currentStep];
-
   return (
-    <Portal>
-      <Box
-        ref={modalRef}
-        position="fixed"
-        top="0"
-        left="0"
-        right="0"
-        bottom="0"
-        bg="rgba(0, 0, 0, 0.9)"
-        backdropFilter="blur(12px)"
-        zIndex="999999"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        p={{ base: 2, md: 4 }}
-        overflow="auto"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            skipTutorial();
-          }
-        }}
-        style={{
-          position: 'fixed',
-          zIndex: 999999,
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0
-        }}
-        tabIndex={-1}
-      >
-      <UniformCard
-        maxW={{ base: "95%", md: "600px", lg: "700px" }}
-        w="full"
-        maxH="90vh"
-        p={0}
-        overflow="auto"
-        onClick={(e) => e.stopPropagation()}
-        display="flex"
-        flexDirection="column"
-      >
-        <VStack gap={0} align="stretch" h="full" flex="1">
+    <Box
+      position="fixed"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      bg="rgba(0, 0, 0, 0.8)"
+      zIndex={1000}
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      p={4}
+    >
+      <UniformCard maxW="2xl" w="full" p={6}>
+        <VStack gap={6} align="stretch">
           {/* Header */}
-          <Box p={{ base: 4, md: 6 }} borderBottom="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)" flexShrink={0}>
-            <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
-              <HStack gap={3} align="center" flex="1" minW="0">
-                <Text fontSize={{ base: "xl", md: "2xl" }}>{currentTutorial.icon}</Text>
-                <VStack align="start" gap={1} flex="1" minW="0">
-                  <Heading 
-                    size="md" 
-                    fontSize={{ base: "lg", md: "md" }} 
-                    color="#ffffff" 
-                    fontWeight="bold"
-                  >
-                    {currentTutorial.title}
-                  </Heading>
-                  <Badge colorScheme="blue" fontSize="xs" variant="subtle">
-                    Step {currentStep + 1} of {tutorialSteps.length}
-                  </Badge>
+          <HStack justify="space-between" align="center">
+            <VStack align="start" gap={1}>
+              <Text fontSize="xl" fontWeight="bold" color="#ffffff">
+                🎯 Welcome to ChainLinkPay
+              </Text>
+              <Text fontSize="sm" color="#9ca3af">
+                Your AI-powered Bitcoin payment platform
+              </Text>
+            </VStack>
+            <UniformButton
+              onClick={onClose}
+              variant="secondary"
+              size="sm"
+            >
+              ✕
+            </UniformButton>
+          </HStack>
+
+          {/* Features */}
+          <VStack gap={4} align="stretch">
+            <Text fontSize="lg" fontWeight="medium" color="#ffffff">
+              🚀 Key Features
+            </Text>
+            {steps.map((step, index) => (
+              <HStack key={index} gap={4} align="start">
+                <Box
+                  w={12}
+                  h={12}
+                  bg="rgba(59, 130, 246, 0.1)"
+                  borderRadius="lg"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  fontSize="xl"
+                >
+                  {step.icon}
+                </Box>
+                <VStack align="start" gap={1} flex={1}>
+                  <Text fontSize="md" fontWeight="medium" color="#ffffff">
+                    {step.title}
+                  </Text>
+                  <Text fontSize="sm" color="#9ca3af">
+                    {step.description}
+                  </Text>
                 </VStack>
               </HStack>
-              
-              <IconButton
-                aria-label="Close tutorial"
-                size="sm"
-                variant="ghost"
-                color="#9ca3af"
-                _hover={{ color: "#ffffff", bg: "rgba(255, 255, 255, 0.1)" }}
-                onClick={skipTutorial}
-                flexShrink={0}
-              >
-                <Text fontSize="lg">✕</Text>
-              </IconButton>
-            </HStack>
-          </Box>
+            ))}
+          </VStack>
 
-          {/* Content */}
-          <Box p={{ base: 4, md: 6 }} bg="rgba(0, 0, 0, 0.6)" flex="1" overflow="auto">
-            <VStack gap={{ base: 4, md: 6 }} align="stretch">
-              <Text 
-                fontSize={{ base: "sm", md: "md" }} 
-                color="#ffffff" 
-                lineHeight="1.6" 
-                textAlign="center"
-                whiteSpace="pre-line"
-              >
-                {currentTutorial.content}
+          {/* Quick Start */}
+          <Box
+            bg="rgba(16, 185, 129, 0.1)"
+            border="1px solid rgba(16, 185, 129, 0.2)"
+            borderRadius="lg"
+            p={4}
+          >
+            <VStack gap={3} align="stretch">
+              <Text fontSize="md" fontWeight="medium" color="#10b981">
+                🎬 Quick Start Guide
               </Text>
-
-              {/* Features List */}
-              <VStack gap={3} align="stretch">
-                <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="bold" color="#3b82f6" textAlign="center">
-                  Key Features:
-                </Text>
-                {currentTutorial.features.map((feature, index) => (
-                  <HStack key={index} gap={3} align="start" p={2} bg="rgba(255, 255, 255, 0.05)" borderRadius="md">
-                    <Text fontSize={{ base: "xs", md: "sm" }} color="#10b981" mt={0.5} fontWeight="bold">✓</Text>
-                    <Text fontSize={{ base: "xs", md: "sm" }} color="#ffffff">
-                      {feature}
-                    </Text>
-                  </HStack>
-                ))}
-              </VStack>
-
-              {/* Action Call */}
-              <Box p={{ base: 3, md: 4 }} bg="rgba(59, 130, 246, 0.1)" borderRadius="lg" border="1px solid" borderColor="rgba(59, 130, 246, 0.3)">
-                <Text fontSize={{ base: "xs", md: "sm" }} color="#3b82f6" fontWeight="medium" textAlign="center" whiteSpace="pre-line">
-                  💡 {currentTutorial.action}
-                </Text>
-              </Box>
-
-              {/* Progress Bar */}
               <VStack gap={2} align="stretch">
-                <HStack justify="space-between" align="center">
-                  <Text fontSize={{ base: "2xs", md: "xs" }} color="#9ca3af">Progress</Text>
-                  <Text fontSize={{ base: "2xs", md: "xs" }} color="#9ca3af">
-                    {Math.round(((currentStep + 1) / tutorialSteps.length) * 100)}%
-                  </Text>
-                </HStack>
-                <Box
-                  w="full"
-                  h={{ base: "3px", md: "4px" }}
-                  bg="rgba(255, 255, 255, 0.1)"
-                  borderRadius="full"
-                  overflow="hidden"
-                >
-                  <Box
-                    w={`${((currentStep + 1) / tutorialSteps.length) * 100}%`}
-                    h="full"
-                    bg="linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%)"
-                    borderRadius="full"
-                    transition="width 0.3s ease"
-                  />
-                </Box>
+                <Text fontSize="sm" color="#9ca3af">
+                  1. Connect your wallet using the button in the top right
+                </Text>
+                <Text fontSize="sm" color="#9ca3af">
+                  2. Try creating a payment link from the dashboard
+                </Text>
+                <Text fontSize="sm" color="#9ca3af">
+                  3. Explore the AI contract builder for smart contracts
+                </Text>
+                <Text fontSize="sm" color="#9ca3af">
+                  4. Use the bridge to move assets between chains
+                </Text>
               </VStack>
             </VStack>
           </Box>
 
-          {/* Footer */}
-          <Box p={{ base: 4, md: 6 }} borderTop="1px solid" borderColor="rgba(255, 255, 255, 0.1)" bg="rgba(0, 0, 0, 0.8)" flexShrink={0}>
-            <VStack gap={{ base: 3, md: 4 }} align="stretch">
-              {/* Progress Dots */}
-              <HStack justify="center" gap={2} flexWrap="wrap">
-                {tutorialSteps.map((_, index) => (
-                  <Box
-                    key={index}
-                    w={{ base: "8px", md: "10px" }}
-                    h={{ base: "8px", md: "10px" }}
-                    borderRadius="full"
-                    bg={index === currentStep ? "#3b82f6" : "rgba(255, 255, 255, 0.3)"}
-                    transition="all 0.2s ease"
-                    cursor="pointer"
-                    onClick={() => setCurrentStep(index)}
-                    _hover={{ bg: index === currentStep ? "#3b82f6" : "rgba(255, 255, 255, 0.5)" }}
-                  />
-                ))}
-              </HStack>
-
-              {/* Action Buttons */}
-              <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
-                <HStack gap={2} flex="1" minW="0">
-                  {currentStep > 0 && (
-                    <UniformButton
-                      variant="secondary"
-                      size="sm"
-                      onClick={prevStep}
-                    >
-                      ← Previous
-                    </UniformButton>
-                  )}
-                </HStack>
-                
-                <HStack gap={2} flex="1" justify="flex-end" minW="0">
-                  <UniformButton
-                    variant="ghost"
-                    size="sm"
-                    onClick={skipTutorial}
-                  >
-                    Skip Tutorial
-                  </UniformButton>
-                  
-                  <UniformButton
-                    variant="primary"
-                    size="sm"
-                    onClick={nextStep}
-                  >
-                    {currentStep === tutorialSteps.length - 1 ? 'Get Started →' : 'Next →'}
-                  </UniformButton>
-                </HStack>
-              </HStack>
+          {/* Hackathon Info */}
+          <Box
+            bg="rgba(255, 193, 7, 0.1)"
+            border="1px solid rgba(255, 193, 7, 0.2)"
+            borderRadius="lg"
+            p={4}
+          >
+            <VStack gap={2} align="center">
+              <Badge colorScheme="yellow" variant="solid" fontSize="sm">
+                🏆 Stacks Vibe Coding Hackathon
+              </Badge>
+              <Text fontSize="sm" color="#9ca3af" textAlign="center">
+                Built with AI-powered smart contract generation and cross-chain bridge technology
+              </Text>
             </VStack>
           </Box>
+
+          {/* Actions */}
+          <HStack gap={3} justify="center">
+            <UniformButton
+              onClick={onClose}
+              variant="primary"
+              size="md"
+            >
+              Get Started
+            </UniformButton>
+          </HStack>
         </VStack>
       </UniformCard>
     </Box>
-    </Portal>
   );
-}
+};
+
+export default TutorialModal;

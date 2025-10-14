@@ -8,20 +8,21 @@ import { paymentStorage, PaymentLink } from '../services/paymentStorage';
 import { UniformButton } from './UniformButton';
 import { UniformInput, UniformTextarea } from './UniformInput';
 import { UniformCard } from './UniformCard';
+import { isValidAmount as validateAmount, isValidDescription, validateTransactionParams } from '../utils/validation';
+import { bufferCV, standardPrincipalCV, uintCV } from '@stacks/transactions';
+import { routeContractCall } from '../utils/walletProviderRouter';
+import { stacksNetwork, CONTRACT_ADDRESS, CONTRACT_NAME, CONTRACT_DEPLOYED, verifyContractDeployment } from '../config/stacksConfig';
+// Removed error handler and buffer utils imports - using simplified error handling
 
 function generateId() {
   return 'inv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-function isValidAmount(value: string) {
-  if (!value) return false;
-  const num = Number(value);
-  return Number.isFinite(num) && num > 0;
-}
+// Removed duplicate isValidAmount function - using imported one
 
 export default function PaymentLinkGenerator() {
   const { toast } = useToast();
-  const { isAuthenticated, address } = useStacksWallet();
+  const { isAuthenticated, address, userSession, walletProvider, detectWalletProvider, disconnect } = useStacksWallet();
   const { isConnected: btcConnected, address: btcAddress, connect: connectBTC } = useBitcoinWallet();
   
   const [amount, setAmount] = useState(() => {
@@ -33,12 +34,14 @@ export default function PaymentLinkGenerator() {
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [isPaying, setIsPaying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [paymentType, setPaymentType] = useState<'STX' | 'BTC'>(() => {
     return (localStorage.getItem('payment-type') as 'STX' | 'BTC') || 'STX';
   });
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid' | 'cancelled' | 'expired'>('pending');
+  const [paymentHistory, setPaymentHistory] = useState<PaymentLink[]>([]);
 
   // Save form state to localStorage when it changes
   React.useEffect(() => {
@@ -52,6 +55,46 @@ export default function PaymentLinkGenerator() {
   React.useEffect(() => {
     localStorage.setItem('payment-type', paymentType);
   }, [paymentType]);
+
+  // Load payment history and listen for payment updates
+  React.useEffect(() => {
+    const loadPaymentHistory = () => {
+      const allPayments = paymentStorage.getAllPaymentLinks();
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      const userPayments = allPayments.filter(payment => 
+        payment.merchantAddress === currentAddress
+      );
+      setPaymentHistory(userPayments);
+      
+      // Check if current generated payment is completed
+      if (generatedId) {
+        const currentPayment = userPayments.find(p => p.id === generatedId);
+        if (currentPayment) {
+          setPaymentStatus(currentPayment.status);
+        }
+      }
+    };
+
+    loadPaymentHistory();
+
+    // Listen for payment completion events
+    const handlePaymentUpdate = (event: CustomEvent) => {
+      console.log('PaymentLinkGenerator: Payment update received', event.detail);
+      // Immediate refresh when payment is updated
+      setTimeout(() => {
+        console.log('PaymentLinkGenerator: Immediate refresh after payment update');
+        loadPaymentHistory();
+      }, 100); // Small delay to ensure localStorage is updated
+    };
+
+    window.addEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
+    window.addEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
+      window.removeEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
+    };
+  }, [isAuthenticated, address, btcConnected, btcAddress, generatedId]);
 
   // Load existing payment links for this wallet on component mount
   React.useEffect(() => {
@@ -71,9 +114,50 @@ export default function PaymentLinkGenerator() {
     }
   }, [isAuthenticated, address, btcConnected, btcAddress]);
 
+  // Listen for wallet state changes
+  React.useEffect(() => {
+    const handleWalletChange = () => {
+      console.log('PaymentLinkGenerator: Wallet state changed, reloading data');
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      if (currentAddress) {
+        const allPayments = paymentStorage.getAllPaymentLinks();
+        const userPayments = allPayments.filter(p => p.merchantAddress === currentAddress);
+        
+        if (userPayments.length > 0) {
+          const latestPayment = userPayments.sort((a, b) => b.createdAt - a.createdAt)[0];
+          setGeneratedId(latestPayment.id);
+          setAmount(latestPayment.amount);
+          setDescription(latestPayment.description);
+          setPaymentType(latestPayment.paymentType || 'STX');
+        }
+      }
+    };
+
+    window.addEventListener('walletConnected', handleWalletChange);
+    window.addEventListener('walletDisconnected', handleWalletChange);
+
+    return () => {
+      window.removeEventListener('walletConnected', handleWalletChange);
+      window.removeEventListener('walletDisconnected', handleWalletChange);
+    };
+  }, [isAuthenticated, address, btcConnected, btcAddress]);
+
   const handleGenerate = async () => {
-    if (!isValidAmount(amount)) {
-      setError('Please enter a valid amount');
+    // Validate all inputs
+    const validation = validateTransactionParams({
+      amount,
+      description
+    });
+
+    if (!validation.valid) {
+      setError(validation.errors.join(', '));
+      toast({ title: 'Validation Error', status: 'error', description: validation.errors.join(', ') });
+      return;
+    }
+
+    if (!isAuthenticated && !btcConnected) {
+      setError('Please connect your wallet to create payment links');
+      toast({ title: 'Wallet Required', status: 'error', description: 'Please connect your wallet to create payment links' });
       return;
     }
 
@@ -96,8 +180,10 @@ export default function PaymentLinkGenerator() {
 
       paymentStorage.savePaymentLink(paymentLink);
       toast({ title: 'Success', status: 'success', description: 'Payment link generated successfully!' });
-    } catch (err) {
-      setError('Failed to generate payment link');
+    } catch (err: any) {
+      console.error('Generate payment link error:', err);
+      setError(err.message || 'Failed to generate payment link');
+      toast({ title: 'Error', status: 'error', description: err.message || 'Failed to generate payment link' });
     } finally {
       setIsGenerating(false);
     }
@@ -114,57 +200,79 @@ export default function PaymentLinkGenerator() {
       return;
     }
 
+    // Check if contract is deployed
+    if (!CONTRACT_DEPLOYED) {
+      toast({ 
+        title: 'Contract Not Deployed', 
+        status: 'error', 
+        description: 'The smart contract is not deployed. Please contact the administrator or use local payment links only.' 
+      });
+      return;
+    }
+
+    // Verify contract deployment
+    const isDeployed = await verifyContractDeployment();
+    if (!isDeployed) {
+      toast({ 
+        title: 'Contract Not Found', 
+        status: 'error', 
+        description: 'The smart contract could not be found on the blockchain. Please try again later or contact support.' 
+      });
+      return;
+    }
+
     setIsRegistering(true);
     setError(null);
 
+    // Temporarily disable other wallet providers to force the correct one
+    let originalLeatherProvider: any = null;
+    let originalXverseProvider: any = null;
+
     try {
-      // Import Stacks Connect and Clarity Value helpers
-      const { openContractCall } = await import('@stacks/connect');
-      const { bufferCV, standardPrincipalCV, uintCV } = await import('@stacks/transactions');
-      
-      // Use existing network configuration
-      const { stacksNetwork } = await import('../config/stacksConfig');
+      // Use static imports instead of dynamic imports to avoid React hooks issues
       const network = stacksNetwork;
-      const { CONTRACT_ADDRESS, CONTRACT_NAME } = await import('../config/stacksConfig');
       const contractAddress = CONTRACT_ADDRESS;
       const contractName = CONTRACT_NAME;
+
+      // Use the same payment ID that was generated for the payment link
+      const paymentId = generatedId || generateId();
       
-      if (!contractAddress) {
-        throw new Error('Contract not deployed. Please deploy the contract first.');
+      // Debug wallet provider information
+      console.log('Wallet provider debug:', {
+        walletProvider,
+        isAuthenticated,
+        address,
+        userSession: !!userSession,
+        userSessionIsSignedIn: userSession?.isUserSignedIn()
+      });
+      
+      // Validate wallet connection and provider
+      if (!userSession || !userSession.isUserSignedIn()) {
+        toast({ 
+          title: 'Wallet Not Connected', 
+          status: 'error', 
+          description: 'Please connect your wallet first before registering payments on-chain.' 
+        });
+        return;
       }
 
-      // Generate a unique ID for the payment
-      const paymentId = generateId();
+      // Check wallet provider consistency (informational only)
+      const currentProvider = detectWalletProvider();
+      console.log('Wallet provider check:', { walletProvider, currentProvider });
       
-      // Create a 32-byte buffer for the payment ID using a more reliable method
-      let idBuffer: Uint8Array;
-      try {
-        // Method 1: Try to create from hex string if paymentId is hex
-        if (paymentId.match(/^[0-9a-fA-F]+$/)) {
-          const hexString = paymentId.padStart(64, '0').slice(0, 64); // Ensure 32 bytes (64 hex chars)
-          idBuffer = new Uint8Array(32);
-          for (let i = 0; i < 32; i++) {
-            idBuffer[i] = parseInt(hexString.substr(i * 2, 2), 16);
-          }
-        } else {
-          // Method 2: Use TextEncoder for string IDs
-          const paymentIdBytes = new TextEncoder().encode(paymentId);
-          idBuffer = new Uint8Array(32);
-          for (let i = 0; i < Math.min(32, paymentIdBytes.length); i++) {
-            idBuffer[i] = paymentIdBytes[i];
-          }
-        }
-      } catch (error) {
-        console.error('Error creating buffer:', error);
-        throw new Error('Failed to create payment ID buffer');
+      // Only show warning if there's a significant mismatch, but don't force reconnection
+      if (walletProvider && currentProvider !== walletProvider && currentProvider !== 'unknown') {
+        console.warn(`Wallet provider mismatch detected: expected ${walletProvider}, detected ${currentProvider}`);
+        // Don't force reconnection - just log the warning and continue
+        // The userSession should still work with the connected wallet
       }
       
-      console.log('Buffer details for create-payment:', {
-        paymentId,
-        bufferLength: idBuffer.length,
-        bufferBytes: Array.from(idBuffer),
-        bufferHex: Array.from(idBuffer).map(b => b.toString(16).padStart(2, '0')).join('')
-      });
+      // Trust the userSession - if it's working, the wallet is available
+      // The wallet provider availability checks are too aggressive and can cause false positives
+      
+      // Create a 32-byte buffer for the payment ID
+      const encoder = new TextEncoder();
+      const idBuffer = bufferCV(encoder.encode(paymentId));
       
       // Validate the amount is within safe range
       const amountInMicroSTX = Math.floor(parseFloat(amount) * 1000000);
@@ -173,8 +281,15 @@ export default function PaymentLinkGenerator() {
       }
       
       // Validate the address is a proper principal
-      if (!address || !/^[SP][0-9A-Z]{39}$/.test(address)) {
-        throw new Error('Invalid wallet address.');
+      if (!address || typeof address !== 'string' || address.length < 30) {
+        console.error('Invalid wallet address:', address);
+        throw new Error('Invalid wallet address. Please ensure your wallet is properly connected.');
+      }
+      
+      // Additional validation for Stacks address format
+      if (!address.startsWith('SP') && !address.startsWith('ST')) {
+        console.error('Invalid Stacks address format:', address);
+        throw new Error('Invalid Stacks address format. Please connect a valid Stacks wallet.');
       }
       
       console.log('Contract call data:', {
@@ -186,69 +301,190 @@ export default function PaymentLinkGenerator() {
         amount: amountInMicroSTX
       });
       
+      // Debug wallet connection before contract call
+      console.log('=== CONTRACT CALL DEBUG ===');
+      console.log('Connected address:', address);
+      console.log('Is authenticated:', isAuthenticated);
+      console.log('Wallet provider:', walletProvider);
+      console.log('Contract address:', contractAddress);
+      console.log('Contract name:', contractName);
+      console.log('Full contract ID:', `${contractAddress}.${contractName}`);
+      console.log('Network:', network);
+      console.log('User session:', userSession);
+      
+      // Use the user session from the hook
+      console.log('User session exists:', !!userSession);
+      console.log('User session is signed in:', userSession?.isUserSignedIn());
+      if (userSession?.isUserSignedIn()) {
+        const userData = userSession.loadUserData();
+        console.log('User data from session:', userData);
+        console.log('User profile:', userData.profile);
+      }
+      
       // Create payment registration transaction using Stacks Connect
-      await openContractCall({
+      // Add debug logging to understand wallet provider behavior
+      console.log('=== OPEN CONTRACT CALL DEBUG ===');
+      console.log('Wallet provider:', walletProvider);
+      console.log('User session:', userSession);
+      console.log('Is user signed in:', userSession?.isUserSignedIn());
+      console.log('User data:', userSession?.loadUserData());
+      console.log('Available wallet providers before isolation:');
+      console.log('- LeatherProvider:', !!(window as any).LeatherProvider);
+      console.log('- leather:', !!(window as any).leather);
+      console.log('- XverseProvider:', !!(window as any).XverseProvider);
+      console.log('- xverse:', !!(window as any).xverse);
+      
+      
+      if (walletProvider === 'xverse') {
+        // Temporarily hide Leather provider to force Xverse
+        console.log('Forcing Xverse wallet - hiding Leather providers');
+        if ((window as any).LeatherProvider) {
+          originalLeatherProvider = (window as any).LeatherProvider;
+          (window as any).LeatherProvider = undefined;
+        }
+        if ((window as any).leather) {
+          originalLeatherProvider = (window as any).leather;
+          (window as any).leather = undefined;
+        }
+        if ((window as any).hiro) {
+          originalLeatherProvider = (window as any).hiro;
+          (window as any).hiro = undefined;
+        }
+        // Also hide any other potential Leather references
+        if ((window as any).LeatherWallet) {
+          (window as any).LeatherWallet = undefined;
+        }
+        if ((window as any).Leather) {
+          (window as any).Leather = undefined;
+        }
+      } else if (walletProvider === 'leather') {
+        // Temporarily hide Xverse provider to force Leather
+        console.log('Forcing Leather wallet - hiding Xverse providers');
+        if ((window as any).XverseProvider) {
+          originalXverseProvider = (window as any).XverseProvider;
+          (window as any).XverseProvider = undefined;
+        }
+        if ((window as any).xverse) {
+          originalXverseProvider = (window as any).xverse;
+          (window as any).xverse = undefined;
+        }
+        if ((window as any).XverseWallet) {
+          (window as any).XverseWallet = undefined;
+        }
+        if ((window as any).Xverse) {
+          (window as any).Xverse = undefined;
+        }
+      }
+      
+      console.log('Available wallet providers after isolation:');
+      console.log('- LeatherProvider:', !!(window as any).LeatherProvider);
+      console.log('- leather:', !!(window as any).leather);
+      console.log('- XverseProvider:', !!(window as any).XverseProvider);
+      console.log('- xverse:', !!(window as any).xverse);
+      
+      await routeContractCall({
         contractAddress,
         contractName,
         functionName: 'create-payment',
         functionArgs: [
           // id (buff 32) - use bufferCV helper
-          bufferCV(idBuffer),
+          idBuffer,
           // merchant (principal) - use standardPrincipalCV helper
           standardPrincipalCV(address),
           // amount (uint) - use uintCV helper
           uintCV(amountInMicroSTX)
         ],
         network,
-        onFinish: (data) => {
+        // Explicitly use the current user session to ensure correct wallet
+        userSession: userSession,
+        // Configure to use the specific wallet provider that's already connected
+        // Use the appDetails to ensure consistent wallet provider usage
+        appDetails: {
+          name: 'ChainLinkPay',
+          icon: window.location.origin + '/logo.png',
+        },
+        // Route to the correct wallet provider
+        walletProvider: walletProvider || 'unknown',
+        onFinish: (data: any) => {
           console.log('Contract call finished:', data);
+          console.log('Payment ID used in contract:', paymentId);
+          console.log('Buffer used in contract:', idBuffer);
+          
+          // Restore wallet providers
+          if (originalLeatherProvider) {
+            (window as any).LeatherProvider = originalLeatherProvider;
+            (window as any).leather = originalLeatherProvider;
+            (window as any).hiro = originalLeatherProvider;
+          }
+          if (originalXverseProvider) {
+            (window as any).XverseProvider = originalXverseProvider;
+            (window as any).xverse = originalXverseProvider;
+          }
+          
           toast({ 
             title: 'Success', 
             status: 'success', 
             description: `Payment registered on-chain! TX: ${data.txId.slice(0, 8)}...` 
           });
           
-          // Generate local payment link as well
-          handleGenerate();
+          // Don't call handleGenerate() here as it contains React hooks
+          // The payment link is already generated and stored locally
         },
         onCancel: () => {
-          console.log('Contract call cancelled');
-          toast({ title: 'Cancelled', status: 'info', description: 'Transaction cancelled by user' });
+          console.log('=== CONTRACT CALL CANCELLED ===');
+          console.log('Contract call was cancelled by user or wallet');
+          console.log('Wallet provider at time of cancellation:', walletProvider);
+          console.log('Available wallet providers at cancellation:');
+          console.log('- LeatherProvider:', !!(window as any).LeatherProvider);
+          console.log('- leather:', !!(window as any).leather);
+          console.log('- XverseProvider:', !!(window as any).XverseProvider);
+          console.log('- xverse:', !!(window as any).xverse);
+          
+          // Restore wallet providers
+          if (originalLeatherProvider) {
+            (window as any).LeatherProvider = originalLeatherProvider;
+            (window as any).leather = originalLeatherProvider;
+            (window as any).hiro = originalLeatherProvider;
+          }
+          if (originalXverseProvider) {
+            (window as any).XverseProvider = originalXverseProvider;
+            (window as any).xverse = originalXverseProvider;
+          }
+          
+          const errorMessage = 'Transaction was rejected by user';
+          toast({ title: 'Transaction Rejected', status: 'error', description: errorMessage });
         }
       });
 
     } catch (err: any) {
       console.error('Registration error:', err);
-      setError(err.message || 'Failed to register payment on-chain');
-      toast({ 
-        title: 'Registration Failed', 
-        status: 'error', 
-        description: err.message || 'Failed to register payment on-chain' 
+      
+      // Restore wallet providers in case of error
+      if (originalLeatherProvider) {
+        (window as any).LeatherProvider = originalLeatherProvider;
+        (window as any).leather = originalLeatherProvider;
+        (window as any).hiro = originalLeatherProvider;
+      }
+      if (originalXverseProvider) {
+        (window as any).XverseProvider = originalXverseProvider;
+        (window as any).xverse = originalXverseProvider;
+      }
+      
+      const errorMessage = err.message || 'Failed to register payment on blockchain';
+      setError(errorMessage);
+      setErrorDetails({
+        code: 'REGISTRATION_ERROR',
+        details: errorMessage,
+        action: 'Please try again or check your wallet connection',
+        severity: 'error',
+        originalError: err.message || err.toString()
       });
+      toast({ title: 'Registration Failed', status: 'error', description: errorMessage });
     } finally {
       setIsRegistering(false);
     }
   };
 
-  const handlePay = async () => {
-    if (!isAuthenticated) {
-      toast({ title: 'Wallet Required', status: 'warning', description: 'Please connect your wallet first' });
-      return;
-    }
-
-    setIsPaying(true);
-    setError(null);
-
-    try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast({ title: 'Success', status: 'success', description: 'Payment processed successfully!' });
-    } catch (err) {
-      setError('Payment failed');
-    } finally {
-      setIsPaying(false);
-    }
-  };
 
   const copyToClipboard = async () => {
     if (generatedId && amount && description) {
@@ -282,6 +518,42 @@ export default function PaymentLinkGenerator() {
 
   return (
     <VStack gap={6} align="stretch">
+      {/* Header with Innovation Showcase */}
+      <VStack gap={4} textAlign="center">
+        <VStack gap={2}>
+          <Heading size="xl" color="#ffffff">
+            💳 Payment Link Generator
+          </Heading>
+          <Text color="#9ca3af" maxW="2xl" fontSize="lg">
+            Create secure Bitcoin and STX payment links with QR codes. Share payment requests instantly across any device or platform.
+          </Text>
+        </VStack>
+        
+        {/* Payment Innovation Showcase */}
+        <Box 
+          bg="linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(239, 68, 68, 0.1) 100%)"
+          border="1px solid rgba(245, 158, 11, 0.2)"
+          borderRadius="xl"
+          p={4}
+          maxW="2xl"
+        >
+          <VStack gap={2}>
+            <Heading size="sm" color="#f59e0b">
+              🚀 Payment Innovation
+            </Heading>
+            <Text fontSize="xs" color="#9ca3af" textAlign="center">
+              Revolutionary payment link sharing with embedded data. Works across devices, browsers, and platforms.
+            </Text>
+            <HStack gap={2} wrap="wrap" justify="center">
+              <Text fontSize="xs" color="#10b981">✓ URL-Embedded Data</Text>
+              <Text fontSize="xs" color="#10b981">✓ Cross-Device Sharing</Text>
+              <Text fontSize="xs" color="#10b981">✓ QR Code Generation</Text>
+              <Text fontSize="xs" color="#10b981">✓ Blockchain Tracking</Text>
+            </HStack>
+          </VStack>
+        </Box>
+      </VStack>
+
       {/* Wallet Connection Check */}
       {!isWalletConnected && (
         <UniformCard p={6}>
@@ -305,7 +577,7 @@ export default function PaymentLinkGenerator() {
       {/* Main Content - Only show when wallet is connected */}
       {isWalletConnected && (
         <>
-        {/* Payment Type Selection */}
+      {/* Payment Type Selection */}
       <VStack gap={3} align="stretch">
         <Text fontSize="sm" fontWeight="medium" color="#ffffff">
           Payment Type
@@ -360,28 +632,71 @@ export default function PaymentLinkGenerator() {
       <UniformButton
         variant="primary"
         onClick={handleGenerate}
-                  loading={isGenerating}
-        disabled={!isValidAmount(amount)}
+        disabled={!amount || !description || isGenerating}
       >
         {isGenerating ? 'Generating...' : 'Generate Payment Link'}
       </UniformButton>
 
       {/* Error Display */}
       {error && (
-        <Box p={3} bg="rgba(239, 68, 68, 0.1)" border="1px solid" borderColor="rgba(239, 68, 68, 0.3)" borderRadius="lg">
-          <Text color="#ef4444" fontSize="sm">{error}</Text>
+        <Box p={4} bg="rgba(239, 68, 68, 0.1)" border="1px solid" borderColor="rgba(239, 68, 68, 0.3)" borderRadius="lg">
+          <VStack gap={2} align="stretch">
+            <HStack gap={2} align="center">
+              <Text fontSize="lg">🚨</Text>
+              <Text color="#ef4444" fontSize="sm" fontWeight="medium">Error</Text>
+            </HStack>
+            <Text color="#ef4444" fontSize="sm">{error}</Text>
+            {errorDetails && (
+              <Box p={2} bg="rgba(0, 0, 0, 0.3)" borderRadius="md">
+                <Text color="#9ca3af" fontSize="xs" fontFamily="mono">
+                  {typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails, null, 2)}
+                </Text>
+              </Box>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              color="#ef4444"
+              onClick={() => {
+                setError(null);
+                setErrorDetails(null);
+              }}
+            >
+              Dismiss
+            </Button>
+          </VStack>
         </Box>
       )}
 
       {/* Generated Payment Link */}
       {generatedId && (
-        <UniformCard p={6}>
+        <UniformCard 
+          p={6}
+          opacity={paymentStatus === 'paid' || paymentStatus === 'expired' ? 0.7 : 1}
+          borderColor={
+            paymentStatus === 'paid' ? 'rgba(16, 185, 129, 0.3)' : 
+            paymentStatus === 'expired' ? 'rgba(245, 158, 11, 0.3)' :
+            undefined
+          }
+        >
           <VStack gap={4} align="stretch">
             <HStack justify="space-between" align="center">
               <Text fontSize="lg" fontWeight="semibold" color="#ffffff">
                 Payment Link Generated
               </Text>
-              <Badge colorScheme="green">Generated</Badge>
+              <Badge 
+                colorScheme={
+                  paymentStatus === 'paid' ? 'green' : 
+                  paymentStatus === 'cancelled' ? 'red' : 
+                  paymentStatus === 'expired' ? 'orange' :
+                  'blue'
+                }
+              >
+                {paymentStatus === 'paid' ? '✅ Paid' : 
+                 paymentStatus === 'cancelled' ? '❌ Cancelled' : 
+                 paymentStatus === 'expired' ? '⏰ Expired' :
+                 '⏳ Pending'}
+              </Badge>
             </HStack>
             
             {/* QR Code */}
@@ -406,9 +721,12 @@ export default function PaymentLinkGenerator() {
               <UniformButton
                 variant="secondary"
                 onClick={copyToClipboard}
-                disabled={copied}
+                disabled={copied || paymentStatus === 'paid' || paymentStatus === 'expired'}
               >
-                {copied ? 'Copied!' : 'Copy Link'}
+                {copied ? 'Copied!' : 
+                 paymentStatus === 'paid' ? 'Payment Completed' : 
+                 paymentStatus === 'expired' ? 'Link Expired' :
+                 'Copy Link'}
               </UniformButton>
 
               {isAuthenticated && (
@@ -416,18 +734,47 @@ export default function PaymentLinkGenerator() {
                   <UniformButton
                     variant="accent"
                     onClick={handleRegisterOnChain}
-                    loading={isRegistering}
+                    disabled={isRegistering || paymentStatus === 'paid' || paymentStatus === 'expired'}
                   >
-                    {isRegistering ? 'Registering...' : 'Register On-Chain'}
+                    {isRegistering ? 'Registering...' : 
+                     paymentStatus === 'paid' ? 'Already Registered' : 
+                     paymentStatus === 'expired' ? 'Link Expired' :
+                     'Register On-Chain'}
                   </UniformButton>
 
-                  <UniformButton
-                    variant="primary"
-                    onClick={handlePay}
-                    loading={isPaying}
-                  >
-                    {isPaying ? 'Processing...' : 'Pay Now'}
-                  </UniformButton>
+                  {/* Payment Status Messages */}
+                  {generatedId && (
+                    <Box p={3} 
+                         bg={
+                           paymentStatus === 'paid' ? "rgba(16, 185, 129, 0.1)" :
+                           paymentStatus === 'cancelled' ? "rgba(239, 68, 68, 0.1)" :
+                           paymentStatus === 'expired' ? "rgba(245, 158, 11, 0.1)" :
+                           "rgba(59, 130, 246, 0.1)"
+                         } 
+                         border="1px solid" 
+                         borderColor={
+                           paymentStatus === 'paid' ? "rgba(16, 185, 129, 0.3)" :
+                           paymentStatus === 'cancelled' ? "rgba(239, 68, 68, 0.3)" :
+                           paymentStatus === 'expired' ? "rgba(245, 158, 11, 0.3)" :
+                           "rgba(59, 130, 246, 0.3)"
+                         } 
+                         borderRadius="lg">
+                      <Text 
+                        color={
+                          paymentStatus === 'paid' ? "#10b981" :
+                          paymentStatus === 'cancelled' ? "#ef4444" :
+                          paymentStatus === 'expired' ? "#f59e0b" :
+                          "#3b82f6"
+                        } 
+                        fontSize="sm" 
+                        textAlign="center">
+                        {paymentStatus === 'paid' ? '🎉 Payment completed successfully! Your customer has paid.' :
+                         paymentStatus === 'cancelled' ? '❌ Payment was cancelled.' :
+                         paymentStatus === 'expired' ? '⏰ Payment link has expired. Create a new one to receive payments.' :
+                         '⏳ Payment link created! Share this link with your customer to receive payment.'}
+                      </Text>
+                    </Box>
+                  )}
                 </>
               )}
             </HStack>
@@ -443,8 +790,98 @@ export default function PaymentLinkGenerator() {
           </VStack>
         </UniformCard>
         )}
+
+        {/* Payment History Section */}
+        {paymentHistory.length > 0 && (
+          <UniformCard p={6}>
+            <VStack gap={4} align="stretch">
+              <HStack justify="space-between" align="center">
+                <Heading size="md" color="#ffffff">
+                  Payment History
+                </Heading>
+                <HStack gap={2}>
+                  <Badge colorScheme="blue">{paymentHistory.length} payments</Badge>
+                  <UniformButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      console.log('Manual refresh of payment history');
+                      const allPayments = paymentStorage.getAllPaymentLinks();
+                      const currentAddress = isAuthenticated ? address : btcAddress;
+                      const userPayments = allPayments.filter(payment => 
+                        payment.merchantAddress === currentAddress
+                      );
+                      setPaymentHistory(userPayments);
+                      
+                      // Check if current generated payment is completed
+                      if (generatedId) {
+                        const currentPayment = userPayments.find(p => p.id === generatedId);
+                        if (currentPayment) {
+                          setPaymentStatus(currentPayment.status);
+                        }
+                      }
+                    }}
+                    title="Refresh payment status"
+                  >
+                    🔄
+                  </UniformButton>
+                </HStack>
+              </HStack>
+              
+              <VStack gap={3} align="stretch">
+                {paymentHistory.slice(0, 5).map((payment) => (
+                  <Box 
+                    key={payment.id}
+                    p={4} 
+                    bg="rgba(255, 255, 255, 0.05)" 
+                    border="1px solid" 
+                    borderColor="rgba(255, 255, 255, 0.1)" 
+                    borderRadius="lg"
+                  >
+                    <HStack justify="space-between" align="center">
+                      <VStack align="start" gap={1}>
+                        <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                          {payment.description}
+                        </Text>
+                        <Text fontSize="xs" color="#9ca3af">
+                          {payment.amount} {payment.paymentType} • {new Date(payment.createdAt).toLocaleDateString()}
+                        </Text>
+                      </VStack>
+                      <VStack align="end" gap={1}>
+                        <Badge 
+                          colorScheme={
+                            payment.status === 'paid' ? 'green' : 
+                            payment.status === 'cancelled' ? 'red' : 
+                            payment.status === 'expired' ? 'orange' :
+                            'blue'
+                          }
+                        >
+                          {payment.status === 'paid' ? '✅ Paid' : 
+                           payment.status === 'cancelled' ? '❌ Cancelled' : 
+                           payment.status === 'expired' ? '⏰ Expired' :
+                           '⏳ Pending'}
+                        </Badge>
+                        {payment.status === 'paid' && payment.paidAt && (
+                          <Text fontSize="xs" color="#10b981">
+                            Paid {new Date(payment.paidAt).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </VStack>
+                    </HStack>
+                  </Box>
+                ))}
+              </VStack>
+              
+              {paymentHistory.length > 5 && (
+                <Text fontSize="sm" color="#9ca3af" textAlign="center">
+                  Showing 5 of {paymentHistory.length} payments. View all in Dashboard.
+                </Text>
+              )}
+            </VStack>
+          </UniformCard>
+        )}
         </>
-      )}
+        )}
     </VStack>
   );
 }

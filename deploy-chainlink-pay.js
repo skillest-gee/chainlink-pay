@@ -16,7 +16,7 @@ const readline = require('readline');
 
 // Configuration - Use your existing env variables
 const NETWORK = process.env.REACT_APP_STACKS_NETWORK || 'testnet';
-const CONTRACT_NAME = process.env.REACT_APP_CONTRACT_NAME || 'enhance-payments';
+const CONTRACT_NAME = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
 const CONTRACT_FILE = 'contracts/chainlink-pay.clar';
 const EXISTING_CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS;
 

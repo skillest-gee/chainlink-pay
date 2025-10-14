@@ -7,10 +7,13 @@ import { useToast } from '../hooks/useToast';
 import { UniformButton } from '../components/UniformButton';
 import { UniformCard } from '../components/UniformCard';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
+import { validateTransactionParams, formatAddress } from '../utils/validation';
+import { CONTRACT_DEPLOYED, verifyContractDeployment } from '../config/stacksConfig';
+// Removed buffer utils import - using simplified buffer creation
 
 export default function Pay() {
   const { id: paymentId } = useParams<{ id: string }>();
-  const { isAuthenticated, address, connect } = useStacksWallet();
+  const { isAuthenticated, address, connect, userSession, walletProvider } = useStacksWallet();
   const { isConnected: btcConnected, address: btcAddress, connect: connectBTC } = useBitcoinWallet();
   const { toast } = useToast();
   
@@ -126,6 +129,29 @@ export default function Pay() {
       return;
     }
 
+    // Check if contract is deployed for STX payments
+    if (payment.paymentType === 'STX') {
+      if (!CONTRACT_DEPLOYED) {
+        toast({ 
+          title: 'Contract Not Deployed', 
+          status: 'error', 
+          description: 'The smart contract is not deployed. STX payments are currently unavailable. Please contact the merchant.' 
+        });
+        return;
+      }
+
+      // Verify contract deployment
+      const isDeployed = await verifyContractDeployment();
+      if (!isDeployed) {
+        toast({ 
+          title: 'Contract Not Found', 
+          status: 'error', 
+          description: 'The smart contract could not be found on the blockchain. Please try again later or contact support.' 
+        });
+        return;
+      }
+    }
+
     setIsPaying(true);
     setPaymentError(null);
     setPaymentProgress(0);
@@ -133,73 +159,102 @@ export default function Pay() {
     try {
       if (payment.paymentType === 'STX' && isAuthenticated) {
         // Real STX payment using Stacks Connect
-        const { openContractCall } = await import('@stacks/connect');
+        const { routeContractCall } = await import('../utils/walletProviderRouter');
         const { bufferCV } = await import('@stacks/transactions');
-        const { stacksNetwork } = await import('../config/stacksConfig');
+        const { stacksNetwork, STACKS_NETWORK_KEY } = await import('../config/stacksConfig');
         const network = stacksNetwork;
         
         const { CONTRACT_ADDRESS, CONTRACT_NAME } = await import('../config/stacksConfig');
         const contractAddress = CONTRACT_ADDRESS;
         const contractName = CONTRACT_NAME;
-        
-        if (!contractAddress) {
-          throw new Error('Contract not deployed. Please deploy the contract first.');
-        }
 
         // Generate payment ID buffer
         const paymentId = payment.id;
         
-        // Create a 32-byte buffer for the payment ID using a more reliable method
-        let idBuffer: Uint8Array;
-        try {
-          // Method 1: Try to create from hex string if paymentId is hex
-          if (paymentId.match(/^[0-9a-fA-F]+$/)) {
-            const hexString = paymentId.padStart(64, '0').slice(0, 64); // Ensure 32 bytes (64 hex chars)
-            idBuffer = new Uint8Array(32);
-            for (let i = 0; i < 32; i++) {
-              idBuffer[i] = parseInt(hexString.substr(i * 2, 2), 16);
-            }
-          } else {
-            // Method 2: Use TextEncoder for string IDs
-            const paymentIdBytes = new TextEncoder().encode(paymentId);
-            idBuffer = new Uint8Array(32);
-            for (let i = 0; i < Math.min(32, paymentIdBytes.length); i++) {
-              idBuffer[i] = paymentIdBytes[i];
-            }
-          }
-        } catch (error) {
-          console.error('Error creating buffer:', error);
-          throw new Error('Failed to create payment ID buffer');
-        }
-        
-        // Ensure the buffer is exactly 32 bytes
-        console.log('Buffer details:', {
-          paymentId,
-          bufferLength: idBuffer.length,
-          bufferBytes: Array.from(idBuffer),
-          bufferHex: Array.from(idBuffer).map(b => b.toString(16).padStart(2, '0')).join('')
-        });
+        // Create a 32-byte buffer for the payment ID using consistent method
+        const encoder = new TextEncoder();
+        const idBuffer = bufferCV(encoder.encode(paymentId));
+        console.log('Payment ID buffer created:', { paymentId, idBuffer });
         
         console.log('Payment transaction data:', {
           contractAddress,
           contractName,
           functionName: 'mark-paid',
           paymentId,
-          idBuffer: Array.from(idBuffer)
+          idBuffer: idBuffer
         });
         
+        // Debug wallet connection before payment
+        console.log('=== PAYMENT TRANSACTION DEBUG ===');
+        console.log('Connected address:', address);
+        console.log('Is authenticated:', isAuthenticated);
+        console.log('Payment ID:', payment.id);
+        console.log('Contract address:', contractAddress);
+        console.log('Contract name:', contractName);
+        
+        // Use the user session from the hook
+        console.log('User session exists:', !!userSession);
+        console.log('User session is signed in:', userSession?.isUserSignedIn());
+        if (userSession?.isUserSignedIn()) {
+          const userData = userSession.loadUserData();
+          console.log('User data from session:', userData);
+          console.log('User profile:', userData.profile);
+        }
+        
+        // First, check if the payment exists on the contract
+        console.log('Checking if payment exists on contract before marking as paid...');
+        
+        // Check if payment exists on contract first
+        try {
+          const { callReadOnlyFunction } = await import('@stacks/transactions');
+          const paymentCheck = await callReadOnlyFunction({
+            contractAddress,
+            contractName,
+            functionName: 'get-payment',
+            functionArgs: [idBuffer],
+            senderAddress: address || '',
+            network: STACKS_NETWORK_KEY as 'testnet' | 'mainnet',
+          });
+          
+          console.log('Payment check result:', paymentCheck);
+          
+          // If payment doesn't exist, show error
+          if (!paymentCheck) {
+            toast({ 
+              title: 'Payment Not Found', 
+              status: 'error', 
+              description: 'This payment was not registered on the blockchain. Please ask the merchant to register it first.' 
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking payment on contract:', error);
+          toast({ 
+            title: 'Error', 
+            status: 'error', 
+            description: 'Could not verify payment on blockchain. Please try again.' 
+          });
+          return;
+        }
+        
         // Mark payment as paid on-chain
-        await openContractCall({
+        await routeContractCall({
           contractAddress,
           contractName,
           functionName: 'mark-paid',
           functionArgs: [
             // id (buff 32) - use bufferCV helper
-            bufferCV(idBuffer)
+            idBuffer
           ],
           network,
-          onFinish: (data) => {
+          // Explicitly use the current user session to ensure correct wallet
+          userSession: userSession,
+          // Route to the correct wallet provider
+          walletProvider: walletProvider || 'unknown',
+          onFinish: (data: any) => {
             console.log('Payment transaction finished:', data);
+            console.log('Payment ID used in mark-paid:', payment.id);
+            console.log('Buffer used in mark-paid:', idBuffer);
             
             // Update payment status
             setPayment(prev => prev ? { ...prev, status: 'paid' } : null);
@@ -210,6 +265,27 @@ export default function Pay() {
               p.id === payment.id ? { ...p, status: 'paid' as const } : p
             );
             paymentStorage.saveAllPaymentLinks(updatedPayments);
+            
+            // Dispatch payment completion event for dashboard updates
+            const paymentCompletedEvent = new CustomEvent('paymentCompleted', {
+              detail: {
+                paymentId: payment.id,
+                status: 'paid',
+                txId: data.txId,
+                merchantAddress: payment.merchantAddress
+              }
+            });
+            window.dispatchEvent(paymentCompletedEvent);
+            
+            // Also dispatch a general payment update event
+            const paymentUpdatedEvent = new CustomEvent('paymentUpdated', {
+              detail: {
+                paymentId: payment.id,
+                status: 'paid',
+                txId: data.txId
+              }
+            });
+            window.dispatchEvent(paymentUpdatedEvent);
             
             toast({ 
               title: 'Success', 
@@ -440,8 +516,7 @@ export default function Pay() {
               <UniformButton
                 variant="primary"
                 onClick={handlePayment}
-                loading={isPaying}
-                disabled={payment.status === 'paid' || !walletStatus?.connected}
+                disabled={payment.status === 'paid' || !walletStatus?.connected || isPaying}
                 size="lg"
               >
                 {payment.status === 'paid' ? 'Payment Completed' : isPaying ? 'Processing Payment...' : 'Pay Now'}

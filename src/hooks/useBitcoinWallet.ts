@@ -8,6 +8,14 @@ export type BitcoinWalletState = {
   error: string | null;
 };
 
+export type WalletAvailability = {
+  unisat: boolean;
+  okx: boolean;
+  bitget: boolean;
+  xverse: boolean;
+  leather: boolean;
+};
+
 export function useBitcoinWallet() {
   const [state, setState] = useState<BitcoinWalletState>({
     isConnected: false,
@@ -23,7 +31,39 @@ export function useBitcoinWallet() {
     
     console.log('Checking for Bitcoin wallets...', { isMobile });
     
-    // Check for common Bitcoin wallet providers
+    // Enhanced mobile wallet detection
+    if (isMobile) {
+      // Check for Xverse wallet (supports both Bitcoin and Stacks) - multiple detection methods
+      if (typeof (window as any).XverseProvider !== 'undefined' || 
+          typeof (window as any).xverse !== 'undefined' ||
+          typeof (window as any).XverseWallet !== 'undefined' ||
+          typeof (window as any).Xverse !== 'undefined' ||
+          (window as any).xverse ||
+          (window as any).Xverse) {
+        console.log('Xverse wallet detected on mobile');
+        return 'xverse';
+      }
+      
+      // Check for Leather wallet (formerly Hiro wallet) - multiple detection methods
+      if (typeof (window as any).LeatherProvider !== 'undefined' || 
+          typeof (window as any).leather !== 'undefined' ||
+          typeof (window as any).LeatherWallet !== 'undefined' ||
+          typeof (window as any).Leather !== 'undefined' ||
+          (window as any).leather ||
+          (window as any).Leather) {
+        console.log('Leather wallet detected on mobile');
+        return 'leather';
+      }
+      
+      // Check for Stacks Connect mobile wallets
+      if (typeof (window as any).StacksProvider !== 'undefined' ||
+          (window as any).StacksProvider) {
+        console.log('Stacks provider detected on mobile');
+        return 'stacks';
+      }
+    }
+    
+    // Check for common Bitcoin wallet providers (desktop)
     if (typeof (window as any).unisat !== 'undefined') {
       console.log('Unisat wallet detected');
       return 'unisat';
@@ -44,40 +84,54 @@ export function useBitcoinWallet() {
       console.log('BTC wallet detected');
       return 'btc';
     }
-    
-    // Check for mobile-specific Bitcoin wallets with better detection
-    if (isMobile) {
-      // Check for Xverse wallet (supports both Bitcoin and Stacks)
-      if (typeof (window as any).XverseProvider !== 'undefined' || 
-          typeof (window as any).xverse !== 'undefined' ||
-          typeof (window as any).XverseWallet !== 'undefined') {
-        console.log('Xverse wallet detected on mobile');
-        return 'xverse';
-      }
-      
-      // Check for Leather wallet (formerly Hiro wallet)
-      if (typeof (window as any).LeatherProvider !== 'undefined' || 
-          typeof (window as any).leather !== 'undefined' ||
-          typeof (window as any).LeatherWallet !== 'undefined') {
-        console.log('Leather wallet detected on mobile');
-        return 'leather';
-      }
-      
-      // Check for Stacks Connect mobile wallets
-      if (typeof (window as any).StacksProvider !== 'undefined') {
-        console.log('Stacks provider detected on mobile');
-        return 'stacks';
-      }
-    }
 
     console.log('No Bitcoin wallet detected');
     return null;
+  }, []);
+
+  // Check which wallets are available/installed
+  const checkWalletAvailability = useCallback((): WalletAvailability => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // For mobile, we assume wallets might be available since we can't detect them reliably
+    // The deep linking will handle the actual connection
+    if (isMobile) {
+      return {
+        unisat: false, // Not commonly used on mobile
+        okx: false,    // Not commonly used on mobile
+        bitget: false, // Not commonly used on mobile
+        xverse: true,  // Assume available, deep linking will handle
+        leather: true  // Assume available, deep linking will handle
+      };
+    }
+    
+    // For desktop, check actual provider availability
+    return {
+      unisat: typeof (window as any).unisat !== 'undefined',
+      okx: typeof (window as any).okxwallet !== 'undefined',
+      bitget: typeof (window as any).bitget !== 'undefined',
+      xverse: false, // Desktop wallets
+      leather: false // Desktop wallets
+    };
   }, []);
 
   // Connect to Bitcoin wallet
   const connect = useCallback(async () => {
     try {
       setState(s => ({ ...s, isConnecting: true, error: null }));
+
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // For mobile, we'll use deep linking instead of direct provider detection
+        // This is handled by the MobileWalletConnection component
+        setState(s => ({ 
+          ...s, 
+          error: 'Please use the mobile wallet connection in the app.', 
+          isConnecting: false 
+        }));
+        return;
+      }
 
       const provider = checkBitcoinWallet();
       
@@ -136,8 +190,16 @@ export function useBitcoinWallet() {
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             if (isMobile) {
               // Try to open Xverse app
-              window.location.href = 'xverse://connect';
-              throw new Error('Please open Xverse wallet app and try again');
+              try {
+                window.location.href = 'xverse://connect';
+                // Wait a bit to see if the app opens
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                throw new Error('Xverse wallet not detected. Please install Xverse wallet app and try again.');
+              } catch (error) {
+                throw new Error('Xverse wallet not detected. Please install Xverse wallet app and try again.');
+              }
+            } else {
+              throw new Error('Xverse wallet not detected. Please install Xverse wallet extension.');
             }
           }
           break;
@@ -306,5 +368,6 @@ export function useBitcoinWallet() {
     connect,
     disconnect,
     signTransaction,
+    checkWalletAvailability,
   };
 }

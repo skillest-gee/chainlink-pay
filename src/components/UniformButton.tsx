@@ -14,6 +14,9 @@ interface UniformButtonProps {
   disabled?: boolean;
   loading?: boolean;
   title?: string;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
+  role?: string;
   [key: string]: any;
 }
 
@@ -21,6 +24,9 @@ export function UniformButton({
   variant = 'primary',
   size = 'md',
   children,
+  ariaLabel,
+  ariaDescribedBy,
+  role,
   ...props
 }: UniformButtonProps) {
   const getVariantStyles = () => {
@@ -134,6 +140,19 @@ export function UniformButton({
       {...getSizeStyles()}
       fontWeight="medium"
       transition="all 0.2s ease"
+      _focus={{
+        boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.6)',
+        outline: 'none',
+      }}
+      _focusVisible={{
+        boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.6)',
+        outline: 'none',
+      }}
+      aria-label={ariaLabel || props.title || (typeof children === 'string' ? children : undefined)}
+      aria-describedby={ariaDescribedBy}
+      role={role || "button"}
+      tabIndex={props.disabled ? -1 : 0}
+      aria-disabled={props.disabled}
       {...props}
     >
       {children}

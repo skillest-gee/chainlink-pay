@@ -67,6 +67,17 @@ export function UniformInput({
       borderRadius="lg"
       borderWidth="1px"
       transition="all 0.2s ease"
+      _focus={{
+        boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.6)',
+        outline: 'none',
+      }}
+      _focusVisible={{
+        boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.6)',
+        outline: 'none',
+      }}
+      aria-describedby={props['aria-describedby']}
+      aria-invalid={props['aria-invalid']}
+      aria-required={props.required}
       {...props}
     />
   );
@@ -115,6 +126,17 @@ export function UniformTextarea({
       borderRadius="lg"
       borderWidth="1px"
       transition="all 0.2s ease"
+      _focus={{
+        boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.6)',
+        outline: 'none',
+      }}
+      _focusVisible={{
+        boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.6)',
+        outline: 'none',
+      }}
+      aria-describedby={props['aria-describedby']}
+      aria-invalid={props['aria-invalid']}
+      aria-required={props.required}
       {...props}
     />
   );

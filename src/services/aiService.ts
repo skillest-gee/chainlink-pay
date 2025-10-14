@@ -12,6 +12,23 @@ export interface AIContractResponse {
   suggestions: string[];
   errors?: string[];
   warnings?: string[];
+  optimizations?: ContractOptimization[];
+  gasEstimate?: GasEstimate;
+  securityScore?: number;
+}
+
+export interface ContractOptimization {
+  type: 'gas' | 'security' | 'performance' | 'readability';
+  title: string;
+  description: string;
+  impact: 'low' | 'medium' | 'high';
+  suggestion: string;
+}
+
+export interface GasEstimate {
+  deployment: number;
+  averageFunction: number;
+  optimization: string;
 }
 
 export interface ContractValidation {
@@ -26,8 +43,19 @@ export class AIService {
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
   constructor() {
-    this.apiKey = process.env.REACT_APP_GEMINI_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || '';
+    // Prioritize Gemini API key
+    this.apiKey = process.env.REACT_APP_GEMINI_API_KEY || '';
     console.log('AI Service initialized with API key:', this.apiKey ? 'Present' : 'Missing');
+    console.log('Environment check:', {
+      NODE_ENV: process.env.NODE_ENV,
+      GEMINI_KEY_LENGTH: process.env.REACT_APP_GEMINI_API_KEY?.length || 0,
+      OPENAI_KEY_LENGTH: process.env.REACT_APP_OPENAI_API_KEY?.length || 0,
+      ALL_ENV_KEYS: Object.keys(process.env).filter(key => key.includes('API'))
+    });
+    
+    if (!this.apiKey) {
+      console.warn('⚠️  No Gemini API key found. Please set REACT_APP_GEMINI_API_KEY environment variable.');
+    }
   }
 
   async generateContract(request: AIContractRequest): Promise<AIContractResponse> {
@@ -39,7 +67,9 @@ export class AIService {
 
     if (!this.apiKey) {
       // Provide a fallback contract template
-      console.log('No API key found, using fallback contract template');
+      console.log('No Gemini API key found, using fallback contract template');
+      console.log('Available environment variables:', Object.keys(process.env).filter(key => key.includes('API')));
+      console.log('Please set REACT_APP_GEMINI_API_KEY environment variable in Vercel deployment settings');
       return this.getFallbackContract(request);
     }
 
@@ -58,19 +88,31 @@ export class AIService {
         }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 4000
+          maxOutputTokens: 8000,
+          topK: 40,
+          topP: 0.95
         }
       };
       
       console.log('Request body:', requestBody);
       
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('AI Service: Request timeout after 15 seconds');
+        controller.abort();
+      }, 15000); // 15 second timeout
+
       const response = await fetch(`${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -96,6 +138,11 @@ export class AIService {
       console.error('AI Service Error:', error);
       
       // Handle different types of errors
+      if (error.name === 'AbortError') {
+        console.log('Request timeout detected, using fallback contract');
+        return this.getFallbackContract(request);
+      }
+      
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         console.log('Network error detected, using fallback contract');
         return this.getFallbackContract(request);
@@ -106,8 +153,8 @@ export class AIService {
         return this.getFallbackContract(request);
       }
       
-      if (error.message?.includes('Failed to fetch')) {
-        console.log('Fetch error detected, using fallback contract');
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('timeout')) {
+        console.log('Fetch/timeout error detected, using fallback contract');
         return this.getFallbackContract(request);
       }
       
@@ -171,70 +218,272 @@ export class AIService {
     };
   }
 
+  /**
+   * Generate contract with AI-powered optimizations
+   */
+  async generateOptimizedContract(request: AIContractRequest): Promise<AIContractResponse> {
+    console.log('AI Service: Generating optimized contract');
+    
+    // First generate the base contract
+    const baseResponse = await this.generateContract(request);
+    
+    if (!baseResponse.contract) {
+      return baseResponse;
+    }
+    
+    // Add optimizations and analysis
+    const optimizations = this.analyzeContractOptimizations(baseResponse.contract);
+    const gasEstimate = this.estimateGasCosts(baseResponse.contract);
+    const securityScore = this.calculateSecurityScore(baseResponse.contract);
+    
+    return {
+      ...baseResponse,
+      optimizations,
+      gasEstimate,
+      securityScore,
+      suggestions: [
+        ...baseResponse.suggestions,
+        ...optimizations.map(opt => opt.suggestion)
+      ]
+    };
+  }
+
+  /**
+   * Analyze contract for optimization opportunities
+   */
+  private analyzeContractOptimizations(contract: string): ContractOptimization[] {
+    const optimizations: ContractOptimization[] = [];
+    
+    // Gas optimization analysis
+    if (contract.includes('map-set') && !contract.includes('map-insert')) {
+      optimizations.push({
+        type: 'gas',
+        title: 'Use map-insert for new entries',
+        description: 'map-insert is more gas-efficient than map-set for new map entries',
+        impact: 'medium',
+        suggestion: 'Replace map-set with map-insert for new entries to save gas'
+      });
+    }
+    
+    // Security analysis
+    if (contract.includes('tx-sender') && !contract.includes('asserts!')) {
+      optimizations.push({
+        type: 'security',
+        title: 'Add authorization checks',
+        description: 'Using tx-sender without assertions can be a security risk',
+        impact: 'high',
+        suggestion: 'Add proper authorization checks with asserts! for security'
+      });
+    }
+    
+    // Performance analysis
+    if (contract.includes('unwrap!') && !contract.includes('match')) {
+      optimizations.push({
+        type: 'performance',
+        title: 'Use match instead of unwrap!',
+        description: 'match provides better error handling than unwrap!',
+        impact: 'medium',
+        suggestion: 'Replace unwrap! with match for better error handling'
+      });
+    }
+    
+    // Readability analysis
+    if (!contract.includes(';;')) {
+      optimizations.push({
+        type: 'readability',
+        title: 'Add comments for clarity',
+        description: 'Comments improve code readability and maintainability',
+        impact: 'low',
+        suggestion: 'Add comments to explain complex logic and improve readability'
+      });
+    }
+    
+    return optimizations;
+  }
+
+  /**
+   * Estimate gas costs for contract deployment and functions
+   */
+  private estimateGasCosts(contract: string): GasEstimate {
+    const lines = contract.split('\n').length;
+    const functions = (contract.match(/define-public/g) || []).length;
+    const maps = (contract.match(/define-map/g) || []).length;
+    const vars = (contract.match(/define-data-var/g) || []).length;
+    
+    // Rough estimation based on contract complexity
+    const baseDeployment = 10000; // Base deployment cost
+    const lineCost = lines * 10; // Cost per line
+    const functionCost = functions * 1000; // Cost per function
+    const dataCost = (maps + vars) * 500; // Cost per data structure
+    
+    const deployment = baseDeployment + lineCost + functionCost + dataCost;
+    const averageFunction = Math.max(1000, deployment / Math.max(1, functions));
+    
+    let optimization = 'Good';
+    if (deployment > 50000) {
+      optimization = 'Consider reducing complexity';
+    } else if (deployment < 20000) {
+      optimization = 'Excellent gas efficiency';
+    }
+    
+    return {
+      deployment,
+      averageFunction,
+      optimization
+    };
+  }
+
+  /**
+   * Calculate security score for the contract
+   */
+  private calculateSecurityScore(contract: string): number {
+    let score = 100;
+    
+    // Check for security best practices
+    if (!contract.includes('asserts!')) score -= 20;
+    if (contract.includes('unwrap!') && !contract.includes('match')) score -= 15;
+    if (!contract.includes('ERR-')) score -= 10;
+    if (contract.includes('tx-sender') && !contract.includes('asserts!')) score -= 25;
+    if (!contract.includes('define-constant')) score -= 5;
+    
+    // Bonus points for good practices
+    if (contract.includes('match')) score += 10;
+    if (contract.includes('define-constant ERR-')) score += 15;
+    if (contract.includes('asserts!')) score += 20;
+    
+    return Math.max(0, Math.min(100, score));
+  }
+
   async improveContract(contract: string, feedback: string): Promise<AIContractResponse> {
     if (!this.apiKey) {
       throw new Error('Gemini API key not configured. Please set REACT_APP_GEMINI_API_KEY environment variable.');
     }
 
-    const prompt = `Please improve this Clarity smart contract based on the feedback provided:
+    const prompt = `Improve this Clarity contract based on feedback:
 
 CONTRACT:
 ${contract}
 
-FEEDBACK:
-${feedback}
+FEEDBACK: ${feedback}
 
-Please provide an improved version with better security, error handling, and documentation.`;
+Return improved contract in \`\`\`clarity code blocks only.`;
 
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      const response = await fetch(`${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'ChainLinkPay AI Contract Builder'
         },
         body: JSON.stringify({
-          model: 'meta-llama/llama-3.1-8b-instruct:free',
-          messages: [
+          contents: [
             {
-              role: 'system',
-              content: 'You are an expert Clarity smart contract developer. Improve contracts based on feedback, focusing on security, efficiency, and best practices.'
-            },
-            {
-              role: 'user',
-              content: prompt
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
             }
           ],
-          temperature: 0.2,
-          max_tokens: 4000
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 6000,
+          }
         })
       });
 
+      console.log('AI Service: Improve contract response status:', response.status);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('AI API Error:', response.status, errorText);
-        
-        // Handle specific error cases
         if (response.status === 401) {
-          throw new Error('Invalid API key. Please check your Gemini API key configuration.');
+          throw new Error('Invalid Gemini API key. Please check your REACT_APP_GEMINI_API_KEY environment variable.');
         } else if (response.status === 429) {
-          throw new Error('API rate limit exceeded. Please try again later.');
+          throw new Error('Rate limit exceeded. Please try again later.');
         } else if (response.status === 500) {
           throw new Error('Gemini API server error. Please try again later.');
+        } else {
+          throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
         }
-        
-        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
-      const content = data.choices[0]?.message?.content || '';
+      console.log('AI Service: Improve contract response data:', data);
+      console.log('AI Service: Candidates:', data.candidates);
+      console.log('AI Service: First candidate:', data.candidates?.[0]);
+      console.log('AI Service: Content:', data.candidates?.[0]?.content);
+      console.log('AI Service: Parts:', data.candidates?.[0]?.content?.parts);
+
+      const contractCode = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      console.log('AI Service: Extracted contract code:', contractCode);
       
-      return this.parseAIResponse(content, { description: feedback, template: 'improvement', language: 'clarity' });
-    } catch (error) {
-      console.error('AI Service Error:', error);
-      throw new Error('Failed to improve contract with AI. Please try again.');
+      if (!contractCode) {
+        console.log('AI Service: No contract code found in response');
+        console.log('AI Service: Full response structure:', JSON.stringify(data, null, 2));
+        
+        // Check if we hit token limit
+        if (data.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+          console.log('AI Service: Hit token limit, trying to extract partial contract');
+          // Try to extract partial contract from the response
+          const partialContract = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (partialContract && partialContract.length > 100) {
+            return {
+              contract: partialContract,
+              explanation: `Contract improved based on your feedback: ${feedback}. Note: Response was truncated due to token limits.`,
+              suggestions: [
+                'Review the improved contract for completeness',
+                'Consider breaking down complex improvements into smaller requests',
+                'Test the contract functionality thoroughly'
+              ]
+            };
+          }
+          console.log('AI Service: No usable partial contract, using fallback');
+          return this.getFallbackContract({
+            description: `Improved contract based on: ${feedback}`,
+            template: 'escrow',
+            language: 'clarity'
+          });
+        }
+        
+        // Try alternative parsing paths
+        const alternativeCode = data.candidates?.[0]?.content?.text || 
+                              data.candidates?.[0]?.text ||
+                              data.text ||
+                              data.content;
+        
+        if (alternativeCode) {
+          console.log('AI Service: Found alternative contract code:', alternativeCode);
+          return {
+            contract: alternativeCode,
+            explanation: `Contract improved based on your feedback: ${feedback}`,
+            suggestions: [
+              'Review the improved contract for security',
+              'Test the contract functionality',
+              'Consider additional error handling'
+            ]
+          };
+        }
+        
+        throw new Error('No contract code generated. Please try again.');
+      }
+
+      return {
+        contract: contractCode,
+        explanation: `Contract improved based on your feedback: ${feedback}`,
+        suggestions: [
+          'Review the improved contract for security',
+          'Test the contract functionality',
+          'Consider additional error handling'
+        ]
+      };
+    } catch (error: any) {
+      console.error('AI Service: Improve contract error:', error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error. Please check your internet connection and try again.');
+      }
+      
+      throw error;
     }
   }
 
@@ -283,7 +532,7 @@ Please provide an improved version with better security, error handling, and doc
     
     return {
       contract,
-      explanation: `This is a demo ${request.template} contract generated in demo mode. To use the full AI service, please configure your OpenRouter API key in the environment variables.`,
+      explanation: `This is a demo ${request.template} contract generated in demo mode. To use the full AI service, please configure your Gemini API key in the environment variables.`,
       suggestions: [
         'Add input validation',
         'Implement error handling',
@@ -301,7 +550,7 @@ Please provide an improved version with better security, error handling, and doc
     const errors: string[] = [];
     const warnings: string[] = ['Demo mode - API key not configured'];
     const suggestions: string[] = [
-      'Configure OpenRouter API key for full validation',
+      'Configure Gemini API key for full validation',
       'Add input validation to functions',
       'Implement proper error handling',
       'Consider gas optimization'
@@ -327,7 +576,7 @@ Please provide an improved version with better security, error handling, and doc
   private getFallbackContract(request: AIContractRequest): AIContractResponse {
     const contractName = request.description || 'payment-contract';
     const contractCode = `;; ${contractName} - Generated Contract Template
-;; This is a template contract. For AI-generated contracts, please configure your OpenRouter API key.
+;; This is a template contract. For AI-generated contracts, please configure your Gemini API key.
 
 (define-constant CONTRACT-OWNER tx-sender)
 
@@ -415,7 +664,7 @@ Please provide an improved version with better security, error handling, and doc
 - \`get-payment\`: Retrieves payment information
 - \`get-stats\`: Returns contract statistics
 
-**Note:** This is a template. For AI-generated custom contracts, please configure your OpenRouter API key in the environment variables.`,
+**Note:** This is a template. For AI-generated custom contracts, please configure your Gemini API key in the environment variables.`,
       suggestions: [
         'Add escrow functionality',
         'Implement payment splitting',
@@ -433,38 +682,95 @@ Please provide an improved version with better security, error handling, and doc
 
   private buildPrompt(request: AIContractRequest): string {
     const templateDescriptions = {
-      payment: 'Basic payment processing contract',
-      escrow: 'Secure escrow transaction contract',
-      split: 'Multi-party payment splitting contract',
-      subscription: 'Recurring payment subscription contract'
+      payment: 'payment processing',
+      escrow: 'escrow transactions',
+      split: 'payment splitting',
+      subscription: 'recurring payments'
     };
 
-    return `Generate a professional Clarity smart contract for the Stacks blockchain with the following requirements:
+    const requirements = request.requirements && request.requirements.length > 0 
+      ? `\nADDITIONAL REQUIREMENTS:\n${request.requirements.map(req => `- ${req}`).join('\n')}`
+      : '';
+
+    return `Generate a Clarity smart contract for Stacks blockchain:
 
 DESCRIPTION: ${request.description}
-TEMPLATE: ${templateDescriptions[request.template as keyof typeof templateDescriptions] || request.template}
-LANGUAGE: Clarity
+TYPE: ${templateDescriptions[request.template as keyof typeof templateDescriptions] || request.template}${requirements}
 
 REQUIREMENTS:
-- Use proper Clarity syntax and best practices
-- Include comprehensive error handling with custom error constants
-- Add security checks and assertions
-- Include detailed documentation comments
-- Use appropriate data variables and maps
-- Implement proper access controls
-- Add read-only functions for data retrieval
-- Include contract statistics and analytics
+- Proper Clarity syntax
+- Error handling with custom constants
+- Security assertions
+- Access controls
+- Read-only functions
 
-Please generate a complete, production-ready Clarity contract that follows Stacks blockchain standards. Return ONLY the Clarity code wrapped in \`\`\`clarity code blocks.`;
+Return ONLY the contract code in \`\`\`clarity code blocks. No explanations.`;
   }
 
   private parseAIResponse(content: string, request: AIContractRequest): AIContractResponse {
-    // Extract contract code (usually between ```clarity and ```)
-    const contractMatch = content.match(/```clarity\n([\s\S]*?)\n```/) || 
-                         content.match(/```\n([\s\S]*?)\n```/) ||
-                         content.match(/```([\s\S]*?)```/);
+    console.log('AI Service: Parsing response content:', content);
+    console.log('AI Service: Content length:', content.length);
     
-    const contract = contractMatch ? contractMatch[1].trim() : content;
+    // Extract contract code (try multiple patterns)
+    let contract = '';
+    
+    // Try different code block patterns - prioritize clarity blocks
+    const patterns = [
+      /```clarity\n([\s\S]*?)\n```/,
+      /```clarity\n([\s\S]*?)```/,
+      /```\n([\s\S]*?)\n```/,
+      /```([\s\S]*?)```/,
+      /`([^`]+)`/g
+    ];
+    
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[1] && match[1].trim()) {
+        contract = match[1].trim();
+        console.log('AI Service: Found contract with pattern:', pattern.toString());
+        console.log('AI Service: Contract length:', contract.length);
+        console.log('AI Service: Contract preview:', contract.substring(0, 200));
+        break;
+      }
+    }
+    
+    // If no code blocks found, try to extract Clarity code from the content
+    if (!contract) {
+      // Look for Clarity-specific syntax
+      const clarityKeywords = ['define-constant', 'define-data-var', 'define-public', 'define-read-only'];
+      const lines = content.split('\n');
+      const contractLines = [];
+      let inContract = false;
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (clarityKeywords.some(keyword => trimmedLine.includes(keyword))) {
+          inContract = true;
+        }
+        if (inContract) {
+          contractLines.push(line);
+        }
+        // Stop if we hit explanation text
+        if (inContract && (trimmedLine.toLowerCase().includes('explanation') || 
+                          trimmedLine.toLowerCase().includes('suggestions') ||
+                          trimmedLine.toLowerCase().includes('note:'))) {
+          break;
+        }
+      }
+      
+      if (contractLines.length > 0) {
+        contract = contractLines.join('\n').trim();
+        console.log('AI Service: Extracted contract from content lines');
+      }
+    }
+    
+    // If still no contract, use the entire content as fallback
+    if (!contract || contract.length < 50) {
+      console.log('AI Service: No contract found, using fallback');
+      return this.getFallbackContract(request);
+    }
+    
+    console.log('AI Service: Final contract length:', contract.length);
 
     // Extract explanation
     const explanationMatch = content.match(/EXPLANATION:([\s\S]*?)(?:SUGGESTIONS:|$)/i);
