@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
+import { useMerchantNotifications } from '../hooks/useMerchantNotifications';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
 import { UniformButton } from './UniformButton';
 import { UniformInput, UniformTextarea } from './UniformInput';
@@ -24,6 +25,7 @@ export default function PaymentLinkGenerator() {
   const { toast } = useToast();
   const { isAuthenticated, address, userSession, walletProvider, detectWalletProvider, disconnect } = useStacksWallet();
   const { isConnected: btcConnected, address: btcAddress, connect: connectBTC } = useBitcoinWallet();
+  const { subscribeToPaymentUpdates } = useMerchantNotifications();
   
   const [amount, setAmount] = useState(() => {
     return localStorage.getItem('payment-amount') || '';
@@ -81,9 +83,18 @@ export default function PaymentLinkGenerator() {
     const handlePaymentUpdate = (event: CustomEvent) => {
       console.log('PaymentLinkGenerator: Payment update received', event.detail);
       
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      console.log('PaymentLinkGenerator: Current merchant address:', currentAddress);
+      console.log('PaymentLinkGenerator: Event merchant address:', event.detail?.merchantAddress);
+      
+      // Check if this payment update is for our merchant address
+      if (event.detail?.merchantAddress && event.detail.merchantAddress !== currentAddress) {
+        console.log('PaymentLinkGenerator: Payment update not for this merchant, ignoring');
+        return;
+      }
+      
       // Force immediate UI update
       const allPayments = paymentStorage.getAllPaymentLinks();
-      const currentAddress = isAuthenticated ? address : btcAddress;
       const userPayments = allPayments.filter(payment => 
         payment.merchantAddress === currentAddress
       );
@@ -120,15 +131,39 @@ export default function PaymentLinkGenerator() {
 
     // Set up periodic refresh for pending payments
     const refreshInterval = setInterval(() => {
+      console.log('PaymentLinkGenerator: Periodic refresh check');
+      const allPayments = paymentStorage.getAllPaymentLinks();
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      const userPayments = allPayments.filter(payment => 
+        payment.merchantAddress === currentAddress
+      );
+      
+      // Check if any payments are still pending
+      const hasPendingPayments = userPayments.some(p => p.status === 'pending');
+      if (hasPendingPayments) {
+        console.log('PaymentLinkGenerator: Found pending payments, refreshing');
+        loadPaymentHistory();
+      }
+      
+      // Also refresh if we have a generated payment that's pending
       if (generatedId) {
-        const allPayments = paymentStorage.getAllPaymentLinks();
-        const currentPayment = allPayments.find(p => p.id === generatedId);
+        const currentPayment = userPayments.find(p => p.id === generatedId);
         if (currentPayment && currentPayment.status === 'pending') {
-          console.log('PaymentLinkGenerator: Periodic refresh for pending payment', generatedId);
+          console.log('PaymentLinkGenerator: Generated payment still pending, refreshing', generatedId);
           loadPaymentHistory();
         }
       }
-    }, 5000); // Check every 5 seconds for pending payments
+    }, 3000); // Check every 3 seconds for pending payments
+
+    // Subscribe to merchant payment updates
+    const currentAddress = isAuthenticated ? address : btcAddress;
+    const unsubscribe = currentAddress ? subscribeToPaymentUpdates(currentAddress, (payment) => {
+      console.log('PaymentLinkGenerator: Merchant payment update received:', payment);
+      // Force immediate refresh when payment is updated
+      setTimeout(() => {
+        loadPaymentHistory();
+      }, 100);
+    }) : () => {};
 
     return () => {
       window.removeEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
@@ -136,8 +171,9 @@ export default function PaymentLinkGenerator() {
       window.removeEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
       window.removeEventListener('message', handlePostMessage);
       clearInterval(refreshInterval);
+      unsubscribe();
     };
-  }, [isAuthenticated, address, btcConnected, btcAddress, generatedId]);
+  }, [isAuthenticated, address, btcConnected, btcAddress, generatedId, subscribeToPaymentUpdates]);
 
   // Load existing payment links for this wallet on component mount
   React.useEffect(() => {
@@ -867,8 +903,16 @@ export default function PaymentLinkGenerator() {
                         const currentPayment = userPayments.find(p => p.id === generatedId);
                         if (currentPayment) {
                           setPaymentStatus(currentPayment.status);
+                          console.log('Manual refresh: Updated payment status to', currentPayment.status);
                         }
                       }
+                      
+                      // Show refresh feedback
+                      toast({
+                        title: 'Payment Status Refreshed',
+                        status: 'info',
+                        description: `Found ${userPayments.length} payments, ${userPayments.filter(p => p.status === 'paid').length} completed`
+                      });
                     }}
                     title="Refresh payment status"
                   >

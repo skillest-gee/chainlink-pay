@@ -4,6 +4,7 @@ import { Box, Container, Heading, Text, VStack, HStack, Badge, Button, Skeleton,
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useToast } from '../hooks/useToast';
+import { usePaymentStateManager } from '../hooks/usePaymentStateManager';
 import { UniformButton } from '../components/UniformButton';
 import { UniformCard } from '../components/UniformCard';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
@@ -23,6 +24,17 @@ export default function Pay() {
   const [isPaying, setIsPaying] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentProgress, setPaymentProgress] = useState(0);
+  
+  // Use comprehensive payment state management
+  const { 
+    paymentState, 
+    isLoading: paymentStateLoading, 
+    error: paymentStateError,
+    initiatePayment,
+    checkPaymentStatus,
+    clearPaymentState,
+    isDuplicatePayment
+  } = usePaymentStateManager();
 
   // Check if current user is the merchant (creator of the payment link)
   const isMerchant = payment && (
@@ -75,16 +87,32 @@ export default function Pay() {
           
           if (amount && description && merchantAddress) {
             console.log('Found payment data in URL parameters:', { amount, description, merchantAddress, paymentType });
+            
+            // Check if this payment already exists in storage with updated status
+            const existingPayment = allPayments.find(p => p.id === paymentId);
+            const actualStatus = existingPayment ? existingPayment.status : 'pending';
+            
+            console.log('Payment status check:', { paymentId, existingPayment, actualStatus });
+            
             const urlPayment: PaymentLink = {
               id: paymentId,
               amount: amount,
               description: description,
-              status: 'pending',
+              status: actualStatus, // Use actual status from storage, not always 'pending'
               merchantAddress: merchantAddress,
               paymentType: paymentType as 'STX' | 'BTC',
-              createdAt: Date.now()
+              createdAt: existingPayment?.createdAt || Date.now(),
+              txHash: existingPayment?.txHash,
+              payerAddress: existingPayment?.payerAddress,
+              paidAt: existingPayment?.paidAt
             };
             setPayment(urlPayment);
+            
+            // If this is a new payment (not in storage), save it
+            if (!existingPayment) {
+              console.log('Saving new payment to storage:', urlPayment);
+              paymentStorage.savePaymentLink(urlPayment);
+            }
           } else {
             // Fallback to mock payment if no data found
             console.log('No payment data found, using mock payment');
@@ -113,6 +141,16 @@ export default function Pay() {
   const handlePayment = async () => {
     if (!payment) {
       toast({ title: 'Error', status: 'error', description: 'Payment details not loaded' });
+      return;
+    }
+
+    // Check for duplicate payment
+    if (isDuplicatePayment(payment.merchantAddress, payment.amount)) {
+      toast({ 
+        title: 'Duplicate Payment', 
+        status: 'warning', 
+        description: 'A payment for this amount is already pending. Please wait for confirmation.' 
+      });
       return;
     }
 
@@ -256,62 +294,42 @@ export default function Pay() {
             console.log('Payment ID used in mark-paid:', payment.id);
             console.log('Buffer used in mark-paid:', idBuffer);
             
-            // Update payment status
-            setPayment(prev => prev ? { ...prev, status: 'paid' } : null);
+            // Update local payment state immediately
+            setPayment(prev => prev ? { 
+              ...prev, 
+              status: 'paid',
+              txHash: data.txId,
+              payerAddress: (isAuthenticated ? address : btcAddress) || undefined,
+              paidAt: Date.now()
+            } : null);
             
-            // Update in storage
+            // Update in storage with transaction details
             const allPayments = paymentStorage.getAllPaymentLinks();
             const updatedPayments = allPayments.map(p => 
-              p.id === payment.id ? { ...p, status: 'paid' as const } : p
+              p.id === payment.id ? { 
+                ...p, 
+                status: 'paid' as const,
+                txHash: data.txId,
+                payerAddress: (isAuthenticated ? address : btcAddress) || undefined,
+                paidAt: Date.now()
+              } : p
             );
             paymentStorage.saveAllPaymentLinks(updatedPayments);
             
-            // Dispatch payment completion event for dashboard updates
-            const paymentCompletedEvent = new CustomEvent('paymentCompleted', {
-              detail: {
-                paymentId: payment.id,
-                status: 'paid',
-                txId: data.txId,
-                merchantAddress: payment.merchantAddress
-              }
-            });
-            window.dispatchEvent(paymentCompletedEvent);
+            // Initiate comprehensive payment state management
+            initiatePayment(payment, data.txId);
             
-            // Also dispatch a general payment update event
-            const paymentUpdatedEvent = new CustomEvent('paymentUpdated', {
-              detail: {
-                paymentId: payment.id,
-                status: 'paid',
-                txId: data.txId
-              }
-            });
-            window.dispatchEvent(paymentUpdatedEvent);
-            
-            // Dispatch a global payment status change event
-            const globalPaymentEvent = new CustomEvent('globalPaymentStatusChange', {
-              detail: {
-                paymentId: payment.id,
-                status: 'paid',
-                txId: data.txId,
-                merchantAddress: payment.merchantAddress,
-                timestamp: Date.now()
-              }
-            });
-            window.dispatchEvent(globalPaymentEvent);
-            
-            // Also use postMessage for cross-tab communication
-            window.postMessage({
-              type: 'PAYMENT_COMPLETED',
+            console.log('Updated payment in storage:', {
               paymentId: payment.id,
               status: 'paid',
-              txId: data.txId,
-              merchantAddress: payment.merchantAddress
-            }, '*');
+              txHash: data.txId,
+              payerAddress: isAuthenticated ? address : btcAddress
+            });
             
             toast({ 
               title: 'Success', 
               status: 'success', 
-              description: `Payment completed! TX: ${data.txId.slice(0, 8)}...` 
+              description: `Payment submitted! TX: ${data.txId.slice(0, 8)}... Checking confirmation...` 
             });
           },
           onCancel: () => {
@@ -518,6 +536,54 @@ export default function Pay() {
                 <Text fontSize="xs" color="#9ca3af" textAlign="center">
                   {paymentProgress}% Complete
                 </Text>
+              </VStack>
+            )}
+
+            {/* Payment Status from State Manager */}
+            {paymentState && (
+              <VStack gap={3} align="stretch">
+                <Text fontSize="sm" fontWeight="medium" color="#ffffff">
+                  Payment Status
+                </Text>
+                
+                <HStack justify="space-between" align="center" p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="lg">
+                  <HStack gap={2} align="center">
+                    <Text fontSize="sm" color="#ffffff">Status</Text>
+                    <Badge 
+                      colorScheme={
+                        paymentState.status === 'confirmed' ? 'green' : 
+                        paymentState.status === 'failed' ? 'red' : 
+                        paymentState.status === 'pending' ? 'yellow' : 'gray'
+                      } 
+                      fontSize="xs"
+                    >
+                      {paymentState.status.toUpperCase()}
+                    </Badge>
+                  </HStack>
+                  {paymentState.txId && (
+                    <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
+                      {paymentState.txId.slice(0, 8)}...
+                    </Text>
+                  )}
+                </HStack>
+                
+                {paymentState.status === 'pending' && (
+                  <Text fontSize="xs" color="#9ca3af" textAlign="center">
+                    Waiting for blockchain confirmation...
+                  </Text>
+                )}
+                
+                {paymentState.status === 'confirmed' && (
+                  <Text fontSize="xs" color="#10b981" textAlign="center">
+                    ✅ Payment confirmed on blockchain!
+                  </Text>
+                )}
+                
+                {paymentState.status === 'failed' && (
+                  <Text fontSize="xs" color="#ef4444" textAlign="center">
+                    ❌ Payment failed on blockchain
+                  </Text>
+                )}
               </VStack>
             )}
 
