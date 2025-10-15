@@ -22,7 +22,7 @@ export interface WalletProviderRouterOptions {
   authOrigin?: string;
   
   // Wallet provider routing
-  walletProvider: 'xverse' | 'leather' | 'hiro' | 'unknown';
+  walletProvider: 'xverse' | 'leather' | 'hiro' | 'stacks-connect' | 'unknown';
 }
 
 /**

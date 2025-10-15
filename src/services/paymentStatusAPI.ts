@@ -105,7 +105,19 @@ class PaymentStatusAPI {
       // Store in localStorage as backup
       localStorage.setItem('chainlink-pay-api-cache', JSON.stringify(Array.from(this.cache.entries())));
       
-      console.log('PaymentStatusAPI: Payment saved:', payment.id, payment.status);
+      // CRITICAL FIX: Also sync with paymentStorage to ensure consistency
+      const { paymentStorage } = await import('./paymentStorage');
+      const allStoragePayments = paymentStorage.getAllPaymentLinks();
+      const storageIndex = allStoragePayments.findIndex(p => p.id === payment.id);
+      
+      if (storageIndex >= 0) {
+        allStoragePayments[storageIndex] = payment;
+      } else {
+        allStoragePayments.push(payment);
+      }
+      paymentStorage.saveAllPaymentLinks(allStoragePayments);
+      
+      console.log('PaymentStatusAPI: Payment saved and synced:', payment.id, payment.status);
       return true;
     } catch (error) {
       console.error('PaymentStatusAPI: Error saving payment:', error);
@@ -181,7 +193,58 @@ class PaymentStatusAPI {
         lastUpdated: Date.now()
       };
 
-      return await this.savePayment(updatedPayment as PaymentLink);
+      // Convert to PaymentLink format for storage sync
+      const paymentLink: PaymentLink = {
+        id: updatedPayment.id,
+        amount: updatedPayment.amount,
+        description: updatedPayment.description || '',
+        status: updatedPayment.status,
+        createdAt: updatedPayment.createdAt,
+        paidAt: updatedPayment.paidAt,
+        txHash: updatedPayment.txHash,
+        payerAddress: updatedPayment.payerAddress,
+        merchantAddress: updatedPayment.merchantAddress,
+        paymentType: updatedPayment.paymentType
+      };
+
+      const success = await this.savePayment(paymentLink);
+      
+      // CRITICAL FIX: Dispatch multiple events to ensure all components get notified
+      if (success) {
+        this.dispatchPaymentUpdate(paymentId, status);
+        
+        // Also dispatch the specific events that components are listening for
+        window.dispatchEvent(new CustomEvent('paymentCompleted', {
+          detail: {
+            paymentId: paymentId,
+            merchantAddress: updatedPayment.merchantAddress,
+            txHash: updatedPayment.txHash,
+            amount: updatedPayment.amount,
+            paymentType: updatedPayment.paymentType,
+            status: status
+          }
+        }));
+
+        window.dispatchEvent(new CustomEvent('merchantPaymentUpdate', {
+          detail: {
+            paymentId: paymentId,
+            status: status,
+            merchantAddress: updatedPayment.merchantAddress,
+            txHash: updatedPayment.txHash
+          }
+        }));
+
+        window.dispatchEvent(new CustomEvent('paymentUpdated', {
+          detail: {
+            paymentId: paymentId,
+            status: status,
+            merchantAddress: updatedPayment.merchantAddress,
+            txHash: updatedPayment.txHash
+          }
+        }));
+      }
+      
+      return success;
     } catch (error) {
       console.error('PaymentStatusAPI: Error updating payment status:', error);
       return false;

@@ -187,10 +187,13 @@ async function notifyMerchant(payment: PaymentLink, txHash: string) {
     );
     paymentStorage.saveAllPaymentLinks(updatedPayments);
 
-    // Update centralized API
+    // Update centralized API - this will also sync with paymentStorage
     const updatedPayment = updatedPayments.find(p => p.id === payment.id);
     if (updatedPayment) {
       await paymentStatusAPI.savePayment(updatedPayment);
+      
+      // Also explicitly update the payment status in the API
+      await paymentStatusAPI.updatePaymentStatus(payment.id, 'paid', txHash, payment.payerAddress);
     }
 
     // Trigger events for UI updates
@@ -200,12 +203,23 @@ async function notifyMerchant(payment: PaymentLink, txHash: string) {
         merchantAddress: payment.merchantAddress,
         txHash: txHash,
         amount: payment.amount,
-        paymentType: payment.paymentType
+        paymentType: payment.paymentType,
+        status: 'paid'
       }
     }));
 
     // Also dispatch a more specific event for merchant updates
     window.dispatchEvent(new CustomEvent('merchantPaymentUpdate', {
+      detail: {
+        paymentId: payment.id,
+        status: 'paid',
+        merchantAddress: payment.merchantAddress,
+        txHash: txHash
+      }
+    }));
+
+    // Dispatch payment updated event
+    window.dispatchEvent(new CustomEvent('paymentUpdated', {
       detail: {
         paymentId: payment.id,
         status: 'paid',

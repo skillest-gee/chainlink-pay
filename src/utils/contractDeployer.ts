@@ -10,7 +10,7 @@ export interface DeploymentOptions {
   network?: 'testnet' | 'mainnet';
   fee?: number;
   userSession?: any;
-  walletProvider?: 'xverse' | 'leather' | 'hiro' | 'unknown';
+  walletProvider?: 'xverse' | 'leather' | 'hiro' | 'stacks-connect' | 'unknown';
   onFinish?: (data: any) => void;
   onCancel?: () => void;
 }
@@ -313,8 +313,9 @@ ${contractCode}
       errors.push('User session is required');
     }
 
-    if (!walletProvider || walletProvider === 'unknown') {
-      errors.push('Wallet provider must be connected');
+    // More lenient wallet provider validation - if user is authenticated, allow deployment
+    if (!userSession?.isUserSignedIn()) {
+      errors.push('User must be signed in to deploy contracts');
     }
 
     try {
@@ -325,6 +326,15 @@ ${contractCode}
     } catch (error) {
       errors.push('Invalid user session');
     }
+
+    // Log the validation details for debugging
+    console.log('Contract Deployer: Deployment prerequisites check:', {
+      hasUserSession: !!userSession,
+      isUserSignedIn: userSession?.isUserSignedIn(),
+      walletProvider: walletProvider,
+      hasUserData: !!userSession?.loadUserData(),
+      errors: errors
+    });
 
     return {
       valid: errors.length === 0,

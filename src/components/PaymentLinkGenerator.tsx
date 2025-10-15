@@ -6,6 +6,7 @@ import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useMerchantNotifications } from '../hooks/useMerchantNotifications';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
 import { paymentStatusAPI } from '../services/paymentStatusAPI';
+import { crossDeviceSync } from '../services/crossDeviceSync';
 import { UniformButton } from './UniformButton';
 import { UniformInput, UniformTextarea } from './UniformInput';
 import { UniformCard } from './UniformCard';
@@ -185,6 +186,8 @@ export default function PaymentLinkGenerator() {
     window.addEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
     window.addEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
     window.addEventListener('merchantPaymentUpdate', handleMerchantPaymentUpdate as EventListener);
+    window.addEventListener('paymentStatusAPIUpdate', handlePaymentUpdate as EventListener);
+    window.addEventListener('crossDevicePaymentUpdate', handlePaymentUpdate as EventListener);
     
     // Also listen for postMessage events
     const handlePostMessage = (event: MessageEvent) => {
@@ -268,6 +271,8 @@ export default function PaymentLinkGenerator() {
       window.removeEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
       window.removeEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
       window.removeEventListener('merchantPaymentUpdate', handleMerchantPaymentUpdate as EventListener);
+      window.removeEventListener('paymentStatusAPIUpdate', handlePaymentUpdate as EventListener);
+      window.removeEventListener('crossDevicePaymentUpdate', handlePaymentUpdate as EventListener);
       window.removeEventListener('message', handlePostMessage);
       window.removeEventListener('paymentStatusAPIUpdate', handleAPIUpdate as EventListener);
       clearInterval(refreshInterval);
@@ -1169,77 +1174,42 @@ export default function PaymentLinkGenerator() {
                     variant="ghost"
                     size="sm"
                     onClick={async () => {
-                      console.log('Manual refresh of payment history');
+                      console.log('Manual cross-device sync of payment history');
                       const currentAddress = isAuthenticated ? address : btcAddress;
                       if (!currentAddress) return;
                       
-                      // Force blockchain sync first
-                      await paymentStatusAPI.syncWithBlockchain();
-                      
-                      // Check localStorage for any pending payments with txHash
-                      const allPayments = paymentStorage.getAllPaymentLinks();
-                      const userPayments = allPayments.filter(payment => 
-                        payment.merchantAddress === currentAddress
-                      );
-                      
-                      // Check each pending payment on blockchain
-                      const pendingPayments = userPayments.filter(p => p.status === 'pending' && p.txHash);
-                      let updatedCount = 0;
-                      
-                      for (const payment of pendingPayments) {
-                        if (payment.txHash) {
-                          try {
-                            console.log('Checking blockchain for payment:', payment.id, payment.txHash);
-                            const response = await fetch(`https://api.testnet.hiro.so/extended/v1/tx/${payment.txHash}`);
-                            if (response.ok) {
-                              const txData = await response.json();
-                              console.log('Blockchain response for', payment.id, ':', txData.tx_status);
-                              
-                              if (txData.tx_status === 'success' && payment.status !== 'paid') {
-                                // Update payment status to paid
-                                const updatedPayment = { ...payment, status: 'paid' as const };
-                                const updatedPayments = allPayments.map(p => p.id === payment.id ? updatedPayment : p);
-                                paymentStorage.saveAllPaymentLinks(updatedPayments);
-                                
-                                // Update centralized API
-                                await paymentStatusAPI.savePayment(updatedPayment);
-                                
-                                updatedCount++;
-                                console.log('Payment confirmed on blockchain:', payment.id);
-                                
-                                if (payment.id === generatedId) {
-                                  setPaymentStatus('paid');
-                                }
-                              }
-                            }
-                          } catch (error) {
-                            console.log('Error checking blockchain for', payment.id, ':', error);
+                      try {
+                        // Force cross-device sync
+                        await crossDeviceSync.performCrossDeviceSync();
+                        
+                        // Then load updated payment history
+                        const allPayments = paymentStorage.getAllPaymentLinks();
+                        const userPayments = allPayments.filter(payment => 
+                          payment.merchantAddress === currentAddress
+                        );
+                        setPaymentHistory(userPayments);
+                        
+                        // Check if current generated payment was updated
+                        if (generatedId) {
+                          const currentPayment = userPayments.find(p => p.id === generatedId);
+                          if (currentPayment) {
+                            setPaymentStatus(currentPayment.status);
                           }
                         }
+                        
+                        toast({
+                          title: 'Cross-Device Sync Complete!',
+                          status: 'success',
+                          description: `Payment status synchronized across all devices. Found ${userPayments.length} payments, ${userPayments.filter(p => p.status === 'paid').length} completed.`
+                        });
+                      } catch (error) {
+                        console.error('Error during cross-device sync:', error);
+                        toast({
+                          title: 'Sync Failed',
+                          status: 'error',
+                          description: 'Failed to sync payment status across devices'
+                        });
                       }
-                      
-                      // Reload payment history
-                      const updatedAllPayments = paymentStorage.getAllPaymentLinks();
-                      const updatedUserPayments = updatedAllPayments.filter(payment => 
-                        payment.merchantAddress === currentAddress
-                      );
-                      setPaymentHistory(updatedUserPayments);
-                      
-                      // Check if current generated payment is completed
-                      if (generatedId) {
-                        const currentPayment = updatedUserPayments.find(p => p.id === generatedId);
-                        if (currentPayment) {
-                          setPaymentStatus(currentPayment.status);
-                          console.log('Manual refresh: Updated payment status to', currentPayment.status);
-                        }
-                      }
-                      
-                      // Show refresh feedback
-                      toast({
-                        title: 'Payment Status Refreshed',
-                        status: updatedCount > 0 ? 'success' : 'info',
-                        description: `Found ${updatedUserPayments.length} payments, ${updatedUserPayments.filter(p => p.status === 'paid').length} completed${updatedCount > 0 ? `, ${updatedCount} newly confirmed` : ''}`
-                      });
                     }}
                     title="Refresh payment status"
                   >

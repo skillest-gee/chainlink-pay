@@ -65,7 +65,7 @@ export type WalletState = {
   isConnecting: boolean;
   error: string | null;
   version: number; // Add version to force re-renders
-  walletProvider?: 'xverse' | 'leather' | 'hiro' | 'unknown';
+  walletProvider?: 'xverse' | 'leather' | 'hiro' | 'stacks-connect' | 'unknown';
 };
 
 export function useStacksWallet() {
@@ -290,6 +290,12 @@ export function useStacksWallet() {
       if (userAgent.includes('xverse')) {
         console.log('Detected Xverse from user agent');
         return 'xverse';
+      }
+      
+      // If user is authenticated but no specific wallet detected, assume stacks-connect
+      if (userSession && userSession.isUserSignedIn()) {
+        console.log('User authenticated but no specific wallet detected, assuming stacks-connect');
+        return 'stacks-connect';
       }
       
       console.log('No wallet provider detected, returning unknown');

@@ -4,6 +4,7 @@ import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
 import { useStxBalance } from '../hooks/useStxBalance';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
+import { crossDeviceSync } from '../services/crossDeviceSync';
 import { UniformCard } from '../components/UniformCard';
 import { UniformButton } from '../components/UniformButton';
 import { Link } from 'react-router-dom';
@@ -48,75 +49,21 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to verify pending payments against blockchain
+  // Function to verify pending payments against blockchain using cross-device sync
   const verifyPendingPayments = async (allPayments: PaymentLink[]) => {
     try {
-      const pendingPayments = allPayments.filter(p => p.status === 'pending' && p.paymentType === 'STX');
+      const pendingPayments = allPayments.filter(p => p.status === 'pending' && p.txHash);
       
       if (pendingPayments.length === 0) return;
       
-      console.log(`Verifying ${pendingPayments.length} pending payments against blockchain...`);
+      console.log(`Dashboard: Verifying ${pendingPayments.length} pending payments using cross-device sync...`);
       
-      for (const payment of pendingPayments) {
-        try {
-          // Check payment status on blockchain
-          const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS || 'ST5MNAJQ2VTGAQ7RP9EVBCQWYT0YHSKS4DM60133';
-          const contractName = process.env.REACT_APP_CONTRACT_NAME || 'chainlink-pay';
-          const apiUrl = process.env.REACT_APP_STACKS_API_URL || 'https://api.testnet.hiro.so';
-          
-          // Convert payment ID to hex format for the contract call
-          // payment.id is a string, so we need to convert it to bytes first
-          const paymentIdBytes = new TextEncoder().encode(payment.id);
-          const paymentIdHex = Array.from(paymentIdBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-          
-          const response = await fetch(`${apiUrl}/extended/v1/contract/call-read/${contractAddress}/${contractName}/get-payment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sender: payment.merchantAddress,
-              arguments: [`0x${paymentIdHex}`]
-            })
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            console.log(`Blockchain verification response for payment ${payment.id}:`, result);
-            
-            if (result.okay && result.result && result.result.value) {
-              const paymentData = result.result.value;
-              const blockchainStatus = paymentData.status?.value;
-              
-              console.log(`Payment ${payment.id} - Local status: ${payment.status}, Blockchain status: ${blockchainStatus}`);
-              
-              // If blockchain shows paid but local storage shows pending, update it
-              if (blockchainStatus === 'paid' && payment.status === 'pending') {
-                console.log(`Payment ${payment.id} is actually paid on blockchain, updating local storage`);
-                paymentStorage.updatePaymentLinkStatus(payment.id, 'paid');
-                
-                // Dispatch payment update event to notify other components
-                const paymentUpdatedEvent = new CustomEvent('paymentUpdated', {
-                  detail: {
-                    paymentId: payment.id,
-                    status: 'paid',
-                    source: 'blockchain-verification'
-                  }
-                });
-                window.dispatchEvent(paymentUpdatedEvent);
-                
-                console.log('Dispatched payment update event for blockchain verification');
-              }
-            } else {
-              console.log(`Payment ${payment.id} not found on blockchain or error in response:`, result);
-            }
-          } else {
-            console.warn(`Failed to verify payment ${payment.id} - HTTP ${response.status}:`, await response.text());
-          }
-        } catch (error) {
-          console.warn(`Failed to verify payment ${payment.id}:`, error);
-        }
-      }
+      // Use cross-device sync service to check all pending payments
+      await crossDeviceSync.performCrossDeviceSync();
+      
+      console.log('Dashboard: Cross-device sync completed for pending payments verification');
     } catch (error) {
-      console.warn('Failed to verify pending payments:', error);
+      console.error('Dashboard: Failed to verify pending payments:', error);
     }
   };
 
@@ -238,6 +185,9 @@ export default function Dashboard() {
     window.addEventListener('walletConnected', handleWalletChange);
     window.addEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
     window.addEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
+    window.addEventListener('merchantPaymentUpdate', handlePaymentUpdate as EventListener);
+    window.addEventListener('paymentStatusAPIUpdate', handlePaymentUpdate as EventListener);
+    window.addEventListener('crossDevicePaymentUpdate', handlePaymentUpdate as EventListener);
     window.addEventListener('walletDisconnected', handleWalletChange);
 
     return () => {
@@ -245,14 +195,19 @@ export default function Dashboard() {
       window.removeEventListener('walletDisconnected', handleWalletChange);
       window.removeEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
       window.removeEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
+      window.removeEventListener('merchantPaymentUpdate', handlePaymentUpdate as EventListener);
+      window.removeEventListener('paymentStatusAPIUpdate', handlePaymentUpdate as EventListener);
+      window.removeEventListener('crossDevicePaymentUpdate', handlePaymentUpdate as EventListener);
     };
   }, []);
 
   // Auto-refresh dashboard every 5 seconds to catch payment updates
   useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (isAuthenticated || btcConnected) {
-        console.log('Dashboard: Auto-refreshing stats');
+        console.log('Dashboard: Auto-refreshing stats with cross-device sync');
+        // Perform cross-device sync first, then load stats
+        await crossDeviceSync.performCrossDeviceSync();
         loadStats();
       }
     }, 5000); // Refresh every 5 seconds

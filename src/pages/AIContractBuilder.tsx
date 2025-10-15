@@ -277,9 +277,16 @@ export default function AIContractBuilder() {
       console.log('Contract name:', contractNameForDeployment);
       console.log('Contract code length:', contractToDeploy.length);
       console.log('Wallet provider:', walletProvider);
+      console.log('User session:', userSession);
+      console.log('Is authenticated:', isAuthenticated);
+      console.log('Is user signed in:', userSession?.isUserSignedIn());
+
+      // Determine wallet provider with better fallback
+      const effectiveWalletProvider = walletProvider || 'stacks-connect' || 'unknown';
+      console.log('Effective wallet provider:', effectiveWalletProvider);
 
       // Validate deployment prerequisites
-      const prerequisites = contractDeployer.validateDeploymentPrerequisites(userSession, walletProvider || 'unknown');
+      const prerequisites = contractDeployer.validateDeploymentPrerequisites(userSession, effectiveWalletProvider);
       if (!prerequisites.valid) {
         throw new Error(`Deployment prerequisites failed: ${prerequisites.errors.join(', ')}`);
       }
@@ -297,7 +304,7 @@ export default function AIContractBuilder() {
         contractName: contractNameForDeployment,
         contractCode: contractToDeploy,
         userSession,
-        walletProvider: walletProvider || 'unknown',
+        walletProvider: effectiveWalletProvider,
         onFinish: (data: any) => {
           console.log('Deployment transaction finished:', data);
           const txId = data.txId || data.stacksTransaction?.txid;
@@ -596,7 +603,7 @@ Do not include any explanation or additional text outside the code blocks.`;
                 </Heading>
                   <HStack gap={2}>
                     <Badge colorScheme={isAuthenticated ? 'green' : 'red'} fontSize="sm">
-                      {isAuthenticated ? `🔗 ${walletProvider === 'xverse' ? 'Xverse' : walletProvider === 'leather' ? 'Leather' : 'Wallet'} Connected` : '🔌 Wallet Not Connected'}
+                      {isAuthenticated ? `🔗 ${walletProvider === 'xverse' ? 'Xverse' : walletProvider === 'leather' ? 'Leather' : walletProvider === 'stacks-connect' ? 'Stacks Connect' : 'Wallet'} Connected` : '🔌 Wallet Not Connected'}
                     </Badge>
                     {isAuthenticated && (
                       <Badge colorScheme="blue" fontSize="sm">
@@ -605,6 +612,23 @@ Do not include any explanation or additional text outside the code blocks.`;
                     )}
                   </HStack>
                 </HStack>
+
+                {/* Wallet Connection Help */}
+                {!isAuthenticated && (
+                  <Box
+                    bg="rgba(255, 193, 7, 0.1)"
+                    border="1px solid rgba(255, 193, 7, 0.3)"
+                    borderRadius="md"
+                    p={3}
+                  >
+                    <Text color="#ffc107" fontSize="sm" fontWeight="medium">
+                      ⚠️ Wallet Required for Deployment
+                    </Text>
+                    <Text color="#ffc107" fontSize="xs" mt={1}>
+                      Please connect your Stacks wallet (Xverse, Leather, or Hiro) to deploy contracts to the blockchain.
+                    </Text>
+                  </Box>
+                )}
 
                 {/* Template Selection */}
                 <VStack gap={3} align="stretch">
