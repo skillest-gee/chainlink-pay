@@ -135,13 +135,13 @@ export class AIService {
       
       return this.parseAIResponse(content, request);
     } catch (error: any) {
-      console.error('AI Service Error:', error);
-      
       // Handle different types of errors
       if (error.name === 'AbortError') {
-        console.log('Request timeout detected, using fallback contract');
+        console.log('AI Service: Request timeout or cancelled, using fallback contract');
         return this.getFallbackContract(request);
       }
+      
+      console.error('AI Service Error:', error);
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         console.log('Network error detected, using fallback contract');
