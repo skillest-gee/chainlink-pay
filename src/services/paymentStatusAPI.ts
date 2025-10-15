@@ -1,5 +1,6 @@
 import { PaymentLink } from './paymentStorage';
 import { backendAPI } from './backendAPI';
+import { crossDeviceBackendAPI } from './crossDeviceBackendAPI';
 
 interface PaymentStatusRecord {
   id: string;
@@ -92,13 +93,13 @@ class PaymentStatusAPI {
       // Update cache
       this.cache.set(payment.id, paymentRecord);
 
-      // DEMO FIX: Use backend API as primary storage
-      const backendSuccess = await backendAPI.savePayment(payment);
+      // DEMO FIX: Use cross-device backend API as primary storage
+      const crossDeviceSuccess = await crossDeviceBackendAPI.savePayment(payment);
       
-      if (backendSuccess) {
-        console.log('PaymentStatusAPI: Payment saved to backend:', payment.id, payment.status);
+      if (crossDeviceSuccess) {
+        console.log('PaymentStatusAPI: Payment saved to cross-device backend:', payment.id, payment.status);
       } else {
-        console.warn('PaymentStatusAPI: Backend save failed, using localStorage fallback');
+        console.warn('PaymentStatusAPI: Cross-device backend save failed, using localStorage fallback');
       }
 
       // Store in localStorage as backup
@@ -150,20 +151,20 @@ class PaymentStatusAPI {
 
   public async getAllPayments(): Promise<PaymentStatusRecord[]> {
     try {
-      // DEMO FIX: Use backend API as primary source
-      const backendPayments = await backendAPI.getAllPayments();
+      // DEMO FIX: Use cross-device backend API as primary source
+      const crossDevicePayments = await crossDeviceBackendAPI.getAllPayments();
       
-      if (backendPayments.length > 0) {
-        // Update cache with backend data
-        backendPayments.forEach(payment => {
+      if (crossDevicePayments.length > 0) {
+        // Update cache with cross-device backend data
+        crossDevicePayments.forEach(payment => {
           this.cache.set(payment.id, payment);
         });
         
         // Update localStorage cache
         localStorage.setItem('chainlink-pay-api-cache', JSON.stringify(Array.from(this.cache.entries())));
         
-        console.log('PaymentStatusAPI: Loaded payments from backend:', backendPayments.length);
-        return backendPayments;
+        console.log('PaymentStatusAPI: Loaded payments from cross-device backend:', crossDevicePayments.length);
+        return crossDevicePayments;
       }
 
       // Fallback to localStorage cache
@@ -183,12 +184,12 @@ class PaymentStatusAPI {
 
   public async getPaymentsByMerchant(merchantAddress: string): Promise<PaymentStatusRecord[]> {
     try {
-      // DEMO FIX: Use backend API directly for merchant payments
-      const backendPayments = await backendAPI.getPaymentsByMerchant(merchantAddress);
+      // DEMO FIX: Use cross-device backend API directly for merchant payments
+      const crossDevicePayments = await crossDeviceBackendAPI.getPaymentsByMerchant(merchantAddress);
       
-      if (backendPayments.length > 0) {
-        console.log('PaymentStatusAPI: Loaded merchant payments from backend:', backendPayments.length);
-        return backendPayments;
+      if (crossDevicePayments.length > 0) {
+        console.log('PaymentStatusAPI: Loaded merchant payments from cross-device backend:', crossDevicePayments.length);
+        return crossDevicePayments;
       }
 
       // Fallback to getAllPayments
@@ -231,13 +232,13 @@ class PaymentStatusAPI {
         paymentType: updatedPayment.paymentType
       };
 
-      // DEMO FIX: Use backend API directly for status updates
-      const backendSuccess = await backendAPI.updatePaymentStatus(paymentId, status, txHash, payerAddress);
+      // DEMO FIX: Use cross-device backend API directly for status updates
+      const crossDeviceSuccess = await crossDeviceBackendAPI.updatePaymentStatus(paymentId, status, txHash, payerAddress);
       
       // Also save locally for consistency
       const localSuccess = await this.savePayment(paymentLink);
       
-      const success = backendSuccess || localSuccess;
+      const success = crossDeviceSuccess || localSuccess;
       
       // CRITICAL FIX: Dispatch multiple events to ensure all components get notified
       if (success) {

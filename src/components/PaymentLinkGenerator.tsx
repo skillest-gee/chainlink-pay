@@ -7,6 +7,7 @@ import { useMerchantNotifications } from '../hooks/useMerchantNotifications';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
 import { paymentStatusAPI } from '../services/paymentStatusAPI';
 import { crossDeviceSync } from '../services/crossDeviceSync';
+import { crossDeviceBackendAPI } from '../services/crossDeviceBackendAPI';
 import { UniformButton } from './UniformButton';
 import { UniformInput, UniformTextarea } from './UniformInput';
 import { UniformCard } from './UniformCard';
@@ -1217,6 +1218,36 @@ export default function PaymentLinkGenerator() {
                     title="DEMO: Force sync payment status immediately"
                   >
                     ⚡ FORCE SYNC
+                  </UniformButton>
+                  <UniformButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const shareUrl = crossDeviceBackendAPI.getShareableUrl();
+                      navigator.clipboard.writeText(shareUrl).then(() => {
+                        toast({
+                          title: 'Share URL Copied!',
+                          status: 'success',
+                          description: 'Share this URL with other devices to sync payment data across all devices and browsers.'
+                        });
+                      }).catch(() => {
+                        // Fallback for browsers that don't support clipboard API
+                        const textArea = document.createElement('textarea');
+                        textArea.value = shareUrl;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        toast({
+                          title: 'Share URL Copied!',
+                          status: 'success',
+                          description: 'Share this URL with other devices to sync payment data across all devices and browsers.'
+                        });
+                      });
+                    }}
+                    title="Copy shareable URL for cross-device sync"
+                  >
+                    🔗 SHARE
                   </UniformButton>
                 </HStack>
               </HStack>
