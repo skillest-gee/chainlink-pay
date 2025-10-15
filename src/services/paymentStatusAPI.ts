@@ -1,4 +1,5 @@
 import { PaymentLink } from './paymentStorage';
+import { backendAPI } from './backendAPI';
 
 interface PaymentStatusRecord {
   id: string;
@@ -91,21 +92,19 @@ class PaymentStatusAPI {
       // Update cache
       this.cache.set(payment.id, paymentRecord);
 
-      // For now, we'll use a simple approach with localStorage as backup
-      // In production, this would sync to a real backend
-      const allPayments = await this.getAllPayments();
-      const existingIndex = allPayments.findIndex(p => p.id === payment.id);
+      // DEMO FIX: Use backend API as primary storage
+      const backendSuccess = await backendAPI.savePayment(payment);
       
-      if (existingIndex >= 0) {
-        allPayments[existingIndex] = paymentRecord;
+      if (backendSuccess) {
+        console.log('PaymentStatusAPI: Payment saved to backend:', payment.id, payment.status);
       } else {
-        allPayments.push(paymentRecord);
+        console.warn('PaymentStatusAPI: Backend save failed, using localStorage fallback');
       }
 
       // Store in localStorage as backup
       localStorage.setItem('chainlink-pay-api-cache', JSON.stringify(Array.from(this.cache.entries())));
       
-      // CRITICAL FIX: Also sync with paymentStorage to ensure consistency
+      // Also sync with paymentStorage for local consistency
       const { paymentStorage } = await import('./paymentStorage');
       const allStoragePayments = paymentStorage.getAllPaymentLinks();
       const storageIndex = allStoragePayments.findIndex(p => p.id === payment.id);
@@ -151,7 +150,23 @@ class PaymentStatusAPI {
 
   public async getAllPayments(): Promise<PaymentStatusRecord[]> {
     try {
-      // Load from localStorage backup
+      // DEMO FIX: Use backend API as primary source
+      const backendPayments = await backendAPI.getAllPayments();
+      
+      if (backendPayments.length > 0) {
+        // Update cache with backend data
+        backendPayments.forEach(payment => {
+          this.cache.set(payment.id, payment);
+        });
+        
+        // Update localStorage cache
+        localStorage.setItem('chainlink-pay-api-cache', JSON.stringify(Array.from(this.cache.entries())));
+        
+        console.log('PaymentStatusAPI: Loaded payments from backend:', backendPayments.length);
+        return backendPayments;
+      }
+
+      // Fallback to localStorage cache
       const cached = localStorage.getItem('chainlink-pay-api-cache');
       if (cached) {
         const cacheEntries = JSON.parse(cached);
@@ -168,6 +183,15 @@ class PaymentStatusAPI {
 
   public async getPaymentsByMerchant(merchantAddress: string): Promise<PaymentStatusRecord[]> {
     try {
+      // DEMO FIX: Use backend API directly for merchant payments
+      const backendPayments = await backendAPI.getPaymentsByMerchant(merchantAddress);
+      
+      if (backendPayments.length > 0) {
+        console.log('PaymentStatusAPI: Loaded merchant payments from backend:', backendPayments.length);
+        return backendPayments;
+      }
+
+      // Fallback to getAllPayments
       const allPayments = await this.getAllPayments();
       return allPayments.filter(p => p.merchantAddress === merchantAddress);
     } catch (error) {
@@ -207,7 +231,13 @@ class PaymentStatusAPI {
         paymentType: updatedPayment.paymentType
       };
 
-      const success = await this.savePayment(paymentLink);
+      // DEMO FIX: Use backend API directly for status updates
+      const backendSuccess = await backendAPI.updatePaymentStatus(paymentId, status, txHash, payerAddress);
+      
+      // Also save locally for consistency
+      const localSuccess = await this.savePayment(paymentLink);
+      
+      const success = backendSuccess || localSuccess;
       
       // CRITICAL FIX: Dispatch multiple events to ensure all components get notified
       if (success) {
