@@ -1179,7 +1179,10 @@ export default function PaymentLinkGenerator() {
                       if (!currentAddress) return;
                       
                       try {
-                        // Force cross-device sync
+                        // Force immediate sync for demo
+                        await crossDeviceSync.forceImmediateSync();
+                        
+                        // Also perform regular sync
                         await crossDeviceSync.performCrossDeviceSync();
                         
                         // Then load updated payment history
@@ -1198,9 +1201,9 @@ export default function PaymentLinkGenerator() {
                         }
                         
                         toast({
-                          title: 'Cross-Device Sync Complete!',
+                          title: 'DEMO: Force Sync Complete!',
                           status: 'success',
-                          description: `Payment status synchronized across all devices. Found ${userPayments.length} payments, ${userPayments.filter(p => p.status === 'paid').length} completed.`
+                          description: `Payment status force-synchronized! Found ${userPayments.length} payments, ${userPayments.filter(p => p.status === 'paid').length} completed.`
                         });
                       } catch (error) {
                         console.error('Error during cross-device sync:', error);
@@ -1211,9 +1214,9 @@ export default function PaymentLinkGenerator() {
                         });
                       }
                     }}
-                    title="Refresh payment status"
+                    title="DEMO: Force sync payment status immediately"
                   >
-                    🔄
+                    ⚡ FORCE SYNC
                   </UniformButton>
                 </HStack>
               </HStack>

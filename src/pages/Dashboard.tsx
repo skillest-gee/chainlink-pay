@@ -206,7 +206,8 @@ export default function Dashboard() {
     const interval = setInterval(async () => {
       if (isAuthenticated || btcConnected) {
         console.log('Dashboard: Auto-refreshing stats with cross-device sync');
-        // Perform cross-device sync first, then load stats
+        // Force immediate sync for demo, then load stats
+        await crossDeviceSync.forceImmediateSync();
         await crossDeviceSync.performCrossDeviceSync();
         loadStats();
       }

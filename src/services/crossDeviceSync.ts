@@ -32,17 +32,17 @@ class CrossDeviceSyncService {
   }
 
   private initializeSync() {
-    // Start periodic sync every 3 seconds for real-time updates
+    // Start periodic sync every 1 second for demo urgency
     this.syncInterval = setInterval(() => {
       this.performCrossDeviceSync();
-    }, 3000);
+    }, 1000);
 
     // Also sync immediately when the service starts
     setTimeout(() => {
       this.performCrossDeviceSync();
-    }, 1000);
+    }, 500);
 
-    console.log('CrossDeviceSyncService: Initialized cross-device synchronization');
+    console.log('CrossDeviceSyncService: Initialized cross-device synchronization (1s interval for demo)');
   }
 
   /**
@@ -272,6 +272,14 @@ class CrossDeviceSyncService {
   public restart() {
     this.stop();
     this.initializeSync();
+  }
+
+  /**
+   * Force immediate sync for demo purposes
+   */
+  public async forceImmediateSync(): Promise<void> {
+    console.log('CrossDeviceSyncService: Forcing immediate sync for demo...');
+    await this.performCrossDeviceSync();
   }
 }
 
