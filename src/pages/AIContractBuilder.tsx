@@ -308,11 +308,15 @@ export default function AIContractBuilder() {
         onFinish: (data: any) => {
           console.log('Deployment transaction finished:', data);
           const txId = data.txId || data.stacksTransaction?.txid;
+          const userData = userSession.loadUserData();
+          const userAddress = userData.profile.stxAddress.testnet;
+          const fullContractAddress = `${userAddress}.${contractNameForDeployment}`;
+          
           setDeploymentResult({
             success: true,
             transactionId: txId,
-            contractAddress: contractNameForDeployment, // Contract name will be the identifier
-            explorerUrl: `https://explorer.stacks.co/txid/${txId}`
+            contractAddress: fullContractAddress, // Proper contract address format
+            explorerUrl: `https://explorer.hiro.so/txid/${txId}`
           });
           toast({ 
             title: 'Success', 

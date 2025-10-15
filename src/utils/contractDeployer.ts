@@ -227,6 +227,34 @@ export class ContractDeployer {
       errors.push('Contract must contain at least one definition (define-constant, define-data-var, define-public, etc.)');
     }
 
+    // Check for invalid Clarity syntax that causes deployment failures
+    const invalidPatterns = [
+      { pattern: /stx-transfer-from\?/g, message: 'Invalid stx-transfer-from? - use stx-transfer? instead' },
+      { pattern: /unwrap!/g, message: 'Consider using match instead of unwrap! for better error handling' },
+      { pattern: /\(match\s+[^)]+\s+\(ok\s+[^)]+\)\s+\(err\s+[^)]+\)\)/g, message: 'Invalid match syntax - use (match result (ok value) (err error))' },
+      { pattern: /\(map-get\?\s+[^)]+\s+[^)]+\)(?!\s*\))/g, message: 'Map access should use default-to: (default-to u0 (map-get? map key))' },
+      { pattern: /define-public\s+\([^)]+\)\s*[^(]/g, message: 'Function definitions should be properly formatted' }
+    ];
+
+    invalidPatterns.forEach(({ pattern, message }) => {
+      if (pattern.test(contractCode)) {
+        errors.push(message);
+      }
+    });
+
+    // Check for proper error constants
+    if (cleanCode.includes('err u') && !cleanCode.includes('define-constant')) {
+      errors.push('Error constants should be defined with define-constant');
+    }
+
+    // Check for proper function return types
+    const functionLines = contractCode.split('\n').filter(line => line.trim().startsWith('define-public'));
+    functionLines.forEach((line, index) => {
+      if (!line.includes('(') || !line.includes(')')) {
+        errors.push(`Line ${index + 1}: Invalid function definition syntax`);
+      }
+    });
+
     console.log('Contract Deployer: Validation result:', { valid: errors.length === 0, errors });
 
     return {

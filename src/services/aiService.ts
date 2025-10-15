@@ -703,31 +703,45 @@ Return improved contract in \`\`\`clarity code blocks only.`;
       ? `\nADDITIONAL REQUIREMENTS:\n${request.requirements.map(req => `- ${req}`).join('\n')}`
       : '';
 
-    return `Generate a syntactically correct Clarity smart contract for Stacks blockchain:
+    return `Generate a syntactically correct Clarity smart contract for Stacks blockchain that will DEPLOY SUCCESSFULLY:
 
 DESCRIPTION: ${request.description}
 TYPE: ${templateDescriptions[request.template as keyof typeof templateDescriptions] || request.template}${requirements}
 
-CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:
-1. Use proper Clarity syntax - NO syntax errors
+CRITICAL DEPLOYMENT REQUIREMENTS - MUST FOLLOW EXACTLY:
+1. Use proper Clarity syntax - NO syntax errors that cause deployment failures
 2. Use (ok value) and (err error) patterns correctly in match statements
-3. Use stx-transfer? for STX transfers, NOT stx-transfer-from?
+3. Use stx-transfer? for STX transfers, NEVER stx-transfer-from?
 4. Use default-to u0 for safe map access: (default-to u0 (map-get? map-name key))
-5. Use as-contract for contract-initiated transfers: (as-contract (stx-transfer? amount sender recipient))
+5. Use as-contract for contract-initiated transfers: (as-contract (stx-transfer? amount tx-sender recipient))
 6. Use proper match patterns: (match result (ok success) (err error))
 7. Use asserts! for validation: (asserts! condition error-constant)
-8. Use try! for operations that can fail: (try! (stx-transfer? amount sender recipient))
+8. Use try! for operations that can fail: (try! (stx-transfer? amount tx-sender recipient))
 9. Define error constants: (define-constant ERR-NAME (err u100))
 10. Use proper function signatures: (define-public (function-name (param type) (param2 type)))
+11. AVOID unwrap! - use match instead for better error handling
+12. Ensure all parentheses are properly matched
+13. Use proper tuple access: (get field-name tuple-value)
+14. Use proper map operations: (map-set map-name key value)
 
-SYNTAX EXAMPLES:
+CORRECT SYNTAX EXAMPLES:
 - STX Transfer: (try! (stx-transfer? amount tx-sender recipient))
 - Contract Transfer: (try! (as-contract (stx-transfer? amount tx-sender recipient)))
 - Map Access: (default-to u0 (map-get? user-balances tx-sender))
-- Match Pattern: (match result (ok success) (ok true) (err error) (err ERR-NAME))
+- Match Pattern: (match result (ok success) (err error))
 - Assertion: (asserts! (> amount u0) ERR-INVALID-AMOUNT)
+- Tuple Access: (get amount payment-data)
+- Map Set: (map-set payments id payment-data)
 
-Return ONLY the contract code in \`\`\`clarity code blocks. No explanations.`;
+AVOID THESE COMMON ERRORS:
+- stx-transfer-from? (use stx-transfer? instead)
+- unwrap! (use match instead)
+- Missing default-to in map access
+- Mismatched parentheses
+- Invalid function signatures
+- Missing error constants
+
+Return ONLY the contract code in \`\`\`clarity code blocks. No explanations. The contract must be syntactically correct and deployable.`;
   }
 
   private parseAIResponse(content: string, request: AIContractRequest): AIContractResponse {
