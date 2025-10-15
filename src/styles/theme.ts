@@ -1,7 +1,95 @@
 /**
  * Enhanced theme configuration for ChainLinkPay
- * Professional, modern design system
+ * Professional, modern design system with light/dark mode support
  */
+
+// Light theme colors
+const lightColors = {
+  // Background colors
+  bg: {
+    primary: '#ffffff',
+    secondary: '#f8fafc',
+    tertiary: '#f1f5f9',
+    card: '#ffffff',
+    modal: 'rgba(255, 255, 255, 0.95)',
+    overlay: 'rgba(0, 0, 0, 0.8)',
+  },
+  
+  // Text colors
+  text: {
+    primary: '#1a202c',
+    secondary: '#4a5568',
+    tertiary: '#718096',
+    inverse: '#ffffff',
+    accent: '#3b82f6',
+  },
+  
+  // Border colors
+  border: {
+    primary: '#e2e8f0',
+    secondary: '#cbd5e1',
+    accent: '#3b82f6',
+    error: '#e53e3e',
+    success: '#38a169',
+  },
+  
+  // Surface colors
+  surface: {
+    primary: '#ffffff',
+    secondary: '#f7fafc',
+    tertiary: '#edf2f7',
+    elevated: '#ffffff',
+  },
+};
+
+// Dark theme colors
+const darkColors = {
+  // Background colors
+  bg: {
+    primary: '#000000',
+    secondary: '#0f172a',
+    tertiary: '#1e293b',
+    card: 'rgba(255, 255, 255, 0.05)',
+    modal: 'rgba(0, 0, 0, 0.95)',
+    overlay: 'rgba(0, 0, 0, 0.8)',
+  },
+  
+  // Text colors
+  text: {
+    primary: '#ffffff',
+    secondary: '#e2e8f0',
+    tertiary: '#9ca3af',
+    inverse: '#000000',
+    accent: '#3b82f6',
+  },
+  
+  // Border colors
+  border: {
+    primary: 'rgba(255, 255, 255, 0.1)',
+    secondary: 'rgba(255, 255, 255, 0.2)',
+    accent: '#3b82f6',
+    error: '#ef4444',
+    success: '#10b981',
+  },
+  
+  // Surface colors
+  surface: {
+    primary: 'rgba(255, 255, 255, 0.05)',
+    secondary: 'rgba(255, 255, 255, 0.1)',
+    tertiary: 'rgba(255, 255, 255, 0.15)',
+    elevated: 'rgba(255, 255, 255, 0.1)',
+  },
+};
+
+export const lightTheme = {
+  ...lightColors,
+  mode: 'light' as const,
+};
+
+export const darkTheme = {
+  ...darkColors,
+  mode: 'dark' as const,
+};
 
 export const theme = {
   colors: {

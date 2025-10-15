@@ -28,9 +28,9 @@ export default function Pay() {
   
   // Use comprehensive payment state management
   const { 
-    paymentState, 
+    paymentStates, 
     isLoading: paymentStateLoading, 
-    error: paymentStateError,
+    errors: paymentStateErrors,
     initiatePayment,
     checkPaymentStatus,
     clearPaymentState,
@@ -324,6 +324,28 @@ export default function Pay() {
               console.log('PaymentStatusAPI: Payment saved to centralized storage:', updatedPayment.id);
             }
             
+            // IMMEDIATELY trigger comprehensive merchant notification
+            window.dispatchEvent(new CustomEvent('merchantPaymentUpdate', {
+              detail: {
+                paymentId: payment.id,
+                status: 'paid',
+                merchantAddress: payment.merchantAddress,
+                txHash: data.txId,
+                immediate: true // Flag for immediate update
+              }
+            }));
+            
+            // Also trigger the standard payment completed event
+            window.dispatchEvent(new CustomEvent('paymentCompleted', {
+              detail: {
+                paymentId: payment.id,
+                merchantAddress: payment.merchantAddress,
+                txHash: data.txId,
+                amount: payment.amount,
+                paymentType: payment.paymentType
+              }
+            }));
+            
             // Initiate comprehensive payment state management
             initiatePayment(payment, data.txId);
             
@@ -337,7 +359,7 @@ export default function Pay() {
             toast({ 
               title: 'Success', 
               status: 'success', 
-              description: `Payment submitted! TX: ${data.txId.slice(0, 8)}... Checking confirmation...` 
+              description: 'Payment completed! Merchant has been notified.' 
             });
           },
           onCancel: () => {
@@ -548,7 +570,7 @@ export default function Pay() {
             )}
 
             {/* Payment Status from State Manager */}
-            {paymentState && (
+            {payment && paymentStates[payment.id] && (
               <VStack gap={3} align="stretch">
                 <Text fontSize="sm" fontWeight="medium" color="#ffffff">
                   Payment Status
@@ -559,35 +581,35 @@ export default function Pay() {
                     <Text fontSize="sm" color="#ffffff">Status</Text>
                     <Badge 
                       colorScheme={
-                        paymentState.status === 'confirmed' ? 'green' : 
-                        paymentState.status === 'failed' ? 'red' : 
-                        paymentState.status === 'pending' ? 'yellow' : 'gray'
+                        paymentStates[payment.id].status === 'confirmed' ? 'green' : 
+                        paymentStates[payment.id].status === 'failed' ? 'red' : 
+                        paymentStates[payment.id].status === 'pending' ? 'yellow' : 'gray'
                       } 
                       fontSize="xs"
                     >
-                      {paymentState.status.toUpperCase()}
+                      {paymentStates[payment.id].status.toUpperCase()}
                     </Badge>
                   </HStack>
-                  {paymentState.txId && (
+                  {paymentStates[payment.id].txId && (
                     <Text fontSize="xs" color="#9ca3af" fontFamily="mono">
-                      {paymentState.txId.slice(0, 8)}...
+                      {paymentStates[payment.id].txId?.slice(0, 8)}...
                     </Text>
                   )}
                 </HStack>
                 
-                {paymentState.status === 'pending' && (
+                {paymentStates[payment.id].status === 'pending' && (
                   <Text fontSize="xs" color="#9ca3af" textAlign="center">
                     Waiting for blockchain confirmation...
                   </Text>
                 )}
                 
-                {paymentState.status === 'confirmed' && (
+                {paymentStates[payment.id].status === 'confirmed' && (
                   <Text fontSize="xs" color="#10b981" textAlign="center">
                     ✅ Payment confirmed on blockchain!
                   </Text>
                 )}
                 
-                {paymentState.status === 'failed' && (
+                {paymentStates[payment.id].status === 'failed' && (
                   <Text fontSize="xs" color="#ef4444" textAlign="center">
                     ❌ Payment failed on blockchain
                   </Text>

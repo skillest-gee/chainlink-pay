@@ -1,5 +1,5 @@
 // Contract Deployment Utility for AI-Generated Contracts
-import { openContractCall } from '@stacks/connect';
+import { openContractCall, openContractDeploy } from '@stacks/connect';
 import { makeContractDeploy, broadcastTransaction, getAddressFromPrivateKey } from '@stacks/transactions';
 import { createNetwork } from '@stacks/network';
 import { routeContractCall } from './walletProviderRouter';
@@ -53,14 +53,21 @@ export class ContractDeployer {
         throw new Error('Wallet provider not detected. Please connect your wallet.');
       }
 
-      // Use the wallet provider router to ensure correct wallet is used
-      await routeContractCall({
-        contractAddress: options.userSession.loadUserData().profile.stxAddress.testnet,
+      // Get user address
+      const userData = options.userSession.loadUserData();
+      const userAddress = userData.profile.stxAddress.testnet;
+      
+      console.log('Contract Deployer: User address:', userAddress);
+      console.log('Contract Deployer: Network:', this.network);
+
+      // Create contract deployment transaction
+      const deployOptions = {
         contractName: options.contractName,
-        functionName: 'deploy-contract',
-        functionArgs: [],
+        codeBody: options.contractCode,
         network: this.network,
-        userSession: options.userSession,
+        fee: options.fee || 50000, // 0.05 STX default fee
+        sponsored: false,
+        stxAddress: userAddress,
         appDetails: {
           name: 'ChainLinkPay AI Builder',
           icon: window.location.origin + '/favicon.ico'
@@ -76,15 +83,23 @@ export class ContractDeployer {
           if (options.onCancel) {
             options.onCancel();
           }
-        },
-        walletProvider: options.walletProvider
-      });
+        }
+      };
+
+      // Use the correct deployment method based on wallet provider
+      if (options.walletProvider === 'xverse' || options.walletProvider === 'leather') {
+        // For Xverse and Leather wallets, we need to use the contract deployment flow
+        await this.deployWithConnect(options.userSession, deployOptions);
+      } else {
+        // For other wallets, use the standard deployment
+        await this.deployWithConnect(options.userSession, deployOptions);
+      }
 
       return {
         success: true,
         transactionId: 'pending',
-        contractAddress: options.userSession.loadUserData().profile.stxAddress.testnet,
-        explorerUrl: `https://explorer.stacks.co/address/${options.userSession.loadUserData().profile.stxAddress.testnet}`
+        contractAddress: userAddress,
+        explorerUrl: `https://explorer.stacks.co/address/${userAddress}`
       };
 
     } catch (error: any) {
@@ -93,6 +108,25 @@ export class ContractDeployer {
         success: false,
         error: error.message || 'Deployment failed'
       };
+    }
+  }
+
+  /**
+   * Deploy contract using Stacks Connect
+   */
+  private async deployWithConnect(userSession: any, deployOptions: any): Promise<void> {
+    try {
+      await openContractDeploy({
+        contractName: deployOptions.contractName,
+        codeBody: deployOptions.codeBody,
+        network: deployOptions.network,
+        appDetails: deployOptions.appDetails,
+        onFinish: deployOptions.onFinish,
+        onCancel: deployOptions.onCancel
+      });
+    } catch (error: any) {
+      console.error('Contract Deployer: Connect deployment failed:', error);
+      throw error;
     }
   }
 
@@ -122,38 +156,62 @@ export class ContractDeployer {
   validateContract(contractCode: string, contractName: string): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
+    console.log('Contract Deployer: Validating contract:', contractName);
+    console.log('Contract Deployer: Contract code length:', contractCode.length);
+    console.log('Contract Deployer: Contract preview:', contractCode.substring(0, 200));
+
     // Basic validation
     if (!contractCode || contractCode.trim().length === 0) {
       errors.push('Contract code is empty');
+      return { valid: false, errors };
     }
 
     if (!contractName || contractName.trim().length === 0) {
       errors.push('Contract name is required');
+      return { valid: false, errors };
     }
 
-    // Clarity syntax validation
-    if (!contractCode.includes('define-constant') && !contractCode.includes('define-data-var')) {
-      errors.push('Contract must define at least one constant or data variable');
+    // Clean the contract code (remove comments and extra whitespace for analysis)
+    const cleanCode = contractCode
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith(';;'))
+      .join('\n');
+
+    console.log('Contract Deployer: Clean code length:', cleanCode.length);
+
+    // Check for Clarity-specific syntax
+    const hasDefineConstant = cleanCode.includes('define-constant');
+    const hasDefineDataVar = cleanCode.includes('define-data-var');
+    const hasDefineMap = cleanCode.includes('define-map');
+    const hasDefinePublic = cleanCode.includes('define-public');
+    const hasDefineReadOnly = cleanCode.includes('define-read-only');
+
+    console.log('Contract Deployer: Syntax check:', {
+      hasDefineConstant,
+      hasDefineDataVar,
+      hasDefineMap,
+      hasDefinePublic,
+      hasDefineReadOnly
+    });
+
+    // More flexible validation - contract needs either constants/variables OR functions
+    const hasDataDefinitions = hasDefineConstant || hasDefineDataVar || hasDefineMap;
+    const hasFunctionDefinitions = hasDefinePublic || hasDefineReadOnly;
+
+    if (!hasDataDefinitions && !hasFunctionDefinitions) {
+      errors.push('Contract must define at least one constant, data variable, map, or function');
     }
 
-    if (!contractCode.includes('define-public') && !contractCode.includes('define-read-only')) {
-      errors.push('Contract must define at least one public or read-only function');
-    }
-
-    // Check for proper contract structure
-    const lines = contractCode.split('\n');
-    let hasValidStructure = false;
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('define-public') || trimmedLine.startsWith('define-read-only')) {
-        hasValidStructure = true;
-        break;
+    // Check for proper function structure if functions exist
+    if (hasFunctionDefinitions) {
+      // Clarity functions can be defined across multiple lines, so we just check
+      // that we have function definitions and let the Clarity compiler handle syntax validation
+      const hasFunctionKeywords = cleanCode.includes('define-public') || cleanCode.includes('define-read-only');
+      
+      if (!hasFunctionKeywords) {
+        errors.push('Contract must contain function definitions');
       }
-    }
-
-    if (!hasValidStructure) {
-      errors.push('Contract must have at least one function definition');
     }
 
     // Check for common syntax errors
@@ -163,6 +221,13 @@ export class ContractDeployer {
     if (openParens !== closeParens) {
       errors.push('Mismatched parentheses in contract code');
     }
+
+    // Check for basic Clarity keywords
+    if (!cleanCode.includes('define-')) {
+      errors.push('Contract must contain at least one definition (define-constant, define-data-var, define-public, etc.)');
+    }
+
+    console.log('Contract Deployer: Validation result:', { valid: errors.length === 0, errors });
 
     return {
       valid: errors.length === 0,
@@ -219,6 +284,51 @@ ${contractCode}
     return {
       fee: totalFee,
       stxFee: (totalFee / 1000000).toFixed(6) + ' STX'
+    };
+  }
+
+  /**
+   * Get network information
+   */
+  getNetworkInfo(): { network: string; apiUrl: string; explorerUrl: string } {
+    const networkType = process.env.REACT_APP_STACKS_NETWORK || 'testnet';
+    const apiUrl = process.env.REACT_APP_STACKS_API_URL || 
+      (networkType === 'mainnet' ? 'https://api.hiro.so' : 'https://api.testnet.hiro.so');
+    const explorerUrl = networkType === 'mainnet' ? 'https://explorer.stacks.co' : 'https://explorer.stacks.co';
+    
+    return {
+      network: networkType,
+      apiUrl,
+      explorerUrl
+    };
+  }
+
+  /**
+   * Validate deployment prerequisites
+   */
+  validateDeploymentPrerequisites(userSession: any, walletProvider: string): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!userSession) {
+      errors.push('User session is required');
+    }
+
+    if (!walletProvider || walletProvider === 'unknown') {
+      errors.push('Wallet provider must be connected');
+    }
+
+    try {
+      const userData = userSession?.loadUserData();
+      if (!userData?.profile?.stxAddress?.testnet) {
+        errors.push('User address not found in session');
+      }
+    } catch (error) {
+      errors.push('Invalid user session');
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
     };
   }
 }

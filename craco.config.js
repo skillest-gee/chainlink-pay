@@ -2,6 +2,15 @@ module.exports = {
   eslint: {
     enable: false,
   },
+  babel: {
+    plugins: [
+      // Remove console logs in production builds
+      ...(process.env.NODE_ENV === 'production' 
+        ? [['transform-remove-console', { exclude: ['error', 'warn'] }]]
+        : []
+      ),
+    ],
+  },
   webpack: {
     configure: (webpackConfig) => {
       // Add fallbacks for Node.js modules

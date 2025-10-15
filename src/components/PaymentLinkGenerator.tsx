@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { Box, VStack, HStack, Text, Button, Input, Textarea, Badge, Heading } from '@chakra-ui/react';
-import { QRCodeSVG } from 'qrcode.react';
+import React, { useState, Suspense } from 'react';
+import { Box, VStack, HStack, Text, Button, Input, Textarea, Badge, Heading, Spinner } from '@chakra-ui/react';
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
 import { useBitcoinWallet } from '../hooks/useBitcoinWallet';
@@ -15,6 +14,16 @@ import { bufferCV, standardPrincipalCV, uintCV } from '@stacks/transactions';
 import { routeContractCall } from '../utils/walletProviderRouter';
 import { stacksNetwork, CONTRACT_ADDRESS, CONTRACT_NAME, CONTRACT_DEPLOYED, verifyContractDeployment } from '../config/stacksConfig';
 // Removed error handler and buffer utils imports - using simplified error handling
+
+// Lazy load QR code component
+const QRCodeComponent = React.lazy(() => 
+  import('qrcode.react').then(module => ({ 
+    default: ({ value, size }: { value: string; size: number }) => {
+      const { QRCodeSVG } = module;
+      return <QRCodeSVG value={value} size={size} />;
+    }
+  }))
+);
 
 function generateId() {
   return 'inv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
@@ -140,9 +149,42 @@ export default function PaymentLinkGenerator() {
       }, 100);
     };
 
+    // Enhanced merchant payment update handler
+    const handleMerchantPaymentUpdate = (event: CustomEvent) => {
+      const { paymentId, status, merchantAddress } = event.detail;
+      
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      if (merchantAddress === currentAddress) {
+        console.log('PaymentLinkGenerator: Merchant payment update received:', paymentId, status);
+        
+        // Immediate UI update
+        setPaymentHistory(prev => prev.map(p => 
+          p.id === paymentId ? { ...p, status } : p
+        ));
+        
+        // Update current payment status if it matches
+        if (generatedId === paymentId) {
+          setPaymentStatus(status);
+        }
+        
+        // Force refresh from API
+        setTimeout(async () => {
+          if (currentAddress) {
+            try {
+              const apiPayments = await paymentStatusAPI.getPaymentsByMerchant(currentAddress);
+              setPaymentHistory(apiPayments as PaymentLink[]);
+            } catch (error) {
+              console.log('Failed to refresh from API:', error);
+            }
+          }
+        }, 500);
+      }
+    };
+
     window.addEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
     window.addEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
     window.addEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
+    window.addEventListener('merchantPaymentUpdate', handleMerchantPaymentUpdate as EventListener);
     
     // Also listen for postMessage events
     const handlePostMessage = (event: MessageEvent) => {
@@ -184,7 +226,7 @@ export default function PaymentLinkGenerator() {
           console.log('Failed to load from API in periodic refresh:', error);
         }
       }
-    }, 3000); // Check every 3 seconds with blockchain sync
+    }, 2000); // Check every 2 seconds for faster updates
 
     // Subscribe to merchant payment updates
     const currentAddress = isAuthenticated ? address : btcAddress;
@@ -225,6 +267,7 @@ export default function PaymentLinkGenerator() {
       window.removeEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
       window.removeEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
       window.removeEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
+      window.removeEventListener('merchantPaymentUpdate', handleMerchantPaymentUpdate as EventListener);
       window.removeEventListener('message', handlePostMessage);
       window.removeEventListener('paymentStatusAPIUpdate', handleAPIUpdate as EventListener);
       clearInterval(refreshInterval);
@@ -1013,7 +1056,16 @@ export default function PaymentLinkGenerator() {
             
             {/* QR Code */}
             <Box textAlign="center" p={4} bg="#ffffff" borderRadius="lg">
-              <QRCodeSVG value={paymentUrl} size={200} />
+              <Suspense fallback={
+                <Box display="flex" justifyContent="center" alignItems="center" h="200px">
+                  <VStack gap={2}>
+                    <Spinner size="md" color="#3b82f6" />
+                    <Text fontSize="xs" color="#9ca3af">Loading QR Code...</Text>
+                  </VStack>
+                </Box>
+              }>
+                <QRCodeComponent value={paymentUrl} size={200} />
+              </Suspense>
             </Box>
             
             {/* Payment URL */}
@@ -1116,18 +1168,66 @@ export default function PaymentLinkGenerator() {
                   <UniformButton
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
+                    onClick={async () => {
                       console.log('Manual refresh of payment history');
-                      const allPayments = paymentStorage.getAllPaymentLinks();
                       const currentAddress = isAuthenticated ? address : btcAddress;
+                      if (!currentAddress) return;
+                      
+                      // Force blockchain sync first
+                      await paymentStatusAPI.syncWithBlockchain();
+                      
+                      // Check localStorage for any pending payments with txHash
+                      const allPayments = paymentStorage.getAllPaymentLinks();
                       const userPayments = allPayments.filter(payment => 
                         payment.merchantAddress === currentAddress
                       );
-                      setPaymentHistory(userPayments);
+                      
+                      // Check each pending payment on blockchain
+                      const pendingPayments = userPayments.filter(p => p.status === 'pending' && p.txHash);
+                      let updatedCount = 0;
+                      
+                      for (const payment of pendingPayments) {
+                        if (payment.txHash) {
+                          try {
+                            console.log('Checking blockchain for payment:', payment.id, payment.txHash);
+                            const response = await fetch(`https://api.testnet.hiro.so/extended/v1/tx/${payment.txHash}`);
+                            if (response.ok) {
+                              const txData = await response.json();
+                              console.log('Blockchain response for', payment.id, ':', txData.tx_status);
+                              
+                              if (txData.tx_status === 'success' && payment.status !== 'paid') {
+                                // Update payment status to paid
+                                const updatedPayment = { ...payment, status: 'paid' as const };
+                                const updatedPayments = allPayments.map(p => p.id === payment.id ? updatedPayment : p);
+                                paymentStorage.saveAllPaymentLinks(updatedPayments);
+                                
+                                // Update centralized API
+                                await paymentStatusAPI.savePayment(updatedPayment);
+                                
+                                updatedCount++;
+                                console.log('Payment confirmed on blockchain:', payment.id);
+                                
+                                if (payment.id === generatedId) {
+                                  setPaymentStatus('paid');
+                                }
+                              }
+                            }
+                          } catch (error) {
+                            console.log('Error checking blockchain for', payment.id, ':', error);
+                          }
+                        }
+                      }
+                      
+                      // Reload payment history
+                      const updatedAllPayments = paymentStorage.getAllPaymentLinks();
+                      const updatedUserPayments = updatedAllPayments.filter(payment => 
+                        payment.merchantAddress === currentAddress
+                      );
+                      setPaymentHistory(updatedUserPayments);
                       
                       // Check if current generated payment is completed
                       if (generatedId) {
-                        const currentPayment = userPayments.find(p => p.id === generatedId);
+                        const currentPayment = updatedUserPayments.find(p => p.id === generatedId);
                         if (currentPayment) {
                           setPaymentStatus(currentPayment.status);
                           console.log('Manual refresh: Updated payment status to', currentPayment.status);
@@ -1137,8 +1237,8 @@ export default function PaymentLinkGenerator() {
                       // Show refresh feedback
                       toast({
                         title: 'Payment Status Refreshed',
-                        status: 'info',
-                        description: `Found ${userPayments.length} payments, ${userPayments.filter(p => p.status === 'paid').length} completed`
+                        status: updatedCount > 0 ? 'success' : 'info',
+                        description: `Found ${updatedUserPayments.length} payments, ${updatedUserPayments.filter(p => p.status === 'paid').length} completed${updatedCount > 0 ? `, ${updatedCount} newly confirmed` : ''}`
                       });
                     }}
                     title="Refresh payment status"

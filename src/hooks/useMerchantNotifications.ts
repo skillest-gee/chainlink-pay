@@ -1,97 +1,123 @@
-import { useCallback, useEffect } from 'react';
-import { PaymentRecord } from './usePaymentStorage';
+// hooks/useMerchantNotifications.ts
+import { useEffect, useCallback } from 'react';
+import { PaymentLink, paymentStorage } from '../services/paymentStorage';
+import { paymentStatusAPI } from '../services/paymentStatusAPI';
 
-interface MerchantNotificationHook {
-  notifyPaymentUpdate: (payment: PaymentRecord) => void;
-  subscribeToPaymentUpdates: (merchantAddress: string, callback: (payment: PaymentRecord) => void) => () => void;
-}
+export const useMerchantNotifications = () => {
+  // Subscribe to payment updates for a specific merchant
+  const subscribeToPaymentUpdates = useCallback((merchantAddress: string, callback: (payment: PaymentLink) => void) => {
+    const handlePaymentUpdate = (event: CustomEvent) => {
+      const { paymentId, merchantAddress: eventMerchantAddress } = event.detail;
+      
+      // Check if this update is for our merchant
+      if (eventMerchantAddress && eventMerchantAddress !== merchantAddress) {
+        return;
+      }
 
-export const useMerchantNotifications = (): MerchantNotificationHook => {
-  
-  const notifyPaymentUpdate = useCallback((payment: PaymentRecord) => {
-    console.log('Notifying merchant of payment update:', payment);
-    
-    // Dispatch custom event for real-time updates
-    const paymentUpdateEvent = new CustomEvent('merchantPaymentUpdate', {
-      detail: {
-        payment,
-        merchantAddress: payment.merchantAddress,
-        timestamp: Date.now()
+      console.log('Payment update received for merchant:', merchantAddress, event.detail);
+
+      // Fetch the updated payment data
+      const fetchUpdatedPayment = async () => {
+        try {
+          // First try centralized API
+          const apiPayment = await paymentStatusAPI.getPayment(paymentId);
+          if (apiPayment) {
+            // Convert PaymentStatusRecord to PaymentLink
+            const paymentLink: PaymentLink = {
+              id: apiPayment.id,
+              amount: apiPayment.amount,
+              description: apiPayment.description || '',
+              status: apiPayment.status,
+              createdAt: apiPayment.createdAt,
+              paidAt: apiPayment.paidAt,
+              txHash: apiPayment.txHash,
+              payerAddress: apiPayment.payerAddress,
+              merchantAddress: apiPayment.merchantAddress,
+              paymentType: apiPayment.paymentType
+            };
+            callback(paymentLink);
+            return;
+          }
+
+          // Fallback to localStorage
+          const allPayments = paymentStorage.getAllPaymentLinks();
+          const updatedPayment = allPayments.find(p => p.id === paymentId);
+          if (updatedPayment) {
+            callback(updatedPayment);
+          }
+        } catch (error) {
+          console.error('Error fetching updated payment:', error);
+        }
+      };
+
+      fetchUpdatedPayment();
+    };
+
+    const handleMerchantPaymentUpdate = (event: CustomEvent) => {
+      const { paymentId, merchantAddress: eventMerchantAddress, status } = event.detail;
+      
+      if (eventMerchantAddress && eventMerchantAddress === merchantAddress) {
+        console.log('Merchant-specific payment update:', paymentId, status);
+        
+        // Force immediate UI refresh
+        setTimeout(async () => {
+          const payments = await paymentStatusAPI.getPaymentsByMerchant(merchantAddress);
+          // You might want to use a state setter here or trigger a refresh
+        }, 100);
       }
-    });
-    window.dispatchEvent(paymentUpdateEvent);
-    
-    // Also dispatch global payment events
-    const globalPaymentEvent = new CustomEvent('globalPaymentStatusChange', {
-      detail: {
-        paymentId: payment.id,
-        status: payment.status,
-        txId: payment.txId,
-        merchantAddress: payment.merchantAddress,
-        timestamp: Date.now()
-      }
-    });
-    window.dispatchEvent(globalPaymentEvent);
-    
-    // Use postMessage for cross-tab communication
-    window.postMessage({
-      type: 'MERCHANT_PAYMENT_UPDATE',
-      payment,
-      merchantAddress: payment.merchantAddress
-    }, '*');
-    
-    // If backend API exists, send notification
-    // This would be implemented when backend is available
-    /*
-    fetch('/api/merchant/payments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payment)
-    }).catch(error => {
-      console.warn('Failed to send payment notification to backend:', error);
-    });
-    */
+    };
+
+    // Listen for various payment events
+    window.addEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
+    window.addEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
+    window.addEventListener('merchantPaymentUpdate', handleMerchantPaymentUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('paymentCompleted', handlePaymentUpdate as EventListener);
+      window.removeEventListener('paymentUpdated', handlePaymentUpdate as EventListener);
+      window.removeEventListener('merchantPaymentUpdate', handleMerchantPaymentUpdate as EventListener);
+    };
   }, []);
 
-  const subscribeToPaymentUpdates = useCallback((merchantAddress: string, callback: (payment: PaymentRecord) => void) => {
-    console.log('Subscribing to payment updates for merchant:', merchantAddress);
-    
-    const handlePaymentUpdate = (event: CustomEvent) => {
-      const payment = event.detail.payment as PaymentRecord;
-      if (payment.merchantAddress === merchantAddress) {
-        console.log('Payment update received for merchant:', merchantAddress, payment);
-        callback(payment);
-      }
-    };
-
-    const handlePostMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'MERCHANT_PAYMENT_UPDATE') {
-        const payment = event.data.payment as PaymentRecord;
-        if (payment.merchantAddress === merchantAddress) {
-          console.log('PostMessage payment update received for merchant:', merchantAddress, payment);
-          callback(payment);
-        }
-      }
-    };
-
-    // Subscribe to events
-    window.addEventListener('merchantPaymentUpdate', handlePaymentUpdate as EventListener);
-    window.addEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
-    window.addEventListener('message', handlePostMessage);
-
-    // Return unsubscribe function
-    return () => {
-      window.removeEventListener('merchantPaymentUpdate', handlePaymentUpdate as EventListener);
-      window.removeEventListener('globalPaymentStatusChange', handlePaymentUpdate as EventListener);
-      window.removeEventListener('message', handlePostMessage);
-      console.log('Unsubscribed from payment updates for merchant:', merchantAddress);
-    };
+  // Manual refresh function for merchant
+  const refreshMerchantPayments = useCallback(async (merchantAddress: string): Promise<PaymentLink[]> => {
+    try {
+      console.log('Manual refresh for merchant:', merchantAddress);
+      
+      // Force blockchain sync first
+      await paymentStatusAPI.syncWithBlockchain();
+      
+      // Then get updated payments
+      const apiPayments = await paymentStatusAPI.getPaymentsByMerchant(merchantAddress);
+      
+      // Convert PaymentStatusRecord[] to PaymentLink[]
+      const payments: PaymentLink[] = apiPayments.map(apiPayment => ({
+        id: apiPayment.id,
+        amount: apiPayment.amount,
+        description: apiPayment.description || '',
+        status: apiPayment.status,
+        createdAt: apiPayment.createdAt,
+        paidAt: apiPayment.paidAt,
+        txHash: apiPayment.txHash,
+        payerAddress: apiPayment.payerAddress,
+        merchantAddress: apiPayment.merchantAddress,
+        paymentType: apiPayment.paymentType
+      }));
+      
+      // Trigger UI update event
+      window.dispatchEvent(new CustomEvent('merchantPaymentsRefreshed', {
+        detail: { merchantAddress, payments }
+      }));
+      
+      return payments;
+    } catch (error) {
+      console.error('Error refreshing merchant payments:', error);
+      throw error;
+    }
   }, []);
 
   return {
-    notifyPaymentUpdate,
-    subscribeToPaymentUpdates
+    subscribeToPaymentUpdates,
+    refreshMerchantPayments
   };
 };

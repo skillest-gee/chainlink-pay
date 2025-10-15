@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Box, VStack, HStack, Text, Button, Badge, Image } from '@chakra-ui/react';
+import React, { useState, useEffect } from 'react';
+import { Box, VStack, HStack, Text, Button, Badge, Image, Spinner } from '@chakra-ui/react';
 import { UniformCard } from './UniformCard';
 import { UniformButton } from './UniformButton';
 
@@ -7,10 +7,74 @@ interface MobileWalletConnectionProps {
   onClose: () => void;
 }
 
+interface WalletConfig {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  downloadUrl: {
+    ios: string;
+    android: string;
+  };
+  deepLink: string;
+  color: string;
+  universalLink?: string;
+  checkInstalled?: () => Promise<boolean>;
+}
+
 export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ onClose }) => {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState<string | null>(null);
+  const [deviceType, setDeviceType] = useState<'ios' | 'android' | 'desktop'>('desktop');
 
-  const wallets = [
+  useEffect(() => {
+    detectDevice();
+  }, []);
+
+  const detectDevice = () => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod/.test(userAgent)) {
+      setDeviceType('ios');
+    } else if (/android/.test(userAgent)) {
+      setDeviceType('android');
+    } else {
+      setDeviceType('desktop');
+    }
+  };
+
+  // Enhanced wallet detection function
+  const checkIfWalletInstalled = async (wallet: WalletConfig): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const iframe = document.createElement('iframe');
+      iframe.src = wallet.deepLink;
+      iframe.style.display = 'none';
+      
+      let timer: NodeJS.Timeout;
+      
+      const cleanup = () => {
+        window.removeEventListener('blur', onBlur);
+        clearTimeout(timer);
+        document.body.removeChild(iframe);
+      };
+      
+      const onBlur = () => {
+        cleanup();
+        resolve(true);
+      };
+      
+      const onTimeout = () => {
+        cleanup();
+        resolve(false);
+      };
+      
+      window.addEventListener('blur', onBlur);
+      timer = setTimeout(onTimeout, 2000);
+      
+      document.body.appendChild(iframe);
+    });
+  };
+
+  const wallets: WalletConfig[] = [
     {
       id: 'xverse',
       name: 'Xverse Wallet',
@@ -21,6 +85,7 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
         android: 'https://play.google.com/store/apps/details?id=com.secretkeylabs.xverse'
       },
       deepLink: 'xverse://',
+      universalLink: 'https://xverse.app/connect',
       color: '#3b82f6'
     },
     {
@@ -33,6 +98,7 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
         android: 'https://play.google.com/store/apps/details?id=com.leatherwallet.app'
       },
       deepLink: 'leather://',
+      universalLink: 'https://leather.io/connect',
       color: '#8b4513'
     },
     {
@@ -45,6 +111,7 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
         android: 'https://play.google.com/store/apps/details?id=io.unisat.app'
       },
       deepLink: 'unisat://',
+      universalLink: 'https://unisat.io/connect',
       color: '#ff6b35'
     },
     {
@@ -57,67 +124,70 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
         android: 'https://play.google.com/store/apps/details?id=com.okinc.okex.gp'
       },
       deepLink: 'okx://',
+      universalLink: 'https://okx.com/connect',
       color: '#0066ff'
     }
   ];
 
-  const handleWalletSelect = async (wallet: typeof wallets[0]) => {
+  const handleWalletSelect = async (wallet: WalletConfig) => {
     setSelectedWallet(wallet.id);
-    
+    setIsChecking(wallet.id);
+
     try {
-      // Import the mobile wallet connection utility
-      const { openWalletApp, detectWalletApps } = await import('../utils/mobileWalletConnection');
+      // First, try to detect if wallet is installed
+      const isInstalled = await checkIfWalletInstalled(wallet);
       
-      const { isMobile, isIOS, isAndroid } = detectWalletApps();
-      
-      if (isMobile) {
-        // Use the new mobile wallet connection
-        const walletType = wallet.id === 'xverse' ? 'xverse' : 'leather';
-        const appOpened = await openWalletApp(walletType);
+      if (isInstalled) {
+        // Wallet is installed, use deep link
+        console.log(`${wallet.name} is installed, opening app...`);
         
-        if (appOpened) {
-          console.log('Wallet app opened successfully');
-          // Close the modal and let the wallet connection handle the rest
-          onClose();
+        if (deviceType === 'ios' && wallet.universalLink) {
+          // Use universal links for iOS for better reliability
+          window.location.href = wallet.universalLink;
         } else {
-          console.log('Wallet app not available, redirecting to app store');
-          const storeUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
-          window.open(storeUrl, '_blank');
+          // Use deep links for Android and fallback
+          window.location.href = wallet.deepLink;
         }
+        
+        // Set a timeout to redirect to app store if app doesn't open
+        setTimeout(() => {
+          if (!document.hidden) {
+            console.log('App not opened, redirecting to app store...');
+            redirectToAppStore(wallet);
+          }
+        }, 1500);
+        
       } else {
-        // Desktop - show download options
-        const downloadUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
-        window.open(downloadUrl, '_blank');
+        // Wallet not installed, redirect to app store
+        console.log(`${wallet.name} not installed, redirecting to app store...`);
+        redirectToAppStore(wallet);
       }
+      
     } catch (error) {
       console.error('Error handling wallet selection:', error);
       // Fallback to original behavior
-      const deepLink = wallet.deepLink;
-      const userAgent = navigator.userAgent.toLowerCase();
-      const isIOS = /iphone|ipad|ipod/.test(userAgent);
-      const isAndroid = /android/.test(userAgent);
-      
-      if (isIOS || isAndroid) {
-        window.location.href = deepLink;
-        setTimeout(() => {
-          const storeUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
-          window.open(storeUrl, '_blank');
-        }, 2000);
-      } else {
-        const downloadUrl = isIOS ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
-        window.open(downloadUrl, '_blank');
-      }
+      fallbackWalletConnection(wallet);
+    } finally {
+      setIsChecking(null);
     }
   };
 
-  const detectDevice = () => {
-    const userAgent = navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(userAgent)) return 'ios';
-    if (/android/.test(userAgent)) return 'android';
-    return 'desktop';
+  const redirectToAppStore = (wallet: WalletConfig) => {
+    const storeUrl = deviceType === 'ios' ? wallet.downloadUrl.ios : wallet.downloadUrl.android;
+    window.open(storeUrl, '_blank');
   };
 
-  const device = detectDevice();
+  const fallbackWalletConnection = (wallet: WalletConfig) => {
+    // Original fallback behavior
+    if (deviceType === 'ios' || deviceType === 'android') {
+      window.location.href = wallet.deepLink;
+      setTimeout(() => {
+        redirectToAppStore(wallet);
+      }, 2000);
+    } else {
+      redirectToAppStore(wallet);
+    }
+  };
 
   return (
     <Box
@@ -149,7 +219,7 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
                 📱 Connect Mobile Wallet
               </Text>
               <Text fontSize="sm" color="#9ca3af">
-                {device === 'ios' ? 'iOS' : device === 'android' ? 'Android' : 'Desktop'} Device Detected
+                {deviceType === 'ios' ? 'iOS' : deviceType === 'android' ? 'Android' : 'Desktop'} Device Detected
               </Text>
             </VStack>
             <UniformButton
@@ -172,22 +242,22 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
           >
             <VStack gap={2} align="stretch">
               <Text fontSize="sm" fontWeight="medium" color="#3b82f6">
-                {device === 'ios' ? '📱 iOS Instructions:' : device === 'android' ? '🤖 Android Instructions:' : '💻 Desktop Instructions:'}
+                {deviceType === 'ios' ? '📱 iOS Instructions:' : deviceType === 'android' ? '🤖 Android Instructions:' : '💻 Desktop Instructions:'}
               </Text>
               <VStack gap={1} align="stretch">
-                {device === 'ios' || device === 'android' ? (
+                {deviceType === 'ios' || deviceType === 'android' ? (
                   <>
                     <Text fontSize="xs" color="#9ca3af">
                       1. Tap on your preferred wallet below
                     </Text>
                     <Text fontSize="xs" color="#9ca3af">
-                      2. If the app is installed, it will open automatically
+                      2. We'll detect if the app is installed
                     </Text>
                     <Text fontSize="xs" color="#9ca3af">
-                      3. If not installed, you'll be redirected to the app store
+                      3. If installed, the app will open automatically
                     </Text>
                     <Text fontSize="xs" color="#9ca3af">
-                      4. Install the app and return to connect
+                      4. If not installed, you'll go to the app store
                     </Text>
                   </>
                 ) : (
@@ -223,12 +293,15 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
                 borderRadius="lg"
                 border="1px solid"
                 borderColor={selectedWallet === wallet.id ? wallet.color : 'rgba(255, 255, 255, 0.1)'}
-                cursor="pointer"
-                _hover={{
-                  bg: 'rgba(255, 255, 255, 0.1)',
-                  borderColor: wallet.color
-                }}
-                onClick={() => handleWalletSelect(wallet)}
+                cursor={isChecking === wallet.id ? 'default' : 'pointer'}
+                opacity={isChecking === wallet.id ? 0.7 : 1}
+                _hover={
+                  isChecking === wallet.id ? {} : {
+                    bg: 'rgba(255, 255, 255, 0.1)',
+                    borderColor: wallet.color
+                  }
+                }
+                onClick={() => !isChecking && handleWalletSelect(wallet)}
               >
                 <HStack gap={4} align="center">
                   <Box
@@ -241,11 +314,12 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
                     justifyContent="center"
                     fontSize="2xl"
                   >
-                    {wallet.icon}
+                    {isChecking === wallet.id ? <Spinner size="sm" /> : wallet.icon}
                   </Box>
                   <VStack align="start" gap={1} flex={1}>
                     <Text fontSize="md" fontWeight="medium" color="#ffffff">
                       {wallet.name}
+                      {isChecking === wallet.id && ' (Checking...)'}
                     </Text>
                     <Text fontSize="sm" color="#9ca3af">
                       {wallet.description}
@@ -263,7 +337,7 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
             ))}
           </VStack>
 
-          {/* Tips */}
+          {/* Enhanced Tips */}
           <Box
             bg="rgba(16, 185, 129, 0.1)"
             border="1px solid rgba(16, 185, 129, 0.2)"
@@ -272,22 +346,49 @@ export const MobileWalletConnection: React.FC<MobileWalletConnectionProps> = ({ 
           >
             <VStack gap={2} align="stretch">
               <Text fontSize="sm" fontWeight="medium" color="#10b981">
-                💡 Pro Tips:
+                💡 Enhanced Connection Tips:
               </Text>
               <VStack gap={1} align="stretch">
                 <Text fontSize="xs" color="#9ca3af">
-                  • Xverse is recommended for Bitcoin + Stacks support
+                  • If detection fails, manually open your wallet app first
                 </Text>
                 <Text fontSize="xs" color="#9ca3af">
-                  • Leather is great for Stacks-focused users
+                  • Ensure your wallet app is updated to the latest version
                 </Text>
                 <Text fontSize="xs" color="#9ca3af">
-                  • Make sure you have some testnet tokens for testing
+                  • For iOS, allow "Universal Links" in your wallet app settings
                 </Text>
                 <Text fontSize="xs" color="#9ca3af">
-                  • You can connect multiple wallets if needed
+                  • Refresh the page if connection issues persist
                 </Text>
               </VStack>
+            </VStack>
+          </Box>
+
+          {/* Manual Connection Option */}
+          <Box
+            bg="rgba(245, 158, 11, 0.1)"
+            border="1px solid rgba(245, 158, 11, 0.2)"
+            borderRadius="lg"
+            p={4}
+          >
+            <VStack gap={2} align="stretch">
+              <Text fontSize="sm" fontWeight="medium" color="#f59e0b">
+                🔧 Still Having Issues?
+              </Text>
+              <Text fontSize="xs" color="#9ca3af">
+                Try this manual method:
+              </Text>
+              <UniformButton
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  // Provide manual connection instructions or alternative method
+                  alert('1. Open your wallet app manually\n2. Use the "Scan QR" feature in your wallet\n3. Come back to this screen for QR code connection');
+                }}
+              >
+                Show Manual Connection Guide
+              </UniformButton>
             </VStack>
           </Box>
 

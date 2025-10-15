@@ -1,209 +1,221 @@
+// hooks/usePaymentStateManager.ts
 import { useState, useEffect, useCallback } from 'react';
-import { useTransactionStatus } from './useTransactionStatus';
-import { usePaymentStorage, PaymentRecord } from './usePaymentStorage';
-import { useMerchantNotifications } from './useMerchantNotifications';
 import { PaymentLink, paymentStorage } from '../services/paymentStorage';
+import { paymentStatusAPI } from '../services/paymentStatusAPI';
 
 export interface PaymentState {
-  id: string;
+  status: 'pending' | 'confirmed' | 'failed' | 'unknown';
   txId?: string;
-  amount: string;
-  recipient: string;
-  status: 'initial' | 'pending' | 'confirmed' | 'failed';
-  timestamp: number;
-  paymentType: 'STX' | 'BTC';
-  description?: string;
-  merchantAddress: string;
-  payerAddress?: string;
-  paidAt?: number;
+  blockHeight?: number;
+  confirmations?: number;
+  lastChecked?: number;
   error?: string;
 }
 
-interface PaymentStateManagerHook {
-  paymentState: PaymentState | null;
-  isLoading: boolean;
-  error: string | null;
-  initiatePayment: (paymentLink: PaymentLink, txId: string) => void;
-  checkPaymentStatus: (txId: string) => void;
-  clearPaymentState: () => void;
-  isDuplicatePayment: (recipient: string, amount: string) => boolean;
-}
+export const usePaymentStateManager = () => {
+  const [paymentStates, setPaymentStates] = useState<Record<string, PaymentState>>({});
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-export const usePaymentStateManager = (): PaymentStateManagerHook => {
-  const [paymentState, setPaymentState] = useState<PaymentState | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const { status: txStatus, isLoading: txLoading, error: txError, pollTransaction, stopPolling } = useTransactionStatus();
-  const { savePayment, updatePaymentStatus, isDuplicatePayment: checkDuplicate } = usePaymentStorage();
-  const { notifyPaymentUpdate } = useMerchantNotifications();
-
-  // Update payment state when transaction status changes
-  useEffect(() => {
-    if (paymentState && paymentState.txId) {
-      console.log('Transaction status changed:', { txStatus, paymentId: paymentState.id });
+  // Check payment status on blockchain
+  const checkPaymentStatus = useCallback(async (paymentId: string, txHash?: string): Promise<PaymentState> => {
+    setIsLoading(prev => ({ ...prev, [paymentId]: true }));
+    
+    try {
+      console.log(`Checking payment status for: ${paymentId}, TX: ${txHash}`);
       
-      if (txStatus === 'confirmed') {
-        setPaymentState(prev => prev ? { ...prev, status: 'confirmed', paidAt: Date.now() } : null);
-        
-        // Save confirmed payment
-        if (paymentState.txId) {
-          const paymentRecord: PaymentRecord = {
-            id: paymentState.id,
-            txId: paymentState.txId,
-            amount: paymentState.amount,
-            recipient: paymentState.recipient,
-            status: 'confirmed',
-            timestamp: paymentState.timestamp,
-            paymentType: paymentState.paymentType,
-            description: paymentState.description,
-            merchantAddress: paymentState.merchantAddress,
-            payerAddress: paymentState.payerAddress,
-            paidAt: Date.now()
-          };
-          
-          savePayment(paymentRecord);
-          notifyPaymentUpdate(paymentRecord);
-          
-          // Also update the PaymentLink storage for merchant dashboard
-          const allPayments = paymentStorage.getAllPaymentLinks();
-          const updatedPayments = allPayments.map(p => 
-            p.id === paymentState.id ? { 
-              ...p, 
-              status: 'paid' as const,
-              txHash: paymentState.txId,
-              payerAddress: paymentState.payerAddress,
-              paidAt: Date.now()
-            } : p
-          );
-          paymentStorage.saveAllPaymentLinks(updatedPayments);
-          
-          // Dispatch the original payment events for merchant dashboard
-          const paymentCompletedEvent = new CustomEvent('paymentCompleted', {
-            detail: {
-              paymentId: paymentState.id,
-              status: 'paid',
-              txId: paymentState.txId,
-              merchantAddress: paymentState.merchantAddress
-            }
-          });
-          window.dispatchEvent(paymentCompletedEvent);
-          
-          const paymentUpdatedEvent = new CustomEvent('paymentUpdated', {
-            detail: {
-              paymentId: paymentState.id,
-              status: 'paid',
-              txId: paymentState.txId
-            }
-          });
-          window.dispatchEvent(paymentUpdatedEvent);
-          
-          console.log('Payment confirmed and merchant notified:', {
-            paymentId: paymentState.id,
-            status: 'paid',
-            txId: paymentState.txId,
-            merchantAddress: paymentState.merchantAddress
-          });
-        }
-        
-        stopPolling();
-      } else if (txStatus === 'failed') {
-        setPaymentState(prev => prev ? { ...prev, status: 'failed', error: 'Transaction failed on blockchain' } : null);
-        
-        // Save failed payment
-        if (paymentState.txId) {
-          const paymentRecord: PaymentRecord = {
-            id: paymentState.id,
-            txId: paymentState.txId,
-            amount: paymentState.amount,
-            recipient: paymentState.recipient,
-            status: 'failed',
-            timestamp: paymentState.timestamp,
-            paymentType: paymentState.paymentType,
-            description: paymentState.description,
-            merchantAddress: paymentState.merchantAddress,
-            payerAddress: paymentState.payerAddress
-          };
-          
-          savePayment(paymentRecord);
-          notifyPaymentUpdate(paymentRecord);
-        }
-        
-        stopPolling();
-      } else if (txStatus === 'pending') {
-        setPaymentState(prev => prev ? { ...prev, status: 'pending' } : null);
+      // First, check with centralized API
+      const apiStatus = await paymentStatusAPI.getPayment(paymentId);
+      if (apiStatus && apiStatus.status === 'paid') {
+        const state: PaymentState = { status: 'confirmed', txId: apiStatus.txHash };
+        setPaymentStates(prev => ({ ...prev, [paymentId]: state }));
+        return state;
       }
-    }
-  }, [txStatus, paymentState, savePayment, notifyPaymentUpdate, stopPolling]);
 
-  // Update loading and error states
-  useEffect(() => {
-    setIsLoading(txLoading);
-    if (txError) {
-      setError(txError);
-    }
-  }, [txLoading, txError]);
+      // If we have a transaction hash, check blockchain directly
+      if (txHash) {
+        const blockchainStatus = await checkBlockchainStatus(txHash, paymentId);
+        if (blockchainStatus.status === 'confirmed') {
+          // Update centralized API
+          await paymentStatusAPI.updatePaymentStatus(paymentId, 'paid', txHash);
+        }
+        setPaymentStates(prev => ({ ...prev, [paymentId]: blockchainStatus }));
+        return blockchainStatus;
+      }
 
-  const initiatePayment = useCallback((paymentLink: PaymentLink, txId: string) => {
-    console.log('Initiating payment state management:', { paymentLink, txId });
-    
-    const newPaymentState: PaymentState = {
-      id: paymentLink.id,
-      txId,
-      amount: paymentLink.amount,
-      recipient: paymentLink.merchantAddress,
-      status: 'pending',
-      timestamp: Date.now(),
-      paymentType: paymentLink.paymentType || 'STX',
-      description: paymentLink.description,
-      merchantAddress: paymentLink.merchantAddress
+      // Default state
+      const defaultState: PaymentState = { status: 'pending' };
+      setPaymentStates(prev => ({ ...prev, [paymentId]: defaultState }));
+      return defaultState;
+
+    } catch (error) {
+      console.error(`Error checking payment status for ${paymentId}:`, error);
+      const errorState: PaymentState = { 
+        status: 'unknown', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+      setErrors(prev => ({ ...prev, [paymentId]: errorState.error || 'Unknown error' }));
+      setPaymentStates(prev => ({ ...prev, [paymentId]: errorState }));
+      return errorState;
+    } finally {
+      setIsLoading(prev => ({ ...prev, [paymentId]: false }));
+    }
+  }, []);
+
+  // Initiate payment tracking
+  const initiatePayment = useCallback((payment: PaymentLink, txHash: string) => {
+    const paymentId = payment.id;
+    const state: PaymentState = { 
+      status: 'pending', 
+      txId: txHash,
+      lastChecked: Date.now()
     };
     
-    setPaymentState(newPaymentState);
-    setError(null);
+    setPaymentStates(prev => ({ ...prev, [paymentId]: state }));
     
-    // Start polling for transaction status
-    pollTransaction(txId);
-    
-    // Save initial payment record
-    const paymentRecord: PaymentRecord = {
-      id: paymentLink.id,
-      txId,
-      amount: paymentLink.amount,
-      recipient: paymentLink.merchantAddress,
-      status: 'pending',
-      timestamp: Date.now(),
-      paymentType: paymentLink.paymentType || 'STX',
-      description: paymentLink.description,
-      merchantAddress: paymentLink.merchantAddress
-    };
-    
-    savePayment(paymentRecord);
-  }, [pollTransaction, savePayment]);
+    // Start periodic checking
+    const checkInterval = setInterval(async () => {
+      const currentState = await checkPaymentStatus(paymentId, txHash);
+      if (currentState.status === 'confirmed') {
+        clearInterval(checkInterval);
+        
+        // Trigger merchant notification
+        notifyMerchant(payment, txHash);
+      }
+    }, 3000); // Check every 3 seconds
 
-  const checkPaymentStatus = useCallback((txId: string) => {
-    console.log('Manually checking payment status for:', txId);
-    pollTransaction(txId);
-  }, [pollTransaction]);
+    // Clear interval after 10 minutes
+    setTimeout(() => clearInterval(checkInterval), 10 * 60 * 1000);
+  }, [checkPaymentStatus]);
 
-  const clearPaymentState = useCallback(() => {
-    console.log('Clearing payment state');
-    setPaymentState(null);
-    setError(null);
-    stopPolling();
-  }, [stopPolling]);
+  // Check for duplicate payments
+  const isDuplicatePayment = useCallback((merchantAddress: string, amount: string): boolean => {
+    const pendingPayments = Object.entries(paymentStates).filter(([_, state]) => 
+      state.status === 'pending'
+    );
+    return pendingPayments.length > 0;
+  }, [paymentStates]);
 
-  const isDuplicatePayment = useCallback((recipient: string, amount: string): boolean => {
-    return checkDuplicate(recipient, amount);
-  }, [checkDuplicate]);
+  // Clear payment state
+  const clearPaymentState = useCallback((paymentId: string) => {
+    setPaymentStates(prev => {
+      const newStates = { ...prev };
+      delete newStates[paymentId];
+      return newStates;
+    });
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[paymentId];
+      return newErrors;
+    });
+  }, []);
 
   return {
-    paymentState,
+    paymentStates,
     isLoading,
-    error,
-    initiatePayment,
+    errors,
     checkPaymentStatus,
-    clearPaymentState,
-    isDuplicatePayment
+    initiatePayment,
+    isDuplicatePayment,
+    clearPaymentState
   };
 };
+
+// Blockchain status checker
+async function checkBlockchainStatus(txHash: string, paymentId: string): Promise<PaymentState> {
+  try {
+    const network = process.env.REACT_APP_STACKS_NETWORK === 'testnet' ? 'testnet' : 'mainnet';
+    const apiUrl = network === 'testnet' 
+      ? 'https://api.testnet.hiro.so' 
+      : 'https://api.hiro.so';
+
+    const response = await fetch(`${apiUrl}/extended/v1/tx/${txHash}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { status: 'pending', txId: txHash, lastChecked: Date.now() };
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(`Blockchain status for ${paymentId}:`, data.tx_status);
+
+    if (data.tx_status === 'success') {
+      return { 
+        status: 'confirmed', 
+        txId: txHash, 
+        blockHeight: data.block_height,
+        confirmations: 1, // Simplified
+        lastChecked: Date.now()
+      };
+    } else if (data.tx_status === 'abort_by_response' || data.tx_status === 'abort_by_post_condition') {
+      return { 
+        status: 'failed', 
+        txId: txHash, 
+        error: `Transaction failed: ${data.tx_status}`,
+        lastChecked: Date.now()
+      };
+    } else {
+      return { status: 'pending', txId: txHash, lastChecked: Date.now() };
+    }
+  } catch (error) {
+    console.error(`Blockchain check error for ${paymentId}:`, error);
+    return { 
+      status: 'unknown', 
+      txId: txHash, 
+      error: error instanceof Error ? error.message : 'Blockchain check failed',
+      lastChecked: Date.now()
+    };
+  }
+}
+
+// Notify merchant about payment completion
+async function notifyMerchant(payment: PaymentLink, txHash: string) {
+  try {
+    console.log(`Notifying merchant about payment: ${payment.id}`);
+    
+    // Update local storage
+    const allPayments = paymentStorage.getAllPaymentLinks();
+    const updatedPayments = allPayments.map(p => 
+      p.id === payment.id ? { 
+        ...p, 
+        status: 'paid' as const,
+        txHash: txHash,
+        paidAt: Date.now()
+      } : p
+    );
+    paymentStorage.saveAllPaymentLinks(updatedPayments);
+
+    // Update centralized API
+    const updatedPayment = updatedPayments.find(p => p.id === payment.id);
+    if (updatedPayment) {
+      await paymentStatusAPI.savePayment(updatedPayment);
+    }
+
+    // Trigger events for UI updates
+    window.dispatchEvent(new CustomEvent('paymentCompleted', {
+      detail: {
+        paymentId: payment.id,
+        merchantAddress: payment.merchantAddress,
+        txHash: txHash,
+        amount: payment.amount,
+        paymentType: payment.paymentType
+      }
+    }));
+
+    // Also dispatch a more specific event for merchant updates
+    window.dispatchEvent(new CustomEvent('merchantPaymentUpdate', {
+      detail: {
+        paymentId: payment.id,
+        status: 'paid',
+        merchantAddress: payment.merchantAddress,
+        txHash: txHash
+      }
+    }));
+
+    console.log(`Merchant notified successfully for payment: ${payment.id}`);
+  } catch (error) {
+    console.error(`Failed to notify merchant for payment ${payment.id}:`, error);
+  }
+}

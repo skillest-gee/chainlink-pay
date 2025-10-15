@@ -1,38 +1,53 @@
-import React, { useState } from 'react';
-import { Box, Button, HStack, Text } from '@chakra-ui/react';
+import React from 'react';
+import { IconButton, HStack, Text } from '@chakra-ui/react';
+import { useTheme } from '../contexts/ThemeContext';
 
 export const ThemeToggle: React.FC = () => {
-  const [isDark, setIsDark] = useState(true);
-
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-    // In a real implementation, this would toggle the actual theme
-    console.log('Theme toggled to:', isDark ? 'light' : 'dark');
-  };
+  const { isDark, toggleTheme } = useTheme();
 
   return (
-    <Button
-      onClick={toggleTheme}
-      variant="outline"
+    <IconButton
+      aria-label="Toggle theme"
+      variant="ghost"
       size="sm"
-      bg="rgba(255, 255, 255, 0.1)"
-      color="#ffffff"
-      borderColor="rgba(255, 255, 255, 0.1)"
-      _hover={{
-        bg: 'rgba(255, 255, 255, 0.05)',
+      color="current"
+      onClick={toggleTheme}
+      _hover={{ 
+        bg: 'var(--surface-secondary)',
+        transform: 'scale(1.05)',
       }}
-      _active={{
-        bg: 'rgba(255, 255, 255, 0.1)',
+      _active={{ 
+        bg: 'var(--surface-tertiary)',
+        transform: 'scale(0.95)',
       }}
+      transition="all 0.2s ease"
     >
-      <HStack gap={2}>
-        <Text fontSize="sm">
-          {isDark ? '☀️' : '🌙'}
-        </Text>
-        <Text fontSize="sm">
-          {isDark ? 'Light' : 'Dark'}
-        </Text>
-      </HStack>
-    </Button>
+      <span style={{ fontSize: '18px' }}>{isDark ? '☀️' : '🌙'}</span>
+    </IconButton>
+  );
+};
+
+export const SimpleThemeToggle: React.FC = () => {
+  const { isDark, toggleTheme } = useTheme();
+
+  return (
+    <IconButton
+      aria-label="Toggle theme"
+      variant="ghost"
+      size="sm"
+      color="current"
+      onClick={toggleTheme}
+      _hover={{ 
+        bg: 'var(--surface-secondary)',
+        transform: 'scale(1.05)',
+      }}
+      _active={{ 
+        bg: 'var(--surface-tertiary)',
+        transform: 'scale(0.95)',
+      }}
+      transition="all 0.2s ease"
+    >
+      <span style={{ fontSize: '18px' }}>{isDark ? '☀️' : '🌙'}</span>
+    </IconButton>
   );
 };

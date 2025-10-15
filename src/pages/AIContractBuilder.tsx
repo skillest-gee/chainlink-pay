@@ -4,6 +4,7 @@ import { useToast } from '../hooks/useToast';
 import { UniformButton } from '../components/UniformButton';
 import { UniformTextarea } from '../components/UniformInput';
 import { UniformCard } from '../components/UniformCard';
+import { ContractCodeEditor } from '../components/ContractCodeEditor';
 import { aiService, AIContractRequest, AIContractResponse, ContractValidation } from '../services/aiService';
 import { contractDeployer, DeploymentResult } from '../utils/contractDeployer';
 import { useStacksWallet } from '../hooks/useStacksWallet';
@@ -57,6 +58,8 @@ export default function AIContractBuilder() {
     return (localStorage.getItem('ai-builder-tab') as any) || 'generate';
   });
   const [copied, setCopied] = useState(false);
+  const [isEditingCode, setIsEditingCode] = useState(false);
+  const [editedContract, setEditedContract] = useState<string>('');
 
   // Save state to localStorage when it changes
   React.useEffect(() => {
@@ -138,9 +141,14 @@ export default function AIContractBuilder() {
         throw new Error('No contract generated. Please try again.');
       }
       
+      console.log('AI Contract Builder: Contract generation completed');
+      console.log('Generated contract length:', response.contract.length);
+      console.log('Generated explanation:', response.explanation);
+      console.log('Generated suggestions:', response.suggestions);
+      
       setAiResponse(response);
       setActiveTab('validate');
-      toast({ title: 'Success', status: 'success', description: 'Contract generated successfully!' });
+      toast({ title: 'Success', status: 'success', description: 'Contract generated successfully! Review the code and explanation.' });
     } catch (err: any) {
       console.error('AI Contract Builder: Generation error:', err);
       setError(err.message || 'Failed to generate contract');
@@ -151,7 +159,8 @@ export default function AIContractBuilder() {
   };
 
   const handleValidate = async () => {
-    if (!aiResponse?.contract) {
+    const contractToValidate = editedContract || aiResponse?.contract;
+    if (!contractToValidate) {
       setError('No contract to validate');
       return;
     }
@@ -160,14 +169,35 @@ export default function AIContractBuilder() {
     setError(null);
 
     try {
-      const validationResult = await aiService.validateContract(aiResponse.contract);
-      setValidation(validationResult);
+      // Use real contract validation from contract deployer
+      const contractNameForValidation = contractName || 'test-contract';
+      const validationResult = contractDeployer.validateContract(contractToValidate, contractNameForValidation);
+      
+      // Convert to AI service format for compatibility
+      const aiValidation = {
+        valid: validationResult.valid,
+        errors: validationResult.errors,
+        warnings: [],
+        suggestions: validationResult.valid ? [
+          'Contract syntax is valid',
+          'Ready for deployment',
+          'Consider testing with sample data',
+          'Review security assertions'
+        ] : [
+          'Fix validation errors before deployment',
+          'Check contract syntax',
+          'Ensure all functions are properly defined',
+          'Verify parentheses are balanced'
+        ]
+      };
+      
+      setValidation(aiValidation);
       setActiveTab('validate');
       
       if (validationResult.valid) {
-        toast({ title: 'Success', status: 'success', description: 'Contract validation passed!' });
+        toast({ title: 'Success', status: 'success', description: 'Contract validation passed! Ready for deployment.' });
       } else {
-        toast({ title: 'Warning', status: 'warning', description: 'Contract validation found issues' });
+        toast({ title: 'Validation Failed', status: 'error', description: `Contract validation failed: ${validationResult.errors.join(', ')}` });
       }
     } catch (err: any) {
       setError(err.message || 'Failed to validate contract');
@@ -187,11 +217,30 @@ export default function AIContractBuilder() {
     setError(null);
 
     try {
+      console.log('AI Contract Builder: Starting contract improvement');
+      console.log('Current contract length:', aiResponse.contract.length);
+      console.log('Improvement feedback:', improvementFeedback);
+      
       const improvedResponse = await aiService.improveContract(aiResponse.contract, improvementFeedback);
+      
+      console.log('AI Contract Builder: Improvement completed');
+      console.log('Improved contract length:', improvedResponse.contract.length);
+      console.log('Improved explanation:', improvedResponse.explanation);
+      
+      // Update the AI response with the improved contract and explanation
       setAiResponse(improvedResponse);
       setActiveTab('validate');
-      toast({ title: 'Success', status: 'success', description: 'Contract improved successfully!' });
+      
+      // Clear the improvement feedback
+      setImprovementFeedback('');
+      
+      toast({ 
+        title: 'Success', 
+        status: 'success', 
+        description: 'Contract improved successfully! Review the updated code and explanation.' 
+      });
     } catch (err: any) {
+      console.error('AI Contract Builder: Improvement error:', err);
       setError(err.message || 'Failed to improve contract');
       toast({ title: 'Improvement Failed', status: 'error', description: err.message || 'Failed to improve contract' });
     } finally {
@@ -200,7 +249,8 @@ export default function AIContractBuilder() {
   };
 
   const handleDeploy = async () => {
-    if (!aiResponse?.contract) {
+    const contractToDeploy = editedContract || aiResponse?.contract;
+    if (!contractToDeploy) {
       setError('No contract to deploy');
       return;
     }
@@ -211,40 +261,56 @@ export default function AIContractBuilder() {
       return;
     }
 
+    if (!contractName || contractName.trim().length === 0) {
+      setError('Please enter a contract name before deployment');
+      toast({ title: 'Error', status: 'error', description: 'Please enter a contract name before deployment' });
+      return;
+    }
+
     setIsDeploying(true);
     setError(null);
     setDeploymentResult(null);
 
     try {
+      const contractNameForDeployment = contractName || 'ai-contract';
       console.log('AI Contract Builder: Starting deployment');
-      console.log('Contract name:', contractName);
-      console.log('Contract code length:', aiResponse.contract.length);
+      console.log('Contract name:', contractNameForDeployment);
+      console.log('Contract code length:', contractToDeploy.length);
       console.log('Wallet provider:', walletProvider);
 
+      // Validate deployment prerequisites
+      const prerequisites = contractDeployer.validateDeploymentPrerequisites(userSession, walletProvider || 'unknown');
+      if (!prerequisites.valid) {
+        throw new Error(`Deployment prerequisites failed: ${prerequisites.errors.join(', ')}`);
+      }
+
       // Validate contract before deployment
-      const validation = contractDeployer.validateContract(aiResponse.contract, contractName);
+      const validation = contractDeployer.validateContract(contractToDeploy, contractNameForDeployment);
       if (!validation.valid) {
         throw new Error(`Contract validation failed: ${validation.errors.join(', ')}`);
       }
 
+      console.log('AI Contract Builder: Contract validation passed, proceeding with deployment');
+
       // Deploy contract using wallet
       const result = await contractDeployer.deployWithWallet({
-        contractName,
-        contractCode: aiResponse.contract,
+        contractName: contractNameForDeployment,
+        contractCode: contractToDeploy,
         userSession,
         walletProvider: walletProvider || 'unknown',
         onFinish: (data: any) => {
           console.log('Deployment transaction finished:', data);
+          const txId = data.txId || data.stacksTransaction?.txid;
           setDeploymentResult({
             success: true,
-            transactionId: data.txId,
-            contractAddress: data.txId, // Will be updated when confirmed
-            explorerUrl: `https://explorer.stacks.co/txid/${data.txId}`
+            transactionId: txId,
+            contractAddress: contractNameForDeployment, // Contract name will be the identifier
+            explorerUrl: `https://explorer.stacks.co/txid/${txId}`
           });
           toast({ 
             title: 'Success', 
             status: 'success', 
-            description: 'Contract deployment transaction submitted!' 
+            description: 'Contract deployment transaction submitted! Check the explorer link for confirmation.' 
           });
         },
         onCancel: () => {
@@ -431,6 +497,35 @@ Do not include any explanation or additional text outside the code blocks.`;
 
   const removeRequirement = (index: number) => {
     setRequirements(requirements.filter((_, i) => i !== index));
+  };
+
+  // Code editor handlers
+  const handleCodeChange = (code: string) => {
+    setEditedContract(code);
+  };
+
+  const handleSaveCode = (code: string) => {
+    setEditedContract(code);
+    setIsEditingCode(false);
+    // Update the AI response with the edited code
+    if (aiResponse) {
+      setAiResponse({
+        ...aiResponse,
+        contract: code
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedContract(aiResponse?.contract || '');
+    setIsEditingCode(false);
+  };
+
+  const handleToggleEdit = () => {
+    if (!isEditingCode) {
+      setEditedContract(aiResponse?.contract || '');
+    }
+    setIsEditingCode(!isEditingCode);
   };
 
   return (
@@ -679,7 +774,7 @@ Do not include any explanation or additional text outside the code blocks.`;
                       <UniformButton
                         variant="secondary"
                         size="sm"
-                        onClick={() => copyToClipboard(aiResponse.contract)}
+                        onClick={() => copyToClipboard(editedContract || aiResponse.contract)}
                         disabled={copied}
                       >
                         {copied ? 'Copied!' : 'Copy Code'}
@@ -699,22 +794,15 @@ Do not include any explanation or additional text outside the code blocks.`;
                     </Box>
                   )}
 
-                  {/* Contract Code */}
-                  <Box p={4} bg="#0a0a0a" borderRadius="lg" border="1px solid" borderColor="rgba(255, 255, 255, 0.1)">
-                    <Code
-                      as="pre"
-                      fontSize="sm"
-                      color="#ffffff"
-                      fontFamily="mono"
-                      whiteSpace="pre-wrap"
-                      wordBreak="break-word"
-                      display="block"
-                      p={0}
-                      bg="transparent"
-                    >
-                      {aiResponse.contract}
-                    </Code>
-                  </Box>
+                  {/* Contract Code Editor */}
+                  <ContractCodeEditor
+                    initialCode={aiResponse.contract}
+                    onCodeChange={handleCodeChange}
+                    onSave={handleSaveCode}
+                    onCancel={handleCancelEdit}
+                    isEditing={isEditingCode}
+                    onToggleEdit={handleToggleEdit}
+                  />
 
                   {/* AI Suggestions */}
                   {aiResponse.suggestions && aiResponse.suggestions.length > 0 && (
@@ -769,7 +857,7 @@ Do not include any explanation or additional text outside the code blocks.`;
                     >
                       {!isAuthenticated ? 'Connect Wallet to Deploy' : 
                        isDeploying ? 'Deploying...' : 
-                       `Deploy Contract (${contractDeployer.getDeploymentCostEstimate(aiResponse?.contract || '').stxFee})`}
+                       `Deploy Contract (${contractDeployer.getDeploymentCostEstimate(editedContract || aiResponse?.contract || '').stxFee})`}
                     </UniformButton>
                   </HStack>
                 </VStack>
@@ -907,9 +995,15 @@ Do not include any explanation or additional text outside the code blocks.`;
                             </Text>
                             {deploymentResult.contractAddress && (
                               <Text fontSize="sm" color="#9ca3af">
-                                Contract Address: {deploymentResult.contractAddress}
+                                Contract Name: {deploymentResult.contractAddress}
                               </Text>
                             )}
+                            <Text fontSize="sm" color="#9ca3af">
+                              Network: {contractDeployer.getNetworkInfo().network}
+                            </Text>
+                            <Text fontSize="sm" color="#9ca3af">
+                              API: {contractDeployer.getNetworkInfo().apiUrl}
+                            </Text>
                           </Box>
                         </VStack>
                       )}
@@ -924,7 +1018,7 @@ Do not include any explanation or additional text outside the code blocks.`;
                           </UniformButton>
                           <UniformButton
                             variant="primary"
-                            onClick={() => copyToClipboard(aiResponse?.contract || '')}
+                            onClick={() => copyToClipboard(editedContract || aiResponse?.contract || '')}
                           >
                             Copy Contract Code
                           </UniformButton>

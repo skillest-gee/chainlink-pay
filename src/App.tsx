@@ -1,13 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Container, Flex, Heading, HStack, VStack, Text, Badge, IconButton, useDisclosure, Stack } from '@chakra-ui/react';
+import React, { useEffect, useState, Suspense } from 'react';
+import { Box, Container, Flex, Heading, HStack, VStack, Text, Badge, IconButton, useDisclosure, Stack, Spinner } from '@chakra-ui/react';
 import WalletConnectButton from './components/WalletConnectButton';
 import { UniformButton } from './components/UniformButton';
-import Home from './pages/Home';
-import Pay from './pages/Pay';
-import PaymentLinkGenerator from './components/PaymentLinkGenerator';
-import AIContractBuilder from './pages/AIContractBuilder';
-import Bridge from './pages/Bridge';
-import Dashboard from './pages/Dashboard';
+import { ThemeToggle } from './components/ThemeToggle';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { Routes, Route } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { useToast } from './hooks/useToast';
@@ -16,7 +12,25 @@ import { useBitcoinWallet } from './hooks/useBitcoinWallet';
 import { useStxBalance } from './hooks/useStxBalance';
 import TutorialModal from './components/TutorialModal';
 
-function App() {
+// Lazy load pages for code splitting
+const Home = React.lazy(() => import('./pages/Home'));
+const Pay = React.lazy(() => import('./pages/Pay'));
+const PaymentLinkGenerator = React.lazy(() => import('./components/PaymentLinkGenerator'));
+const AIContractBuilder = React.lazy(() => import('./pages/AIContractBuilder'));
+const Bridge = React.lazy(() => import('./pages/Bridge'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+
+// Loading component for Suspense fallback
+const PageLoader = () => (
+  <Box display="flex" justifyContent="center" alignItems="center" minH="200px">
+    <VStack gap={4}>
+      <Spinner size="lg" color="#3b82f6" />
+      <Text color="#9ca3af" fontSize="sm">Loading page...</Text>
+    </VStack>
+  </Box>
+);
+
+function AppContent() {
   const { toasts, removeToast } = useToast();
   const { isAuthenticated, address, connect, disconnect } = useStacksWallet();
   const { isConnected: btcConnected, address: btcAddress, balance: btcBalance } = useBitcoinWallet();
@@ -83,13 +97,13 @@ function App() {
   const walletStatus = getWalletStatus();
 
   return (
-    <Box minH="100vh" bg="#000000" color="#ffffff">
+    <Box minH="100vh" bg="var(--bg-primary)" color="var(--text-primary)">
       {/* Enhanced Professional Header */}
       <Box 
         as="header" 
         borderBottomWidth="1px" 
-        borderColor="rgba(255, 255, 255, 0.1)"
-        bg="rgba(0, 0, 0, 0.95)" 
+        borderColor="var(--border-primary)"
+        bg="var(--bg-modal)" 
         position="sticky"
         top="0"
         zIndex="1000"
@@ -175,10 +189,11 @@ function App() {
               </Link>
             </HStack>
 
-            {/* Right Side - Wallet Connection and Mobile Menu */}
+            {/* Right Side - Wallet Connection, Theme Toggle, and Mobile Menu */}
             <HStack gap={2} align="center" flexShrink={0}>
               {/* Desktop Wallet Connection */}
               <HStack gap={3} display={{ base: 'none', md: 'flex' }}>
+                <ThemeToggle />
                 <WalletConnectButton />
               </HStack>
               
@@ -283,6 +298,10 @@ function App() {
                 Wallet & Network
               </Text>
               <WalletConnectButton />
+              <HStack gap={2} justify="space-between">
+                <Text fontSize="sm" color="#9ca3af">Theme</Text>
+                <ThemeToggle />
+              </HStack>
               <UniformButton
                 variant="secondary"
                 size="sm"
@@ -299,14 +318,16 @@ function App() {
 
       {/* Main Content */}
       <Container maxW="6xl" py={{ base: 4, md: 8 }} px={{ base: 2, md: 4 }} flex="1">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/generate" element={<PaymentLinkGenerator />} />
-          <Route path="/pay/:id" element={<Pay />} />
-          <Route path="/ai-builder" element={<AIContractBuilder />} />
-          <Route path="/bridge" element={<Bridge />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/generate" element={<PaymentLinkGenerator />} />
+            <Route path="/pay/:id" element={<Pay />} />
+            <Route path="/ai-builder" element={<AIContractBuilder />} />
+            <Route path="/bridge" element={<Bridge />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+          </Routes>
+        </Suspense>
       </Container>
 
       {/* Footer */}
@@ -354,6 +375,14 @@ function App() {
         onClose={() => setShowTutorial(false)} 
       />
     </Box>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 
