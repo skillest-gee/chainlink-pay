@@ -1,4 +1,4 @@
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Box, VStack, HStack, Text, Button, Input, Textarea, Badge, Heading, Spinner } from '@chakra-ui/react';
 import { useToast } from '../hooks/useToast';
 import { useStacksWallet } from '../hooks/useStacksWallet';
@@ -8,6 +8,8 @@ import { paymentStorage, PaymentLink } from '../services/paymentStorage';
 import { paymentStatusAPI } from '../services/paymentStatusAPI';
 import { crossDeviceSync } from '../services/crossDeviceSync';
 import { crossDeviceBackendAPI } from '../services/crossDeviceBackendAPI';
+import { paymentLifecycleManager } from '../services/paymentLifecycleManager';
+import { realTimeNotificationService } from '../services/realTimeNotificationService';
 import { UniformButton } from './UniformButton';
 import { UniformInput, UniformTextarea } from './UniformInput';
 import { UniformCard } from './UniformCard';
@@ -56,6 +58,8 @@ export default function PaymentLinkGenerator() {
   const [errorDetails, setErrorDetails] = useState<any>(null);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid' | 'cancelled' | 'expired'>('pending');
   const [paymentHistory, setPaymentHistory] = useState<PaymentLink[]>([]);
+  const [activePayments, setActivePayments] = useState<PaymentLink[]>([]);
+  const [completedPayments, setCompletedPayments] = useState<PaymentLink[]>([]);
 
   // Save form state to localStorage when it changes
   React.useEffect(() => {
@@ -70,8 +74,7 @@ export default function PaymentLinkGenerator() {
     localStorage.setItem('payment-type', paymentType);
   }, [paymentType]);
 
-  // Load payment history and listen for payment updates
-  React.useEffect(() => {
+  // Load payment history function
   const loadPaymentHistory = async () => {
     const currentAddress = isAuthenticated ? address : btcAddress;
     if (currentAddress) {
@@ -80,11 +83,18 @@ export default function PaymentLinkGenerator() {
         const apiPayments = await paymentStatusAPI.getPaymentsByMerchant(currentAddress);
         if (apiPayments.length > 0) {
           console.log('PaymentLinkGenerator: Loaded payments from centralized API:', apiPayments.length);
-          setPaymentHistory(apiPayments as PaymentLink[]);
+          const payments = apiPayments as PaymentLink[];
+          setPaymentHistory(payments);
+          
+          // Separate active and completed payments
+          const active = payments.filter(p => p.status === 'pending');
+          const completed = payments.filter(p => p.status === 'paid');
+          setActivePayments(active);
+          setCompletedPayments(completed);
           
           // Update payment status if we have a generated payment
           if (generatedId) {
-            const currentPayment = apiPayments.find(p => p.id === generatedId);
+            const currentPayment = payments.find(p => p.id === generatedId);
             if (currentPayment) {
               setPaymentStatus(currentPayment.status);
             }
@@ -102,6 +112,12 @@ export default function PaymentLinkGenerator() {
       );
       setPaymentHistory(userPayments);
       
+      // Separate active and completed payments
+      const active = userPayments.filter(p => p.status === 'pending');
+      const completed = userPayments.filter(p => p.status === 'paid');
+      setActivePayments(active);
+      setCompletedPayments(completed);
+      
       // Check if current generated payment is completed
       if (generatedId) {
         const currentPayment = userPayments.find(p => p.id === generatedId);
@@ -112,6 +128,8 @@ export default function PaymentLinkGenerator() {
     }
   };
 
+  // Load payment history and listen for payment updates
+  React.useEffect(() => {
     loadPaymentHistory();
 
     // Listen for payment completion events
@@ -280,6 +298,59 @@ export default function PaymentLinkGenerator() {
       unsubscribe();
     };
   }, [isAuthenticated, address, btcConnected, btcAddress, generatedId, subscribeToPaymentUpdates]);
+
+  // Subscribe to real-time notifications
+  useEffect(() => {
+    const currentAddress = isAuthenticated ? address : btcAddress;
+    if (!currentAddress) return;
+
+    const unsubscribe = realTimeNotificationService.subscribe(currentAddress, (event) => {
+      console.log('PaymentLinkGenerator: Real-time notification received:', event);
+      
+      if (event.type === 'PAYMENT_COMPLETED') {
+        // Payment completed - refresh history and show notification
+        loadPaymentHistory();
+        
+        toast({
+          title: 'Payment Received!',
+          status: 'success',
+          description: `Payment ${event.paymentId} completed successfully. Amount: ${event.amount} STX`
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, [isAuthenticated, address, btcAddress]);
+
+  // Listen for payment lifecycle events
+  useEffect(() => {
+    const handlePaymentLifecycleEvent = (event: CustomEvent) => {
+      console.log('PaymentLinkGenerator: Payment lifecycle event received:', event.detail);
+      
+      const { type, payment } = event.detail;
+      const currentAddress = isAuthenticated ? address : btcAddress;
+      
+      if (payment.merchantAddress === currentAddress) {
+        // Refresh payment history on any lifecycle event
+        loadPaymentHistory();
+        
+        // Show success notification for completed payments
+        if (type === 'PAYMENT_COMPLETED') {
+          toast({
+            title: 'Payment Completed!',
+            status: 'success',
+            description: `Payment ${payment.id} has been completed and verified on blockchain.`
+          });
+        }
+      }
+    };
+
+    window.addEventListener('paymentLifecycleEvent', handlePaymentLifecycleEvent as EventListener);
+
+    return () => {
+      window.removeEventListener('paymentLifecycleEvent', handlePaymentLifecycleEvent as EventListener);
+    };
+  }, [isAuthenticated, address, btcAddress]);
 
   // Function to check blockchain status for a transaction
   const checkBlockchainStatus = async (txId: string, paymentId: string) => {
@@ -453,7 +524,12 @@ export default function PaymentLinkGenerator() {
         merchantAddress: isAuthenticated ? address! : (btcConnected ? btcAddress! : 'unknown')
       };
 
+      // Create payment using lifecycle manager
+      await paymentLifecycleManager.createPayment(paymentLink);
+      
+      // Also save to local storage for backward compatibility
       paymentStorage.savePaymentLink(paymentLink);
+      
       toast({ title: 'Success', status: 'success', description: 'Payment link generated successfully!' });
     } catch (err: any) {
       console.error('Generate payment link error:', err);
@@ -695,6 +771,9 @@ export default function PaymentLinkGenerator() {
             (window as any).XverseProvider = originalXverseProvider;
             (window as any).xverse = originalXverseProvider;
           }
+          
+          // Register payment on-chain using lifecycle manager
+          paymentLifecycleManager.registerPaymentOnChain(paymentId, data.txId);
           
           toast({ 
             title: 'Success', 
@@ -1253,7 +1332,13 @@ export default function PaymentLinkGenerator() {
               </HStack>
               
               <VStack gap={3} align="stretch">
-                {paymentHistory.slice(0, 5).map((payment) => (
+                {/* Active Payments */}
+                {activePayments.length > 0 && (
+                  <>
+                    <Text fontSize="sm" fontWeight="medium" color="var(--text-accent)">
+                      🔄 Active Payments ({activePayments.length})
+                    </Text>
+                    {activePayments.slice(0, 3).map((payment) => (
                   <Box 
                     key={payment.id}
                     p={4} 
@@ -1293,12 +1378,60 @@ export default function PaymentLinkGenerator() {
                       </VStack>
                     </HStack>
                   </Box>
-                ))}
+                    ))}
+                  </>
+                )}
+                
+                {/* Completed Payments */}
+                {completedPayments.length > 0 && (
+                  <>
+                    <Text fontSize="sm" fontWeight="medium" color="var(--text-accent)">
+                      ✅ Completed Payments ({completedPayments.length})
+                    </Text>
+                    {completedPayments.slice(0, 2).map((payment) => (
+                      <Box 
+                        key={payment.id}
+                        p={4} 
+                        bg="rgba(16, 185, 129, 0.1)" 
+                        border="1px solid" 
+                        borderColor="rgba(16, 185, 129, 0.3)" 
+                        borderRadius="lg"
+                      >
+                        <HStack justify="space-between" align="center">
+                          <VStack align="start" gap={1}>
+                            <Text fontSize="sm" fontWeight="medium" color="#10b981">
+                              {payment.amount} {payment.paymentType}
+                            </Text>
+                            <Text fontSize="xs" color="#9ca3af">
+                              {payment.description}
+                            </Text>
+                            {payment.paidAt && (
+                              <Text fontSize="xs" color="#10b981">
+                                Completed {new Date(payment.paidAt).toLocaleDateString()}
+                              </Text>
+                            )}
+                          </VStack>
+                          <VStack align="end" gap={1}>
+                            <Badge colorScheme="green" fontSize="xs">
+                              ✅ Paid
+                            </Badge>
+                            {payment.txHash && (
+                              <Text fontSize="xs" color="#3b82f6" cursor="pointer" 
+                                    onClick={() => window.open(`https://explorer.hiro.so/txid/${payment.txHash}`, '_blank')}>
+                                View TX
+                              </Text>
+                            )}
+                          </VStack>
+                        </HStack>
+                      </Box>
+                    ))}
+                  </>
+                )}
               </VStack>
               
               {paymentHistory.length > 5 && (
                 <Text fontSize="sm" color="#9ca3af" textAlign="center">
-                  Showing 5 of {paymentHistory.length} payments. View all in Dashboard.
+                  Showing {activePayments.length + completedPayments.length} of {paymentHistory.length} payments. View all in Dashboard.
                 </Text>
             )}
           </VStack>

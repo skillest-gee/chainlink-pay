@@ -9,6 +9,7 @@ import { UniformButton } from '../components/UniformButton';
 import { UniformCard } from '../components/UniformCard';
 import { paymentStorage, PaymentLink } from '../services/paymentStorage';
 import { paymentStatusAPI } from '../services/paymentStatusAPI';
+import { paymentLifecycleManager } from '../services/paymentLifecycleManager';
 import { validateTransactionParams, formatAddress } from '../utils/validation';
 import { CONTRACT_DEPLOYED, verifyContractDeployment } from '../config/stacksConfig';
 // Removed buffer utils import - using simplified buffer creation
@@ -320,6 +321,13 @@ export default function Pay() {
             // Update centralized payment status API
             const updatedPayment = updatedPayments.find(p => p.id === payment.id);
             if (updatedPayment) {
+              // Mark payment as paid using lifecycle manager
+              await paymentLifecycleManager.markPaymentPaid(
+                payment.id, 
+                data.txId, 
+                (isAuthenticated ? address : btcAddress) || undefined
+              );
+              
               await paymentStatusAPI.savePayment(updatedPayment);
               console.log('PaymentStatusAPI: Payment saved to centralized storage:', updatedPayment.id);
             }

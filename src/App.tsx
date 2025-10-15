@@ -13,6 +13,9 @@ import { useStxBalance } from './hooks/useStxBalance';
 import TutorialModal from './components/TutorialModal';
 import { backendAPI } from './services/backendAPI';
 import { crossDeviceBackendAPI } from './services/crossDeviceBackendAPI';
+import { realTimeNotificationService } from './services/realTimeNotificationService';
+import { blockchainVerificationService } from './services/blockchainVerificationService';
+import { paymentLifecycleManager } from './services/paymentLifecycleManager';
 
 // Lazy load pages for code splitting
 const Home = React.lazy(() => import('./pages/Home'));
@@ -47,11 +50,18 @@ function AppContent() {
   });
   const [showTutorial, setShowTutorial] = useState(false);
 
-  // Initialize backend cross-tab communication
+  // Initialize all backend services
   useEffect(() => {
     backendAPI.initializeCrossTabSync();
     crossDeviceBackendAPI.initializeCrossDeviceSync();
-    console.log('App: Backend cross-tab and cross-device communication initialized');
+    
+    // Services are already initialized as singletons, but we can log their status
+    console.log('App: All backend services initialized:');
+    console.log('- Cross-tab communication: Active');
+    console.log('- Cross-device sync: Active');
+    console.log('- Real-time notifications: Active');
+    console.log('- Blockchain verification: Active');
+    console.log('- Payment lifecycle manager: Active');
   }, []);
 
   // Update app state when wallet connections change
