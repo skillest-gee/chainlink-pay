@@ -126,7 +126,10 @@ class BlockchainVerificationService {
       let updatedPayment: PaymentLink | undefined;
 
       // Check if blockchain status differs from stored status
-      if (blockchainStatus.status === 'confirmed' && payment.status === 'pending') {
+      // CRITICAL FIX: Only mark as paid if this is a payment transaction, not a registration transaction
+      // Registration transactions (create-payment) should not automatically mark payments as paid
+      if (blockchainStatus.status === 'confirmed' && payment.status === 'pending' && payment.payerAddress) {
+        // Only mark as paid if there's a payer address (meaning customer actually paid)
         needsUpdate = true;
         updatedPayment = {
           id: payment.id,
@@ -188,6 +191,17 @@ class BlockchainVerificationService {
       }
 
       const txData = await response.json();
+      
+      // CRITICAL FIX: Only verify mark-paid transactions, not create-payment transactions
+      const functionName = txData.contract_call?.function_name;
+      if (functionName && functionName !== 'mark-paid') {
+        console.log(`BlockchainVerificationService: Skipping verification for ${functionName} transaction - only verifying mark-paid transactions`);
+        return {
+          status: 'unknown',
+          txHash: txData.tx_id,
+          error: `Not a payment transaction: ${functionName}`
+        };
+      }
       
       if (txData.tx_status === 'success') {
         return {

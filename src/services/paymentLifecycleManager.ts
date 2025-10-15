@@ -90,9 +90,10 @@ class PaymentLifecycleManager {
     workflow.onChainTxHash = onChainTxHash;
     workflow.registeredAt = Date.now();
 
-    // Update payment with on-chain transaction hash
+    // Update payment with on-chain transaction hash but keep status as pending
     const updatedPayment: PaymentLink = {
       ...workflow.payment,
+      status: 'pending', // CRITICAL: Keep status as pending until customer actually pays
       txHash: onChainTxHash
     };
 
