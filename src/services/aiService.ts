@@ -735,11 +735,13 @@ CORRECT SYNTAX EXAMPLES:
 
 AVOID THESE COMMON ERRORS:
 - stx-transfer-from? (use stx-transfer? instead)
-- unwrap! (use match instead)
+- unwrap! (use match instead for better error handling)
 - Missing default-to in map access
 - Mismatched parentheses
 - Invalid function signatures
 - Missing error constants
+- Invalid default principals (use tx-sender instead of hardcoded addresses)
+- Multi-line function definitions (keep functions on single lines when possible)
 
 Return ONLY the contract code in \`\`\`clarity code blocks. No explanations. The contract must be syntactically correct and deployable.`;
   }
@@ -924,12 +926,19 @@ Return ONLY the contract code in \`\`\`clarity code blocks. No explanations. The
     // Fix stx-transfer-from? to stx-transfer?
     fixedContract = fixedContract.replace(/stx-transfer-from\?/g, 'stx-transfer?');
 
+    // Fix unwrap! to use match pattern
+    fixedContract = fixedContract.replace(/\(unwrap!\s+([^)]+)\s+([^)]+)\)/g, 
+      '(match $1 (ok value) (err $2))');
+
+    // Fix invalid default principals
+    fixedContract = fixedContract.replace(/'SP000000000000000000002Q6VF7J/g, 'tx-sender');
+
     // Fix incorrect match patterns
-    fixedContract = fixedContract.replace(/\(match\s+([^)]+)\s+([^)]+)\s+\(ok\s+([^)]+)\)\s+\(err\s+([^)]+)\)\)/g, 
+    fixedContract = fixedContract.replace(/\(match\s+([^)]+)\s+([^)]+)\s+\(ok\s+([^)]+)\)\s+\(err\s+([^)]+)\)\)/g,
       '(match $1 (ok $3) (err $4))');
 
     // Fix map access without default-to
-    fixedContract = fixedContract.replace(/\(map-get\?\s+([^)]+)\s+([^)]+)\)/g, 
+    fixedContract = fixedContract.replace(/\(map-get\?\s+([^)]+)\s+([^)]+)\)/g,
       '(default-to u0 (map-get? $1 $2))');
 
     // Fix tuple access without proper syntax
@@ -945,17 +954,17 @@ Return ONLY the contract code in \`\`\`clarity code blocks. No explanations. The
     fixedContract = fixedContract.replace(/return\s+([^;]+);/g, '(ok $1)');
 
     // Fix incorrect function signatures
-    fixedContract = fixedContract.replace(/define-public\s+\(([^)]+)\)\s*$/gm, 
+    fixedContract = fixedContract.replace(/define-public\s+\(([^)]+)\)\s*$/gm,
       'define-public ($1)');
 
     // Fix missing begin blocks
-    fixedContract = fixedContract.replace(/define-public\s+\(([^)]+)\)\s*([^(])/g, 
+    fixedContract = fixedContract.replace(/define-public\s+\(([^)]+)\)\s*([^(])/g,
       'define-public ($1)\n  (begin\n    $2');
 
     // Fix missing closing parentheses
     const openParens = (fixedContract.match(/\(/g) || []).length;
     const closeParens = (fixedContract.match(/\)/g) || []).length;
-    
+
     if (openParens > closeParens) {
       fixedContract += ')'.repeat(openParens - closeParens);
     }

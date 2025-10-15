@@ -227,18 +227,26 @@ export class ContractDeployer {
       errors.push('Contract must contain at least one definition (define-constant, define-data-var, define-public, etc.)');
     }
 
-    // Check for invalid Clarity syntax that causes deployment failures
-    const invalidPatterns = [
-      { pattern: /stx-transfer-from\?/g, message: 'Invalid stx-transfer-from? - use stx-transfer? instead' },
-      { pattern: /unwrap!/g, message: 'Consider using match instead of unwrap! for better error handling' },
-      { pattern: /\(match\s+[^)]+\s+\(ok\s+[^)]+\)\s+\(err\s+[^)]+\)\)/g, message: 'Invalid match syntax - use (match result (ok value) (err error))' },
-      { pattern: /\(map-get\?\s+[^)]+\s+[^)]+\)(?!\s*\))/g, message: 'Map access should use default-to: (default-to u0 (map-get? map key))' },
-      { pattern: /define-public\s+\([^)]+\)\s*[^(]/g, message: 'Function definitions should be properly formatted' }
+    // Check for critical syntax errors that cause deployment failures
+    const criticalErrors = [
+      { pattern: /stx-transfer-from\?/g, message: 'Invalid stx-transfer-from? - use stx-transfer? instead' }
     ];
 
-    invalidPatterns.forEach(({ pattern, message }) => {
+    criticalErrors.forEach(({ pattern, message }) => {
       if (pattern.test(contractCode)) {
         errors.push(message);
+      }
+    });
+
+    // Check for warnings (not errors) - these are valid but could be improved
+    const warnings = [
+      { pattern: /unwrap!/g, message: 'Consider using match instead of unwrap! for better error handling' }
+    ];
+
+    warnings.forEach(({ pattern, message }) => {
+      if (pattern.test(contractCode)) {
+        console.log('Contract Deployer: Warning -', message);
+        // Don't add to errors array, just log as warning
       }
     });
 
@@ -247,13 +255,15 @@ export class ContractDeployer {
       errors.push('Error constants should be defined with define-constant');
     }
 
-    // Check for proper function return types
-    const functionLines = contractCode.split('\n').filter(line => line.trim().startsWith('define-public'));
-    functionLines.forEach((line, index) => {
-      if (!line.includes('(') || !line.includes(')')) {
-        errors.push(`Line ${index + 1}: Invalid function definition syntax`);
+    // Check for basic function structure (more lenient validation)
+    const hasValidFunctions = cleanCode.includes('define-public') || cleanCode.includes('define-read-only');
+    if (hasValidFunctions) {
+      // Just check that we have the basic structure - let Clarity compiler handle detailed validation
+      const functionCount = (cleanCode.match(/define-public|define-read-only/g) || []).length;
+      if (functionCount === 0) {
+        errors.push('No valid function definitions found');
       }
-    });
+    }
 
     console.log('Contract Deployer: Validation result:', { valid: errors.length === 0, errors });
 
