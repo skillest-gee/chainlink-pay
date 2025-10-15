@@ -95,11 +95,12 @@ export class ContractDeployer {
         await this.deployWithConnect(options.userSession, deployOptions);
       }
 
+      // Return pending status - the actual transaction ID will be set in the onFinish callback
       return {
         success: true,
         transactionId: 'pending',
-        contractAddress: userAddress,
-        explorerUrl: `https://explorer.stacks.co/address/${userAddress}`
+        contractAddress: `${userAddress}.${options.contractName}`,
+        explorerUrl: `https://explorer.hiro.so/address/${userAddress}`
       };
 
     } catch (error: any) {
@@ -332,7 +333,7 @@ ${contractCode}
     const networkType = process.env.REACT_APP_STACKS_NETWORK || 'testnet';
     const apiUrl = process.env.REACT_APP_STACKS_API_URL || 
       (networkType === 'mainnet' ? 'https://api.hiro.so' : 'https://api.testnet.hiro.so');
-    const explorerUrl = networkType === 'mainnet' ? 'https://explorer.stacks.co' : 'https://explorer.stacks.co';
+    const explorerUrl = networkType === 'mainnet' ? 'https://explorer.hiro.so' : 'https://explorer.hiro.so';
     
     return {
       network: networkType,

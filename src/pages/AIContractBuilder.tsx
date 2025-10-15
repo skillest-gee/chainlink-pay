@@ -314,9 +314,9 @@ export default function AIContractBuilder() {
           
           setDeploymentResult({
             success: true,
-            transactionId: txId,
+            transactionId: txId || 'pending',
             contractAddress: fullContractAddress, // Proper contract address format
-            explorerUrl: `https://explorer.hiro.so/txid/${txId}`
+            explorerUrl: txId ? `https://explorer.hiro.so/txid/${txId}` : `https://explorer.hiro.so/address/${userAddress}`
           });
           toast({ 
             title: 'Success', 
@@ -1019,11 +1019,16 @@ Do not include any explanation or additional text outside the code blocks.`;
                           </Text>
                           <Box p={3} bg="rgba(255, 255, 255, 0.05)" borderRadius="md">
                             <Text fontSize="sm" color="#9ca3af">
-                              Transaction ID: {deploymentResult.transactionId}
+                              Transaction ID: {deploymentResult.transactionId === 'pending' ? 'Pending...' : deploymentResult.transactionId}
                             </Text>
                             {deploymentResult.contractAddress && (
                               <Text fontSize="sm" color="#9ca3af">
-                                Contract Name: {deploymentResult.contractAddress}
+                                Contract Name: {contractName}
+                              </Text>
+                            )}
+                            {deploymentResult.contractAddress && (
+                              <Text fontSize="sm" color="#9ca3af">
+                                Contract Address: {deploymentResult.contractAddress}
                               </Text>
                             )}
                             <Text fontSize="sm" color="#9ca3af">
