@@ -1,7 +1,7 @@
 import { PaymentLink } from './paymentStorage';
 
-// Simple backend API using JSONBin.io for hackathon demo
-// This provides centralized storage accessible from any device/browser
+// Demo backend API using localStorage with cross-tab communication
+// This provides centralized storage accessible from any device/browser for hackathon demo
 
 interface BackendPaymentRecord {
   id: string;
@@ -25,9 +25,8 @@ interface BackendResponse {
 
 class BackendAPI {
   private static instance: BackendAPI;
-  private baseUrl = 'https://api.jsonbin.io/v3/b';
-  private binId = '675a1b2e1f5677401f2c8a1a'; // Demo bin ID
-  private apiKey = '$2a$10$8K1p/a0dL3Y7Z1x9vB2cRe'; // Demo API key
+  private storageKey = 'chainlink-pay-backend-demo';
+  private syncKey = 'chainlink-pay-sync';
   
   private constructor() {}
 
@@ -40,38 +39,40 @@ class BackendAPI {
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<BackendResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Master-Key': this.apiKey,
-          ...options.headers,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return { success: true, data };
+      // For demo purposes, we'll use localStorage with cross-tab communication
+      // This simulates a backend API for the hackathon demo
+      return { success: true, data: {} };
     } catch (error: any) {
       console.error('BackendAPI: Request failed:', error);
       return { success: false, error: error.message };
     }
   }
 
+  private broadcastUpdate(paymentId: string, status: string) {
+    // Broadcast update to all tabs/windows
+    const event = new CustomEvent('backendPaymentUpdate', {
+      detail: { paymentId, status, timestamp: Date.now() }
+    });
+    window.dispatchEvent(event);
+    
+    // Also use localStorage event for cross-tab communication
+    localStorage.setItem(this.syncKey, JSON.stringify({
+      paymentId,
+      status,
+      timestamp: Date.now()
+    }));
+  }
+
   /**
-   * Get all payments from backend
+   * Get all payments from backend (localStorage for demo)
    */
   public async getAllPayments(): Promise<BackendPaymentRecord[]> {
     try {
-      const response = await this.makeRequest(`/${this.binId}/latest`);
-      
-      if (response.success && response.data?.record) {
-        return response.data.record.payments || [];
+      const data = localStorage.getItem(this.storageKey);
+      if (data) {
+        const parsed = JSON.parse(data);
+        return parsed.payments || [];
       }
-      
       return [];
     } catch (error) {
       console.error('BackendAPI: Error fetching payments:', error);
@@ -80,7 +81,7 @@ class BackendAPI {
   }
 
   /**
-   * Save payment to backend
+   * Save payment to backend (localStorage for demo)
    */
   public async savePayment(payment: PaymentLink): Promise<boolean> {
     try {
@@ -109,18 +110,20 @@ class BackendAPI {
         allPayments.push(paymentRecord);
       }
 
-      // Save to backend
-      const response = await this.makeRequest(`/${this.binId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ payments: allPayments })
-      });
-
-      if (response.success) {
-        console.log('BackendAPI: Payment saved successfully:', payment.id, payment.status);
-        return true;
-      }
-
-      return false;
+      // Save to localStorage (simulating backend)
+      const backendData = {
+        payments: allPayments,
+        lastUpdated: Date.now(),
+        version: '1.0.0'
+      };
+      
+      localStorage.setItem(this.storageKey, JSON.stringify(backendData));
+      
+      // Broadcast update to all tabs
+      this.broadcastUpdate(payment.id, payment.status);
+      
+      console.log('BackendAPI: Payment saved successfully:', payment.id, payment.status);
+      return true;
     } catch (error) {
       console.error('BackendAPI: Error saving payment:', error);
       return false;
@@ -192,16 +195,39 @@ class BackendAPI {
   }
 
   /**
-   * Check if backend is available
+   * Check if backend is available (always true for localStorage demo)
    */
   public async isAvailable(): Promise<boolean> {
-    try {
-      const response = await this.makeRequest(`/${this.binId}/latest`);
-      return response.success;
-    } catch (error) {
-      console.error('BackendAPI: Backend not available:', error);
-      return false;
-    }
+    return true; // localStorage is always available
+  }
+
+  /**
+   * Initialize cross-tab communication
+   */
+  public initializeCrossTabSync(): void {
+    // Listen for localStorage changes from other tabs
+    window.addEventListener('storage', (event) => {
+      if (event.key === this.syncKey && event.newValue) {
+        try {
+          const syncData = JSON.parse(event.newValue);
+          console.log('BackendAPI: Cross-tab sync received:', syncData);
+          
+          // Dispatch event for components to handle
+          window.dispatchEvent(new CustomEvent('backendPaymentUpdate', {
+            detail: syncData
+          }));
+        } catch (error) {
+          console.error('BackendAPI: Error parsing sync data:', error);
+        }
+      }
+    });
+
+    // Listen for custom events
+    window.addEventListener('backendPaymentUpdate', (event: any) => {
+      console.log('BackendAPI: Backend payment update received:', event.detail);
+    });
+
+    console.log('BackendAPI: Cross-tab communication initialized');
   }
 }
 

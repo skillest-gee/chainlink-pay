@@ -11,6 +11,7 @@ import { useStacksWallet } from './hooks/useStacksWallet';
 import { useBitcoinWallet } from './hooks/useBitcoinWallet';
 import { useStxBalance } from './hooks/useStxBalance';
 import TutorialModal from './components/TutorialModal';
+import { backendAPI } from './services/backendAPI';
 
 // Lazy load pages for code splitting
 const Home = React.lazy(() => import('./pages/Home'));
@@ -44,6 +45,12 @@ function AppContent() {
     lastActivity: Date.now()
   });
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // Initialize backend cross-tab communication
+  useEffect(() => {
+    backendAPI.initializeCrossTabSync();
+    console.log('App: Backend cross-tab communication initialized');
+  }, []);
 
   // Update app state when wallet connections change
   useEffect(() => {
